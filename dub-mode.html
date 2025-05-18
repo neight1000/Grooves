@@ -67,7 +67,7 @@
   <div><label>Filter</label><input type="range" id="filter" min="200" max="4000" step="1" value="1000" /></div>
   <div><label>Frequency</label><input type="range" id="freq" min="100" max="400" step="1" value="180" /></div>
   <div><label>Volume</label><input type="range" id="volume" min="0" max="100" value="60" /></div>
-  <div><label>Particles</label><input type="range" id="particles" min="1" max="40" value="9" /></div>
+  <div><label>Particles</label><input type="range" id="particles" min="1" max="40" value="8" /></div>
   <div><label>BPM</label><input type="range" id="bpm" min="50" max="130" value="90" /></div>
   <button id="play">PLAY</button>
   <button id="stop">STOP</button>
@@ -86,14 +86,6 @@ window.addEventListener('resize', resizeCanvas);
 function resizeCanvas() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
-}
-
-function getAmbientHueAndTempo() {
-  const hour = new Date().getHours();
-  if (hour >= 6 && hour < 10) return { hue: 30, bpm: 110 };
-  if (hour >= 10 && hour < 16) return { hue: 120, bpm: 95 };
-  if (hour >= 16 && hour < 20) return { hue: 240, bpm: 75 };
-  return { hue: 280, bpm: 60 };
 }
 
 class Particle {
@@ -129,9 +121,6 @@ class Particle {
   }
 }
 
-const ambientSettings = getAmbientHueAndTempo();
-bpm = ambientSettings.bpm;
-
 function initAudio() {
   if (audioCtx) return;
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -156,7 +145,7 @@ function initAudio() {
 function playTone() {
   if (!audioCtx || stopped) return;
   const freq = parseFloat(document.getElementById('freq').value) + Math.random() * 40;
-  currentHue = ambientSettings.hue;
+  currentHue = 120 + Math.random() * 120;
 
   const osc1 = audioCtx.createOscillator();
   const osc2 = audioCtx.createOscillator();
@@ -220,13 +209,14 @@ function animate() {
 
   const slice = canvas.width / bufferLength;
   let x = 0;
+  const density = parseInt(document.getElementById('particles').value);
   for (let i = 0; i < bufferLength; i++) {
     const v = (dataArray[i] - 128) / 128.0;
     const y = (v * canvas.height / 0.85) + canvas.height / 2;
     if (i === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
 
-    if (i % parseInt(document.getElementById('particles').value) === 0 && v > 0.35) {
+    if (i % (42 - density) === 0 && v > 0.25) {
       particles.push(new Particle(x, y, currentHue));
     }
     x += slice;
@@ -245,12 +235,10 @@ document.getElementById('play').addEventListener('click', () => {
   stopped = false;
   scheduleBPM();
 });
-
 document.getElementById('stop').addEventListener('click', () => {
   stopped = true;
   clearInterval(bpmTimer);
 });
-
 document.getElementById('volume').addEventListener('input', () => {
   if (masterGain) masterGain.gain.value = parseFloat(volume.value) / 100;
 });
