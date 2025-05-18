@@ -195,12 +195,18 @@ function scheduleNotes(scale) {
 function animate() {
   if (!ctx || !analyser) return;
   requestAnimationFrame(animate);
+
   analyser.getByteTimeDomainData(dataArray);
-  ctx.fillStyle = "rgba(0,0,0,0.05)";
+  ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   if (trailFrames.length > 12) trailFrames.shift();
   trailFrames.push([...dataArray]);
+
+  // Create horizontal gradient for waveform stroke
+  const grad = ctx.createLinearGradient(0, 0, canvas.width, 0);
+  grad.addColorStop(0, currentWaveColor);
+  grad.addColorStop(1, "#000000");
 
   for (let t = 0; t < trailFrames.length; t++) {
     const data = trailFrames[t];
@@ -209,13 +215,13 @@ function animate() {
     let x = 0;
     for (let i = 0; i < data.length; i++) {
       const v = (data[i] - 128) / 128.0;
-      const y = (v * canvas.height / 1.8) + canvas.height / 2;
+      const y = (v * canvas.height / 2.0 * 0.9) + canvas.height / 2; // ↓ 10% sensitivity
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
       x += slice;
     }
     const alpha = 0.05 + (t / trailFrames.length) * 0.1;
-    ctx.strokeStyle = currentWaveColor;
+    ctx.strokeStyle = grad;
     ctx.globalAlpha = alpha;
     ctx.shadowBlur = 16;
     ctx.shadowColor = currentWaveColor;
