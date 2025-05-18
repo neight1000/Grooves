@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dub Mode - Ambient Generator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #000;
+      color: #FFF;
+      font-family: "Courier New", monospace;
+      height: 100%;
+      overflow: hidden;
+    }
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+    }
+    .controls {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 1em;
+      padding: 1em;
+      background: rgba(0, 0, 0, 0.8);
+    }
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    label {
+      font-size: 0.8em;
+      margin-bottom: 0.3em;
+    }
+    input[type="range"] {
+      width: 100%;
+    }
+    h1 {
+      text-align: center;
+      padding: 0.5em;
+      font-size: 1.3em;
+      background: rgba(0, 0, 0, 0.9);
+      z-index: 1;
+      position: relative;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+<h1>DUB MODE — AMBIENT INTERFACE</h1>
+<canvas id="waveCanvas"></canvas>
+<div class="controls">
+  <div class="control-group">
+    <label for="delayTime">Delay Time</label>
+    <input type="range" id="delayTime" min="0.05" max="1" step="0.01" value="0.3">
+  </div>
+  <div class="control-group">
+    <label for="feedback">Feedback</label>
+    <input type="range" id="feedback" min="0" max="0.9" step="0.01" value="0.4">
+  </div>
+  <div class="control-group">
+    <label for="filter">Filter Cutoff</label>
+    <input type="range" id="filter" min="300" max="6000" step="1" value="1200">
+  </div>
+  <div class="control-group">
+    <label for="volume">Volume</label>
+    <input type="range" id="volume" min="0" max="100" value="50">
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('waveCanvas');
+const ctx = canvas.getContext('2d');
+const delaySlider = document.getElementById('delayTime');
+const feedbackSlider = document.getElementById('feedback');
+const filterSlider = document.getElementById('filter');
+const volumeSlider = document.getElementById('volume');
+
+let audioCtx, analyser, masterGain, bufferLength, dataArray;
+let currentColor = "#FFF";
+
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+function frequencyToColor(freq) {
+  const hue = Math.floor((freq - 100) / 500 * 270);
+  return `hsl(${hue}, 100%, 60%)`;
+}
+
+function playDubTone() {
+  if (!audioCtx) return;
+
+  const freq = 100 + Math.random() * 500;
+  const duration = 1.5 + Math.random();
+  const peakVol = 0.1 + Math.random() * 0.1;
+  currentColor = frequencyToColor(freq);
+
+  const osc = audioCtx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+  const gainNode = audioCtx.createGain();
+  gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+  gainNode.gain.linearRampToValueAtTime(peakVol, audioCtx.currentTime + 0.2);
+  gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + duration);
+
+  const delay = audioCtx.createDelay();
+  delay.delayTime.value = parseFloat(delaySlider.value);
+
+  const feedback = audioCtx.createGain();
+  feedback.gain.value = parseFloat(feedbackSlider.value);
+  delay.connect(feedback);
+  feedback.connect(delay);
+
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.value = parseFloat(filterSlider.value);
+
+  osc.connect(gainNode);
+  gainNode.connect(filter);
+  filter.connect(delay);
+  delay.connect(masterGain);
+  gainNode.connect(analyser);
+
+  osc.start();
+  osc.stop(audioCtx.currentTime + duration);
+}
+
+function scheduleTones() {
+  playDubTone();
+  setTimeout(scheduleTones, 800 + Math.random() * 1000);
+}
+
+function animateWaveform() {
+  requestAnimationFrame(animateWaveform);
+  if (!analyser) return;
+  analyser.getByteTimeDomainData(dataArray);
+
+  ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = currentColor;
+  ctx.beginPath();
+  const sliceWidth = canvas.width / bufferLength;
+  let x = 0;
+  for (let i = 0; i < bufferLength; i++) {
+    const v = dataArray[i] / 128.0;
+    const y = v * canvas.height / 2;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+    x += sliceWidth;
+  }
+  ctx.stroke();
+}
+
+function setVolume(val) {
+  if (masterGain) masterGain.gain.setValueAtTime(val / 100, audioCtx.currentTime);
+}
+volumeSlider.addEventListener('input', () => {
+  setVolume(volumeSlider.value);
+});
+
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 2048;
+  bufferLength = analyser.frequencyBinCount;
+  dataArray = new Uint8Array(bufferLength);
+  masterGain = audioCtx.createGain();
+  masterGain.connect(audioCtx.destination);
+  setVolume(volumeSlider.value);
+  scheduleTones();
+  animateWaveform();
+}
+
+document.body.addEventListener('click', initAudio, { once: true });
+document.body.addEventListener('touchstart', initAudio, { once: true });
+</script>
+</body>
+</html>
