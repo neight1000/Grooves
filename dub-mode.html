@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Plant Harmonic Synth Clean</title>
+  <title>Plant Harmonic Synth</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     html, body {
@@ -52,14 +52,6 @@
       text-align: center;
       width: 100%;
     }
-    #touchpad {
-      position: absolute;
-      bottom: 10px;
-      left: 10px;
-      touch-action: none;
-      z-index: 1;
-      border: none;
-    }
   </style>
 </head>
 <body>
@@ -76,8 +68,6 @@
   <button id="tap">TAP TEMPO</button>
   <div class="bpm" id="bpmDisplay">BPM: --</div>
 </div>
-
-<canvas id="touchpad" width="200" height="200"></canvas>
 
 <script>
 const scale = [125.0, 140.3, 157.7, 187.8, 210.6];
@@ -148,9 +138,9 @@ function initAudio() {
   animate();
 }
 
-function playTone(freqOverride = null, filterOverride = null) {
+function playTone() {
   if (!audioCtx || stopped) return;
-  const freq = freqOverride || scale[Math.floor(Math.random() * scale.length)];
+  const freq = scale[Math.floor(Math.random() * scale.length)];
   const duration = 1;
   currentHue = frequencyToHue(freq);
 
@@ -174,7 +164,7 @@ function playTone(freqOverride = null, filterOverride = null) {
   delayNode.delayTime.value = parseFloat(delay.value);
   feedbackNode.gain.value = parseFloat(feedback.value);
   filterNode.type = "lowpass";
-  filterNode.frequency.value = filterOverride || parseFloat(filter.value);
+  filterNode.frequency.value = parseFloat(filter.value);
 
   lfoGain.connect(filterNode.frequency);
   panner.pan.value = Math.random() * 2 - 1;
@@ -259,23 +249,9 @@ document.getElementById('tap').addEventListener('click', () => {
     scheduleBPM();
   }
 });
-
 document.getElementById('volume').addEventListener('input', () => {
   if (masterGain) masterGain.gain.value = parseFloat(volume.value) / 100;
 });
-
-const touchpad = document.getElementById("touchpad");
-touchpad.addEventListener("pointerdown", handleTouch);
-touchpad.addEventListener("pointermove", e => { if (e.buttons) handleTouch(e); });
-
-function handleTouch(e) {
-  const rect = touchpad.getBoundingClientRect();
-  const x = (e.clientX - rect.left) / rect.width;
-  const y = (e.clientY - rect.top) / rect.height;
-  const freq = scale[0] + x * (scale[scale.length - 1] - scale[0]);
-  const filterFreq = 200 + y * 3800;
-  playTone(freq, filterFreq);
-}
 </script>
 </body>
 </html>
