@@ -1,9 +1,8 @@
-<!-- Full code begins -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>DUB MODE — Material UI Fixed</title>
+  <title>DUB MODE — Tap Tempo Fixed</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script type="module" src="https://unpkg.com/@material/web/all.js"></script>
   <link rel="stylesheet" href="https://unpkg.com/@material/web/all.css">
@@ -29,7 +28,7 @@
       position: relative;
       z-index: 1;
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
       gap: 1em;
       padding: 1em;
       background: rgba(0, 0, 0, 0.9);
@@ -39,16 +38,38 @@
       margin: 0;
       padding: 0.5em;
       background: rgba(0, 0, 0, 0.95);
-      color: #FFF;
     }
     md-slider, md-select, md-filled-button {
       width: 100%;
     }
+    .bpm-display {
+      text-align: center;
+      font-size: 1.2em;
+      padding: 0.2em 0;
+    }
+    #startBtn {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 99;
+      padding: 1em 2em;
+      background: #111;
+      border: 2px solid white;
+      color: white;
+      font-family: monospace;
+      font-size: 1em;
+      display: none;
+    }
   </style>
 </head>
 <body>
-<h1>DUB MODE — AMBIENT INTERFACE</h1>
+<h1>DUB MODE — TAP TEMPO</h1>
 <canvas id="waveCanvas"></canvas>
+
+<!-- Optional start fallback -->
+<button id="startBtn">START AUDIO</button>
+
 <div class="interface">
   <md-outlined-select id="preset" label="Preset">
     <md-select-option value="greenhouse"><div slot="headline">Greenhouse</div></md-select-option>
@@ -60,12 +81,168 @@
   <md-slider id="feedback" min="0" max="0.95" value="0.75" step="0.01" labeled></md-slider>
   <md-slider id="filter" min="200" max="5000" value="1000" step="1" labeled></md-slider>
   <md-slider id="volume" min="0" max="100" value="60" labeled></md-slider>
+
+  <md-filled-button id="tapBtn">TAP TEMPO</md-filled-button>
   <md-filled-button id="stopBtn">STOP</md-filled-button>
 </div>
+<div class="bpm-display" id="bpmDisplay">BPM: --</div>
 
 <script>
-// All JS code is already included in the main script tag (identical to above)
+const canvas = document.getElementById('waveCanvas');
+const ctx = canvas.getContext('2d');
+const stopBtn = document.getElementById('stopBtn');
+const tapBtn = document.getElementById('tapBtn');
+const startBtn = document.getElementById('startBtn');
+const bpmDisplay = document.getElementById('bpmDisplay');
+
+let audioCtx, analyser, masterGain, bufferLength, dataArray;
+let currentColor = "#FFF", stopped = false;
+let bpm = 90, lastTap = 0, tapIntervals = [], bpmTimer = null;
+let initialized = false;
+
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+function frequencyToColor(freq) {
+  const hue = Math.floor((freq - 100) / 500 * 270);
+  return `hsl(${hue}, 100%, 60%)`;
+}
+
+function getPreset(preset) {
+  const presets = {
+    greenhouse: { min: 150, max: 350 },
+    deepspace: { min: 60, max: 250 },
+    daylight: { min: 300, max: 600 }
+  };
+  return presets[preset] || presets.greenhouse;
+}
+
+function playDubTone() {
+  if (!audioCtx || stopped) return;
+
+  const selected = document.getElementById('preset').value || 'greenhouse';
+  const preset = getPreset(selected);
+  const freq = preset.min + Math.random() * (preset.max - preset.min);
+  const duration = 1.5 + Math.random();
+  const peakVol = 0.1 + Math.random() * 0.1;
+  currentColor = frequencyToColor(freq);
+
+  const osc = audioCtx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+  const gainNode = audioCtx.createGain();
+  gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+  gainNode.gain.linearRampToValueAtTime(peakVol, audioCtx.currentTime + 0.2);
+  gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + duration);
+
+  const delay = audioCtx.createDelay();
+  delay.delayTime.value = parseFloat(document.getElementById('delayTime').value);
+
+  const feedback = audioCtx.createGain();
+  feedback.gain.value = parseFloat(document.getElementById('feedback').value);
+  delay.connect(feedback);
+  feedback.connect(delay);
+
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.value = parseFloat(document.getElementById('filter').value);
+
+  osc.connect(gainNode);
+  gainNode.connect(filter);
+  filter.connect(delay);
+  delay.connect(masterGain);
+  feedback.connect(masterGain);
+  gainNode.connect(analyser);
+
+  osc.start();
+  osc.stop(audioCtx.currentTime + duration);
+}
+
+function scheduleBPMPlayback() {
+  clearInterval(bpmTimer);
+  if (!bpm || bpm < 30 || bpm > 300) return;
+  const interval = 60000 / bpm;
+  bpmTimer = setInterval(() => {
+    if (!stopped) playDubTone();
+  }, interval);
+}
+
+tapBtn.addEventListener('click', () => {
+  if (!initialized) initAudio();
+  const now = performance.now();
+  if (lastTap > 0) {
+    const diff = now - lastTap;
+    tapIntervals.push(diff);
+    if (tapIntervals.length > 4) tapIntervals.shift();
+    const avg = tapIntervals.reduce((a, b) => a + b, 0) / tapIntervals.length;
+    bpm = Math.round(60000 / avg);
+    bpmDisplay.textContent = `BPM: ${bpm}`;
+    scheduleBPMPlayback();
+  }
+  lastTap = now;
+});
+
+function animateWaveform() {
+  requestAnimationFrame(animateWaveform);
+  if (!analyser) return;
+  analyser.getByteTimeDomainData(dataArray);
+
+  ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = currentColor;
+  ctx.beginPath();
+  const sliceWidth = canvas.width / bufferLength;
+  let x = 0;
+  for (let i = 0; i < bufferLength; i++) {
+    const v = dataArray[i] / 128.0;
+    const y = v * canvas.height / 2;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+    x += sliceWidth;
+  }
+  ctx.stroke();
+}
+
+function setVolume(val) {
+  if (masterGain) masterGain.gain.setValueAtTime(val / 100, audioCtx.currentTime);
+}
+document.getElementById('volume').addEventListener('input', () => {
+  setVolume(document.getElementById('volume').value);
+});
+
+function stopAudio() {
+  stopped = true;
+  clearInterval(bpmTimer);
+  if (masterGain) masterGain.gain.setValueAtTime(0, audioCtx.currentTime);
+}
+stopBtn.addEventListener('click', stopAudio);
+
+function initAudio() {
+  if (initialized) return;
+  initialized = true;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 2048;
+  bufferLength = analyser.frequencyBinCount;
+  dataArray = new Uint8Array(bufferLength);
+  masterGain = audioCtx.createGain();
+  masterGain.connect(audioCtx.destination);
+  setVolume(document.getElementById('volume').value);
+  stopped = false;
+  startBtn.style.display = "none";
+  animateWaveform();
+}
+
+// fallback click anywhere
+document.body.addEventListener('click', initAudio);
+startBtn.addEventListener('click', initAudio);
 </script>
 </body>
 </html>
-<!-- Full code ends -->
