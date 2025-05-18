@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>DUB MODE — CLEAN</title>
+  <title>DUB MODE — CLEAN + PARTICLES + PLAY</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     html, body {
@@ -75,14 +75,17 @@
     <label>Volume</label>
     <input type="range" id="volume" min="0" max="100" value="60">
   </div>
-  <button id="tap">TAP TEMPO</button>
+  <button id="start">START AUDIO</button>
+  <button id="play">PLAY</button>
   <button id="stop">STOP</button>
+  <button id="tap">TAP TEMPO</button>
   <div class="bpm" id="bpmDisplay">BPM: --</div>
 </div>
 
 <script>
 let audioCtx, analyser, masterGain, bufferLength, dataArray;
-let bpm = 90, tapTimes = [], bpmTimer = null, stopped = false;
+let bpm = 90, tapTimes = [], bpmTimer = null, stopped = true;
+let particles = [];
 const canvas = document.getElementById('waveCanvas');
 const ctx = canvas.getContext('2d');
 
@@ -92,6 +95,33 @@ function resizeCanvas() {
 }
 resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
+
+class Particle {
+  constructor(x, y, color) {
+    this.x = x;
+    this.y = y;
+    this.radius = 1 + Math.random() * 2;
+    this.alpha = 1;
+    this.color = color;
+    this.vx = (Math.random() - 0.5) * 0.5;
+    this.vy = (Math.random() - 0.5) * 0.5;
+  }
+  update() {
+    this.x += this.vx;
+    this.y += this.vy;
+    this.alpha -= 0.01;
+  }
+  draw(ctx) {
+    if (this.alpha <= 0) return;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(0,255,0,${this.alpha})`;
+    ctx.fill();
+  }
+  isDead() {
+    return this.alpha <= 0;
+  }
+}
 
 function initAudio() {
   if (audioCtx) return;
@@ -155,19 +185,29 @@ function animate() {
   analyser.getByteTimeDomainData(dataArray);
   ctx.fillStyle = "rgba(0, 0, 0, 0.1)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+
   ctx.lineWidth = 1.5;
   ctx.strokeStyle = "#0f0";
   ctx.beginPath();
 
-  let slice = canvas.width / bufferLength;
+  const slice = canvas.width / bufferLength;
   let x = 0;
   for (let i = 0; i < bufferLength; i++) {
     let v = dataArray[i] / 128.0;
     let y = v * canvas.height / 2;
     i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    if (i % 8 === 0 && v > 1.05) {
+      particles.push(new Particle(x, y, "#0f0"));
+    }
     x += slice;
   }
   ctx.stroke();
+
+  for (let i = particles.length - 1; i >= 0; i--) {
+    particles[i].update();
+    particles[i].draw(ctx);
+    if (particles[i].isDead()) particles.splice(i, 1);
+  }
 }
 
 // DOM Elements
@@ -179,6 +219,21 @@ const bpmDisplay = document.getElementById('bpmDisplay');
 
 volume.addEventListener('input', () => {
   if (masterGain) masterGain.gain.value = parseFloat(volume.value) / 100;
+});
+
+document.getElementById('start').addEventListener('click', () => {
+  initAudio();
+});
+
+document.getElementById('play').addEventListener('click', () => {
+  stopped = false;
+  scheduleBPM();
+});
+
+document.getElementById('stop').addEventListener('click', () => {
+  stopped = true;
+  clearInterval(bpmTimer);
+  if (masterGain) masterGain.gain.setValueAtTime(0, audioCtx.currentTime);
 });
 
 document.getElementById('tap').addEventListener('click', () => {
@@ -196,12 +251,6 @@ document.getElementById('tap').addEventListener('click', () => {
     bpmDisplay.textContent = `BPM: ${bpm}`;
     scheduleBPM();
   }
-});
-
-document.getElementById('stop').addEventListener('click', () => {
-  stopped = true;
-  clearInterval(bpmTimer);
-  if (masterGain) masterGain.gain.setValueAtTime(0, audioCtx.currentTime);
 });
 </script>
 </body>
