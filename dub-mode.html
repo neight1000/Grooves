@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>DUB MODE — Presets + Color Mapping</title>
+  <title>DUB MODE — Plant Harmonic Scale</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     html, body {
@@ -65,6 +65,7 @@
       <option value="greenhouse">Greenhouse</option>
       <option value="deepspace">Deep Space</option>
       <option value="daylight">Daylight</option>
+      <option value="plantscale" selected>Plant Harmonic Scale</option>
     </select>
   </div>
   <div>
@@ -107,21 +108,21 @@ class Particle {
   constructor(x, y) {
     this.x = x;
     this.y = y;
-    this.radius = 1 + Math.random() * 2;
+    this.radius = 2 + Math.random() * 4;
     this.alpha = 1;
-    this.vx = (Math.random() - 0.5) * 0.5;
-    this.vy = (Math.random() - 0.5) * 0.5;
+    this.vx = (Math.random() - 0.5) * 0.2;
+    this.vy = (Math.random() - 0.5) * 0.2;
   }
   update() {
     this.x += this.vx;
     this.y += this.vy;
-    this.alpha -= 0.01;
+    this.alpha -= 0.005;
   }
   draw(ctx) {
     if (this.alpha <= 0) return;
     ctx.beginPath();
     ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-    ctx.fillStyle = `hsla(${currentHue}, 100%, 50%, ${this.alpha})`;
+    ctx.fillStyle = `hsla(${currentHue}, 100%, 60%, ${this.alpha})`;
     ctx.fill();
   }
   isDead() {
@@ -133,7 +134,8 @@ function getPreset(name) {
   const presets = {
     greenhouse: [150, 350],
     deepspace: [60, 250],
-    daylight: [300, 600]
+    daylight: [300, 600],
+    plantscale: [125.0, 140.3, 157.7, 187.8, 210.6]
   };
   return presets[name] || [200, 400];
 }
@@ -159,8 +161,12 @@ function initAudio() {
 
 function playTone() {
   if (!audioCtx || stopped) return;
-  const [minFreq, maxFreq] = getPreset(document.getElementById('preset').value);
-  const freq = minFreq + Math.random() * (maxFreq - minFreq);
+  const presetName = document.getElementById('preset').value;
+  const preset = getPreset(presetName);
+  const freq = presetName === "plantscale"
+    ? preset[Math.floor(Math.random() * preset.length)]
+    : preset[0] + Math.random() * (preset[1] - preset[0]);
+
   const duration = 1 + Math.random();
   currentHue = frequencyToHue(freq);
 
@@ -206,20 +212,24 @@ function animate() {
   if (!analyser) return;
 
   analyser.getByteTimeDomainData(dataArray);
-  ctx.fillStyle = "rgba(0, 0, 0, 0.08)";
+  ctx.fillStyle = "rgba(0, 0, 0, 0.1)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+  const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+  grad.addColorStop(0, `hsl(${currentHue}, 100%, 70%)`);
+  grad.addColorStop(1, `hsl(${(currentHue + 60) % 360}, 100%, 40%)`);
+  ctx.strokeStyle = grad;
   ctx.lineWidth = 1.5;
-  ctx.strokeStyle = `hsl(${currentHue}, 100%, 60%)`;
   ctx.beginPath();
 
   const slice = canvas.width / bufferLength;
   let x = 0;
   for (let i = 0; i < bufferLength; i++) {
-    let v = dataArray[i] / 128.0;
-    let y = v * canvas.height / 2;
-    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    if (i % 8 === 0 && v > 1.05) {
+    const v = (dataArray[i] - 128) / 128.0;
+    const y = (v * canvas.height) / 2 + canvas.height / 2;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+    if (i % 12 === 0 && Math.abs(v) > 0.3) {
       particles.push(new Particle(x, y));
     }
     x += slice;
@@ -233,13 +243,7 @@ function animate() {
   }
 }
 
-const delay = document.getElementById('delay');
-const feedback = document.getElementById('feedback');
-const filter = document.getElementById('filter');
-const volume = document.getElementById('volume');
-const bpmDisplay = document.getElementById('bpmDisplay');
-
-volume.addEventListener('input', () => {
+document.getElementById('volume').addEventListener('input', () => {
   if (masterGain) masterGain.gain.value = parseFloat(volume.value) / 100;
 });
 
@@ -267,7 +271,7 @@ document.getElementById('tap').addEventListener('click', () => {
     }
     const avg = intervals.reduce((a, b) => a + b) / intervals.length;
     bpm = Math.round(60000 / avg);
-    bpmDisplay.textContent = `BPM: ${bpm}`;
+    document.getElementById('bpmDisplay').textContent = `BPM: ${bpm}`;
     scheduleBPM();
   }
 });
