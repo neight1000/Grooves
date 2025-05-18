@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Plantasia App v22 – Full Display</title>
+  <title>Plantasia App v23 – Playback Fixed</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     html, body { margin:0; padding:0; background:black; color:white; font-family:monospace; overflow:hidden; }
@@ -36,10 +36,12 @@
     <label>BPM<input type="range" id="bpm" min="10" max="180" value="90" /></label>
     <label>Density<input type="range" id="density" min="1" max="10" step="1" value="5" /></label>
     <label>Height<input type="range" id="height" min="0.5" max="2.0" step="0.1" value="1.0" /></label>
-    <button id="play">PLAY</button><button id="stop">STOP</button><button id="toggleDisplay">TOGGLE DATA</button>
+    <button id="play">PLAY</button>
+    <button id="stop">STOP</button>
+    <button id="toggleDisplay">TOGGLE DATA</button>
   </div>
   <script>
-    // UI elements
+    // UI references
     const preset = document.getElementById('preset'),
           delayCtrl = document.getElementById('delay'),
           echoCtrl = document.getElementById('echo'),
@@ -78,8 +80,6 @@
       window.addEventListener('resize', ()=>{ canvas.width = innerWidth; canvas.height = innerHeight; });
 
       audioCtx = new (window.AudioContext||window.webkitAudioContext)();
-      await audioCtx.audioWorklet.addModule('data:application/javascript,registerProcessor("pass",class P extends AudioWorkletProcessor{process(I,O){O.forEach((o,i)=>o.set(I[i]||[]));return true}})');
-
       analyser = audioCtx.createAnalyser();
       analyser.fftSize = 2048;
       bufferLength = analyser.frequencyBinCount;
@@ -105,7 +105,7 @@
       reverbDelay.connect(reverbFeedback).connect(reverbDelay);
 
       shimmerConvolver = audioCtx.createConvolver();
-      shimmerConvolver.buffer = createImpulseResponse(audioCtx, 4, 3);
+      shimmerConvolver.buffer = createImpulseResponse(audioCtx,4,3);
 
       reverbDelay.connect(shimmerConvolver).connect(masterGain);
       masterGain.connect(audioCtx.destination);
@@ -113,86 +113,97 @@
       animate();
     }
 
-    function createImpulseResponse(context, duration=4, decay=3) {
-      const sr = context.sampleRate, len = sr*duration;
-      const buf = context.createBuffer(2, len, sr);
-      for (let ch=0; ch<2; ch++) {
-        const data = buf.getChannelData(ch);
-        for (let i=0; i<len; i++) {
-          data[i] = (Math.random()*2-1)*Math.pow(1 - i/len, decay);
+    function createImpulseResponse(context,duration=4,decay=3){
+      const sr=context.sampleRate,len=sr*duration;
+      const buf=context.createBuffer(2,len,sr);
+      for(let ch=0;ch<2;ch++){
+        const data=buf.getChannelData(ch);
+        for(let i=0;i<len;i++){
+          data[i]=(Math.random()*2-1)*Math.pow(1-i/len,decay);
         }
       }
       return buf;
     }
 
-    function playTone(freq) {
-      const now = audioCtx.currentTime, slow = getSlow();
-      const detunes = [-10,-5,0,5,10];
-      const filterNode = audioCtx.createBiquadFilter();
-      filterNode.type='lowpass'; filterNode.frequency.value = filterCtrl.value;
+    function playTone(freq){
+      if(!audioCtx) return;
+      const now=audioCtx.currentTime, slow=getSlow();
+      const detunes=[-10,-5,0,5,10];
+      const filterNode=audioCtx.createBiquadFilter();
+      filterNode.type='lowpass'; filterNode.frequency.value=filterCtrl.value;
 
-      const delayNode = audioCtx.createDelay();
-      delayNode.delayTime = delayCtrl.value;
-      const fb = audioCtx.createGain();
-      fb.gain = echoCtrl.value;
+      const delayNode=audioCtx.createDelay();
+      delayNode.delayTime=valueOf(delayCtrl);
+      const fb=audioCtx.createGain(); fb.gain=valueOf(echoCtrl);
+
       delayNode.connect(fb).connect(delayNode);
       delayNode.connect(reverbDelay);
 
-      detunes.forEach(off => {
-        const osc = audioCtx.createOscillator();
+      detunes.forEach(off=>{
+        const osc=audioCtx.createOscillator();
         osc.type='square';
-        osc.frequency.setValueAtTime(freq, now);
-        osc.detune.setValueAtTime(off, now);
+        osc.frequency.setValueAtTime(freq,now);
+        osc.detune.setValueAtTime(off,now);
         chorusGain.connect(osc.detune);
 
-        const g = audioCtx.createGain();
-        g.gain.setValueAtTime(0, now);
-        g.gain.linearRampToValueAtTime(0.2, now+0.5*slow);
-        g.gain.linearRampToValueAtTime(0, now+2*slow);
+        const gainNode=audioCtx.createGain();
+        gainNode.gain.setValueAtTime(0,now);
+        gainNode.gain.linearRampToValueAtTime(0.2,now+0.5*slow);
+        gainNode.gain.linearRampToValueAtTime(0,now+2*slow);
 
-        const pan = audioCtx.createStereoPanner();
-        pan.pan.value = off/10;
+        const pan=audioCtx.createStereoPanner();
+        pan.pan.value=off/10;
 
-        osc.connect(g).connect(pan).connect(filterNode);
-        g.connect(analyser).connect(masterGain);
-        osc.start(now); osc.stop(now+2*slow);
+        osc.connect(gainNode).connect(pan).connect(filterNode);
+        gainNode.connect(analyser).connect(masterGain);
+        osc.start(now);
+        osc.stop(now+2*slow);
       });
 
       filterNode.connect(delayNode);
     }
 
-    function schedule() {
+    function schedule(){
       clearInterval(bpmTimer);
-      const interval = 60000/bpmCtrl.value * getSlow();
-      bpmTimer = setInterval(()=>{
-        if (!stopped) playTone(getScale()[Math.floor(Math.random()*getScale().length)]);
-      }, interval);
+      const interval=60000/bpmCtrl.value*getSlow();
+      bpmTimer=setInterval(()=>{
+        if(!stopped) playTone(getScale()[Math.floor(Math.random()*getScale().length)]);
+      },interval);
     }
 
-    function animate() {
+    function animate(){
       requestAnimationFrame(animate);
       analyser.getByteTimeDomainData(dataArray);
-      ctx.fillStyle='rgba(0,0,0,0.05)'; ctx.fillRect(0,0,canvas.width,canvas.height);
-      if (trail.length>12) trail.shift();
+      ctx.fillStyle='rgba(0,0,0,0.05)';ctx.fillRect(0,0,canvas.width,canvas.height);
+      if(trail.length>12) trail.shift();
       trail.push([...dataArray]);
-      const grad = ctx.createLinearGradient(0,0,canvas.width,0);
+      const grad=ctx.createLinearGradient(0,0,canvas.width,0);
       grad.addColorStop(0,getColor()); grad.addColorStop(1,'#32cd32');
       trail.forEach((data,t)=>{
-        ctx.beginPath(); let x=0, step=Math.max(1,Math.floor(bufferLength/(densityCtrl.value*20))), slice=canvas.width/(data.length/step);
-        data.forEach((v,i)=>{
-          if (i%step) return;
-          const y=(v-128)/128*(canvas.height/2*0.9*heightCtrl.value)+canvas.height/2;
-          i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); x+=slice;
-        });
-        ctx.strokeStyle=grad; ctx.globalAlpha=0.05+(t/trail.length)*0.1; ctx.shadowBlur=16; ctx.shadowColor=getColor(); ctx.stroke(); ctx.shadowBlur=0; ctx.globalAlpha=1;
+        ctx.beginPath(); let x=0;
+        const step=Math.max(1,Math.floor(bufferLength/(densityCtrl.value*20)));
+        const slice=canvas.width/(data.length/step);
+        for(let i=0;i<data.length;i+=step){
+          const y=(data[i]-128)/128*(canvas.height/2*0.9*heightCtrl.value)+canvas.height/2;
+          if(i===0) ctx.moveTo(x,y);
+          else ctx.lineTo(x,y);
+          x+=slice;
+        }
+        ctx.strokeStyle=grad;ctx.globalAlpha=0.05+(t/trail.length)*0.1;ctx.shadowBlur=16;ctx.shadowColor=getColor();ctx.stroke();ctx.shadowBlur=0;ctx.globalAlpha=1;
       });
     }
 
-    playBtn.addEventListener('click',()=>{ initAudio(); stopped=false; schedule(); });
-    stopBtn.addEventListener('click',()=>{ stopped=true; clearInterval(bpmTimer); });
+    playBtn.addEventListener('click', async ()=>{
+      await initAudio();
+      stopped=false;
+      schedule();
+    });
+    stopBtn.addEventListener('click',()=>{
+      stopped=true; clearInterval(bpmTimer);
+    });
     bpmCtrl.addEventListener('input',schedule);
-    preset.addEventListener('change',()=>{ currentColor=getColor(); schedule(); });
-    toggleBtn.addEventListener('click',()=>{ infoDisplay.style.display = infoDisplay.style.display==='none'?'block':'none'; });
+    preset.addEventListener('change',()=>{ schedule(); });
+    toggleBtn.addEventListener('click',()=>{infoDisplay.style.display = infoDisplay.style.display==='none'?'block':'none';});
     setInterval(()=>{
       infoDisplay.textContent =
         \`PRESET: \${preset.value}\nDELAY: \${delayCtrl.value}\nECHO: \${echoCtrl.value}\nREVERB: \${reverbCtrl.value}\nFILTER: \${filterCtrl.value}\nFREQ: \${freqCtrl.value}\nVOL: \${volumeCtrl.value}\nBPM: \${bpmCtrl.value}\nDENSITY: \${densityCtrl.value}\nHEIGHT: \${heightCtrl.value}\`;
