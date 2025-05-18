@@ -1,9 +1,10 @@
+//PLANTASIA-V2
 
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Plantasia App v3 – Tape Wobble + Long Envelope</title>
+  <title>Plantasia App – Scientific Presets + Reverb</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     html, body {
@@ -68,9 +69,9 @@
       <option value="9B">9B – G major</option>
     </select>
   </div>
-  <div><label>Delay</label><input type="range" id="delay" min="0.01" max="2.0" step="0.01" value="0.6" /></div>
-  <div><label>Echo</label><input type="range" id="echo" min="0" max="1.0" step="0.01" value="0.4" /></div>
-  <div><label>Filter</label><input type="range" id="filter" min="100" max="8000" step="10" value="1200" /></div>
+  <div><label>Delay</label><input type="range" id="delay" min="0.01" max="2.0" step="0.01" value="0.8" /></div>
+  <div><label>Echo</label><input type="range" id="echo" min="0" max="1.0" step="0.01" value="0.6" /></div>
+  <div><label>Filter</label><input type="range" id="filter" min="100" max="8000" step="10" value="1000" /></div>
   <div><label>Frequency</label><input type="range" id="freq" min="50" max="1000" step="1" value="174" /></div>
   <div><label>Volume</label><input type="range" id="volume" min="0" max="100" value="60" /></div>
   <div><label>BPM</label><input type="range" id="bpm" min="40" max="180" value="90" /></div>
@@ -78,7 +79,155 @@
   <button id="stop">STOP</button>
 </div>
 <script>
-// [trimmed for brevity: full script block with tape wobble + long envelope inserted at tone playback]
+let audioCtx, analyser, masterGain, reverbNode, bufferLength, dataArray;
+let bpm = 90, bpmTimer = null, stopped = true;
+let trailFrames = [];
+let currentWaveColor = "#FFFFFF";
+
+// Scientific + Camelot Presets with Frequencies and Colors
+const presetSettings = {
+  plants:     { scale: [174, 285, 396, 417, 528],       color: "#00FF7F" },
+  mold:       { scale: [432, 639, 741],                 color: "#8A2BE2" },
+  bacteria:   { scale: [528, 554, 585, 728],            color: "#FF4500" },
+  mushrooms:  { scale: [417, 444, 528, 639],            color: "#FFD700" },
+  harmony:    { scale: [432, 528, 639, 741, 852],       color: "#00FFFF" },
+};
+
+function getScaleFromPreset(val) {
+  const preset = presetSettings[val];
+  return preset ? preset.scale : [174, 220, 261];
+}
+function getColorFromPreset(val) {
+  const preset = presetSettings[val];
+  return preset ? preset.color : "#FFFFFF";
+}
+
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 2048;
+  bufferLength = analyser.frequencyBinCount;
+  dataArray = new Uint8Array(bufferLength);
+
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = parseFloat(volume.value) / 100;
+
+  reverbNode = audioCtx.createDelay();
+  const reverbFeedback = audioCtx.createGain();
+  reverbNode.delayTime.value = 0.4;
+  reverbFeedback.gain.value = 0.4;
+  reverbNode.connect(reverbFeedback);
+  reverbFeedback.connect(reverbNode);
+  reverbNode.connect(masterGain);
+
+  masterGain.connect(audioCtx.destination);
+  animate();
+}
+function playTone(freq) {
+  const osc = audioCtx.createOscillator();
+  osc.type = 'square';
+  osc.frequency.value = freq;
+
+  const gainNode = audioCtx.createGain();
+  const now = audioCtx.currentTime;
+  gainNode.gain.setValueAtTime(0, now);
+  gainNode.gain.linearRampToValueAtTime(0.2, now + 0.5);
+  gainNode.gain.linearRampToValueAtTime(0, now + 2.5);
+
+  const delayNode = audioCtx.createDelay();
+  delayNode.delayTime.value = parseFloat(delay.value);
+  const feedbackNode = audioCtx.createGain();
+  feedbackNode.gain.value = parseFloat(echo.value);
+
+  const filterNode = audioCtx.createBiquadFilter();
+  filterNode.type = "lowpass";
+  filterNode.frequency.value = parseFloat(filter.value);
+
+  osc.connect(gainNode);
+  gainNode.connect(filterNode);
+  filterNode.connect(delayNode);
+  delayNode.connect(feedbackNode);
+  feedbackNode.connect(delayNode);
+  delayNode.connect(reverbNode);
+  gainNode.connect(analyser);
+
+  osc.start(now);
+  osc.stop(now + 2.5);
+}
+
+function scheduleNotes(scale) {
+  clearInterval(bpmTimer);
+  bpmTimer = setInterval(() => {
+    if (!stopped) {
+      const freq = scale[Math.floor(Math.random() * scale.length)];
+      playTone(freq);
+    }
+  }, 60000 / bpm);
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  if (!analyser) return;
+
+  analyser.getByteTimeDomainData(dataArray);
+  ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  if (trailFrames.length > 12) trailFrames.shift();
+  trailFrames.push([...dataArray]);
+
+  for (let t = 0; t < trailFrames.length; t++) {
+    const data = trailFrames[t];
+    const slice = canvas.width / data.length;
+    ctx.beginPath();
+    let x = 0;
+    for (let i = 0; i < data.length; i++) {
+      const v = (data[i] - 128) / 128.0;
+      const y = (v * canvas.height / 1.8) + canvas.height / 2;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+      x += slice;
+    }
+    const alpha = 0.05 + (t / trailFrames.length) * 0.1;
+    ctx.strokeStyle = currentWaveColor;
+    ctx.globalAlpha = alpha;
+    ctx.shadowBlur = 16;
+    ctx.shadowColor = currentWaveColor;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1.0;
+  }
+}
+
+document.getElementById('play').addEventListener('click', () => {
+  initAudio();
+  stopped = false;
+  const scale = getScaleFromPreset(preset.value);
+  currentWaveColor = getColorFromPreset(preset.value);
+  scheduleNotes(scale);
+});
+
+document.getElementById('stop').addEventListener('click', () => {
+  stopped = true;
+  clearInterval(bpmTimer);
+});
+
+document.getElementById('bpm').addEventListener('input', e => {
+  bpm = parseInt(e.target.value);
+  if (!stopped) {
+    const scale = getScaleFromPreset(preset.value);
+    scheduleNotes(scale);
+  }
+});
+
+document.getElementById('preset').addEventListener('change', () => {
+  const selected = preset.value;
+  currentWaveColor = getColorFromPreset(selected);
+  if (!stopped) {
+    scheduleNotes(getScaleFromPreset(selected));
+  }
+});
 </script>
 </body>
 </html>
