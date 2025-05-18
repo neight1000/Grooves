@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Plantasia App v29 – Fine-Tune Controls</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    html, body { margin:0; padding:0; background:black; color:white; font-family:monospace; overflow:hidden; }
+    canvas { position:absolute; top:0; left:0; width:100vw; height:100vh; z-index:0; }
+    .ui, .sliders { 
+      position:absolute; bottom:0; width:100%; background:rgba(0,0,0,0.85);
+      padding:10px; display:flex; flex-wrap:wrap; justify-content:center; gap:10px; z-index:1;
+    }
+    .ui label, .sliders label { font-size:10px; display:block; text-align:center; color:#fff; }
+    .ui input[type="range"], .ui select, .sliders input[type="range"] { width:90px; }
+    .ui button, .sliders button { font-size:12px; padding:4px 8px; background:transparent; border:1px solid white; color:white; cursor:pointer; }
+    #infoDisplay, #uiPanel { position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.6); color:white; font-size:12px; padding:10px; display:none; white-space:pre; z-index:2; }
+  </style>
+</head>
+<body>
+  <canvas id="waveCanvas"></canvas>
+  <div id="infoDisplay"></div>
+  <div id="uiPanel">
+    <button id="toggleUI">TOGGLE UI</button>
+    <button id="toggleDisplay">TOGGLE DATA</button>
+  </div>
+  <div class="ui" id="mainUI">
+    <label>Preset<select id="preset">
+      <option value="plants">Plants</option>
+      <option value="mold">Mold</option>
+      <option value="bacteria">Bacteria</option>
+      <option value="mushrooms">Mushrooms</option>
+      <option value="harmony">Lifeform Harmony</option>
+    </select></label>
+    <label>Delay<input type="range" id="delay" min="0.01" max="2.0" step="0.01" value="0.6"/></label>
+    <label>Echo<input type="range" id="echo" min="0" max="1.0" step="0.01" value="0.4"/></label>
+    <label>Reverb<input type="range" id="reverb" min="0" max="1.0" step="0.01" value="0.4"/></label>
+    <label>Filter<input type="range" id="filter" min="100" max="8000" step="10" value="1200"/></label>
+    <label>Freq<input type="range" id="freq" min="50" max="1000" step="1" value="174"/></label>
+    <label>Vol<input type="range" id="volume" min="0" max="100" value="60"/></label>
+    <label>BPM<input type="range" id="bpm" min="40" max="180" value="90"/></label>
+    <label>Density<input type="range" id="density" min="1" max="20" step="1" value="5"/></label>
+  </div>
+  <div class="sliders" id="extraSliders">
+    <label>Wet/Dry<input type="range" id="wetDry" min="0" max="1.0" step="0.01" value="0.5"/></label>
+    <label>Chorus Depth<input type="range" id="chorusDepth" min="0" max="50" step="1" value="5"/></label>
+    <label>Reverb Damp<input type="range" id="revDampFreq" min="500" max="5000" step="100" value="1200"/></label>
+  </div>
+  <div class="ui" id="playControls" style="bottom:120px;">
+    <button id="play">PLAY</button>
+    <button id="stop">STOP</button>
+  </div>
+<script>
+  // UI references
+  const preset = document.getElementById('preset'),
+        delayCtrl = document.getElementById('delay'),
+        echoCtrl = document.getElementById('echo'),
+        reverbCtrl = document.getElementById('reverb'),
+        filterCtrl = document.getElementById('filter'),
+        freqCtrl = document.getElementById('freq'),
+        volumeCtrl = document.getElementById('volume'),
+        bpmCtrl = document.getElementById('bpm'),
+        densityCtrl = document.getElementById('density'),
+        wetDryCtrl = document.getElementById('wetDry'),
+        chorusDepthCtrl = document.getElementById('chorusDepth'),
+        revDampFreqCtrl = document.getElementById('revDampFreq'),
+        playBtn = document.getElementById('play'),
+        stopBtn = document.getElementById('stop'),
+        toggleDisplay = document.getElementById('toggleDisplay'),
+        toggleUI = document.getElementById('toggleUI'),
+        infoDisplay = document.getElementById('infoDisplay'),
+        mainUI = document.getElementById('mainUI'),
+        extraSliders = document.getElementById('extraSliders'),
+        canvas = document.getElementById('waveCanvas'),
+        ctx = canvas.getContext('2d');
+
+  let audioCtx, analyser, masterGain, reverbDelay, reverbDamp, reverbFeedback;
+  let chorusLFO, chorusGain;
+  let bufferLength, dataArray, bpmTimer, stopped=true, trailFrames=[];
+
+  const presetSettings = {
+    plants:   { scale:[174,285,396,417,528], color:"#00FF7F" },
+    mold:     { scale:[432,639,741],         color:"#8A2BE2" },
+    bacteria: { scale:[528,554,585,728],      color:"#FF4500" },
+    mushrooms:{ scale:[417,444,528,639],      color:"#FFD700" },
+    harmony:  { scale:[432,528,639,741,852],  color:"#00FFFF" }
+  };
+
+  const getScale = ()=>presetSettings[preset.value].scale,
+        getColor = ()=>presetSettings[preset.value].color;
+
+  function initAudio(){
+    if(audioCtx) return;
+    canvas.width=innerWidth; canvas.height=innerHeight;
+    window.addEventListener('resize', ()=>{canvas.width=innerWidth;canvas.height=innerHeight;});
+
+    audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    audioCtx.resume();
+
+    analyser = audioCtx.createAnalyser(); analyser.fftSize=2048;
+    bufferLength = analyser.frequencyBinCount; dataArray=new Uint8Array(bufferLength);
+
+    masterGain = audioCtx.createGain(); masterGain.gain.value=1; // wet/dry mix applied later
+    masterGain.connect(audioCtx.destination);
+
+    // chorus
+    chorusLFO = audioCtx.createOscillator();
+    chorusLFO.type='sine'; chorusLFO.frequency.value=0.1;
+    chorusGain = audioCtx.createGain(); chorusGain.gain.value=5;
+    chorusLFO.connect(chorusGain); chorusLFO.start();
+
+    // reverb
+    reverbDelay = audioCtx.createDelay(); reverbDelay.delayTime=0.4;
+    reverbDamp = audioCtx.createBiquadFilter(); reverbDamp.type='lowpass'; 
+    reverbDamp.frequency.value = parseFloat(revDampFreqCtrl.value);
+    reverbFeedback = audioCtx.createGain(); reverbFeedback.gain.value=Math.min(parseFloat(reverbCtrl.value),0.7);
+    reverbDelay.connect(reverbDamp).connect(reverbFeedback).connect(reverbDelay);
+    reverbDelay.connect(masterGain);
+
+    animate();
+  }
+
+  function playTone(freqVal){
+    const now=audioCtx.currentTime;
+    const slow=1; // no slow preset here
+
+    // wet/dry
+    const wetDry=parseFloat(wetDryCtrl.value);
+    masterGain.gain.value=wetDry;
+    volumeCtrl.value; // unaffected
+
+    // filter
+    const filterNode = audioCtx.createBiquadFilter();
+    filterNode.type='lowpass'; filterNode.frequency.value=parseFloat(filterCtrl.value);
+
+    // echo
+    const delayNode=audioCtx.createDelay(); delayNode.delayTime=parseFloat(delayCtrl.value);
+    const echoDamp=audioCtx.createBiquadFilter(); echoDamp.type='lowpass'; echoDamp.frequency.value=1000;
+    const fb=audioCtx.createGain(); fb.gain=Math.min(parseFloat(echoCtrl.value),0.7);
+    delayNode.connect(echoDamp).connect(fb).connect(delayNode);
+    delayNode.connect(reverbDelay);
+
+    // voices
+    const detunes=[-10,-5,0,5,10];
+    detunes.forEach(off=>{
+      const osc=audioCtx.createOscillator();
+      osc.type='square'; osc.frequency.setValueAtTime(freqVal,now);
+      osc.detune.setValueAtTime(off,now); chorusGain.connect(osc.detune);
+
+      const env=audioCtx.createGain();
+      const attack=0.3, release=3.0;
+      env.gain.setValueAtTime(0,now);
+      env.gain.linearRampToValueAtTime(0.2,now+attack);
+      env.gain.linearRampToValueAtTime(0,now+release);
+
+      const pan=audioCtx.createStereoPanner(); pan.pan.value=off/10;
+
+      osc.connect(env).connect(pan).connect(filterNode);
+      env.connect(analyser);
+      env.connect(masterGain);
+
+      osc.start(now); osc.stop(now+release);
+    });
+
+    filterNode.connect(delayNode);
+  }
+
+  function scheduleNotes(){
+    clearInterval(bpmTimer);
+    const interval=60000/parseInt(bpmCtrl.value);
+    bpmTimer=setInterval(()=>{
+      if(!stopped) playTone(getScale()[Math.floor(Math.random()*getScale().length)]);
+    },interval);
+  }
+
+  function animate(){
+    requestAnimationFrame(animate);
+    analyser.getByteTimeDomainData(dataArray);
+    ctx.fillStyle='rgba(0,0,0,0.05)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    if(trailFrames.length>12) trailFrames.shift();
+    trailFrames.push([...dataArray]);
+
+    const grad=ctx.createLinearGradient(0,0,canvas.width,0);
+    grad.addColorStop(0,getColor()); grad.addColorStop(1,'#000');
+    let x;
+    trailFrames.forEach((data,t)=>{
+      ctx.beginPath(); x=0;
+      const step=Math.max(1,Math.floor(bufferLength/(parseInt(densityCtrl.value)*20)));
+      const slice=canvas.width/(data.length/step);
+      data.forEach((v,i)=>{
+        if(i%step)return;
+        const y=(v-128)/128*(canvas.height/2*0.9)+canvas.height/2;
+        ctx.lineTo(x,y); x+=slice;
+      });
+      ctx.strokeStyle=grad; ctx.globalAlpha=0.05+t/trailFrames.length*0.1;
+      ctx.stroke(); ctx.globalAlpha=1;
+    });
+  }
+
+  // events
+  playBtn.onclick = ()=>{ initAudio(); stopped=false; playTone(getScale()[0]); scheduleNotes(); };
+  stopBtn.onclick = ()=>{ stopped=true; clearInterval(bpmTimer); };
+  bpmCtrl.oninput = scheduleNotes;
+  chorusDepthCtrl.oninput = ()=>{ chorusGain.gain.value=parseFloat(chorusDepthCtrl.value); };
+  revDampFreqCtrl.oninput = ()=>{ reverbDamp.frequency.value=parseFloat(revDampFreqCtrl.value); };
+  toggleDisplay.onclick = ()=>{ infoDisplay.style.display = infoDisplay.style.display==='none'?'block':'none'; };
+  toggleUI.onclick = ()=>{ 
+    const vis=mainUI.style.display!=='none'; 
+    mainUI.style.display=vis?'none':'flex'; 
+    extraSliders.style.display=vis?'none':'flex';
+  };
+  setInterval(()=>{
+    infoDisplay.textContent = 
+      `PRESET: ${preset.value}\nDELAY: ${delayCtrl.value}\nECHO: ${echoCtrl.value}\nREVERB: ${reverbCtrl.value}\nFILTER: ${filterCtrl.value}\nFREQ: ${freqCtrl.value}\nVOL: ${volumeCtrl.value}\nBPM: ${bpmCtrl.value}\nDENSITY: ${densityCtrl.value}\nWET/DRY: ${wetDryCtrl.value}\nCHORUS DEPTH: ${chorusDepthCtrl.value}\nREV DAMP: ${revDampFreqCtrl.value}`;
+  },250);
+</script>
+</body>
+</html>
