@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Plant Tone Generator – Echo Trails + Detuned Oscillators</title>
+  <title>Plant Tone Generator – Glowing Waveform + Frequency Labels</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     html, body {
@@ -20,6 +20,19 @@
       width: 100vw;
       height: 100vh;
       z-index: 0;
+    }
+    .labels {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 8px;
+      font-size: 10px;
+      color: #888;
+      pointer-events: none;
+      z-index: 2;
     }
     .ui {
       position: absolute;
@@ -52,6 +65,10 @@
   </style>
 </head>
 <body>
+<div class="labels">
+  <span>100Hz</span><span>500Hz</span><span>1kHz</span><span>2kHz</span><span>4kHz</span>
+</div>
+
 <canvas id="waveCanvas"></canvas>
 
 <div class="ui">
@@ -62,12 +79,12 @@
       <option value="bright">Daylight</option>
     </select>
   </div>
-  <div><label>Delay</label><input type="range" id="delay" min="0.05" max="1.5" step="0.01" value="0.8" /></div>
-  <div><label>Echo</label><input type="range" id="echo" min="0" max="0.95" step="0.01" value="0.6" /></div>
-  <div><label>Filter</label><input type="range" id="filter" min="200" max="4000" step="1" value="1000" /></div>
-  <div><label>Frequency</label><input type="range" id="freq" min="100" max="400" step="1" value="180" /></div>
+  <div><label>Delay</label><input type="range" id="delay" min="0.01" max="2.0" step="0.01" value="0.8" /></div>
+  <div><label>Echo</label><input type="range" id="echo" min="0" max="1.0" step="0.01" value="0.6" /></div>
+  <div><label>Filter</label><input type="range" id="filter" min="100" max="8000" step="10" value="1000" /></div>
+  <div><label>Frequency</label><input type="range" id="freq" min="50" max="1000" step="1" value="180" /></div>
   <div><label>Volume</label><input type="range" id="volume" min="0" max="100" value="60" /></div>
-  <div><label>BPM</label><input type="range" id="bpm" min="50" max="130" value="90" /></div>
+  <div><label>BPM</label><input type="range" id="bpm" min="40" max="180" value="90" /></div>
   <button id="play">PLAY</button>
   <button id="stop">STOP</button>
 </div>
@@ -102,7 +119,7 @@ function initAudio() {
 
 function playTone() {
   if (!audioCtx || stopped) return;
-  const baseFreq = parseFloat(document.getElementById('freq').value);
+  const baseFreq = parseFloat(freqSlider.value);
   const freqs = [baseFreq * 0.985, baseFreq, baseFreq * 1.015];
   const pans = [-0.6, 0.0, 0.6];
 
@@ -154,19 +171,16 @@ function animate() {
 
   analyser.getByteTimeDomainData(dataArray);
 
-  // Fade background
   ctx.fillStyle = "rgba(0, 0, 0, 0.1)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Echo trail buffer
-  if (trailFrames.length > 10) trailFrames.shift();
+  if (trailFrames.length > 8) trailFrames.shift();
   trailFrames.push([...dataArray]);
 
-  // Draw trailing waveforms
   for (let t = 0; t < trailFrames.length; t++) {
     const data = trailFrames[t];
-    ctx.beginPath();
     const slice = canvas.width / data.length;
+    ctx.beginPath();
     let x = 0;
     for (let i = 0; i < data.length; i++) {
       const v = (data[i] - 128) / 128.0;
@@ -175,9 +189,12 @@ function animate() {
       else ctx.lineTo(x, y);
       x += slice;
     }
-    const alpha = 0.05 + (t / trailFrames.length) * 0.1;
+    const alpha = 0.06 + (t / trailFrames.length) * 0.1;
     ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = `rgba(255,255,255,${alpha})`;
     ctx.stroke();
+    ctx.shadowBlur = 0;
   }
 }
 
@@ -221,6 +238,7 @@ const echo = document.getElementById('echo');
 const filter = document.getElementById('filter');
 const volume = document.getElementById('volume');
 const freq = document.getElementById('freq');
+const freqSlider = document.getElementById('freq');
 </script>
 </body>
 </html>
