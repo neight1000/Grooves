@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Plantasia App v30 – Density Reduced</title>
+  <title>Plantasia App v32 – Further Tamed Feedback</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     html, body { margin:0; padding:0; background:black; color:white; font-family:monospace; overflow:hidden; }
@@ -105,7 +105,7 @@
 
     reverbDelay=audioCtx.createDelay(); reverbDelay.delayTime=0.4;
     reverbDamp=audioCtx.createBiquadFilter(); reverbDamp.type='lowpass'; reverbDamp.frequency.value=parseFloat(revDampFreqCtrl.value);
-    reverbFeedback=audioCtx.createGain(); reverbFeedback.gain.value=Math.min(parseFloat(reverbCtrl.value),0.7);
+    reverbFeedback=audioCtx.createGain(); reverbFeedback.gain.value=Math.min(parseFloat(reverbCtrl.value),0.3);
     reverbDelay.connect(reverbDamp).connect(reverbFeedback).connect(reverbDelay);
     reverbDelay.connect(masterGain);
 
@@ -122,12 +122,14 @@
 
     const delayNode=audioCtx.createDelay(); delayNode.delayTime=parseFloat(delayCtrl.value);
     const echoDamp=audioCtx.createBiquadFilter(); echoDamp.type='lowpass'; echoDamp.frequency.value=1000;
-    const fb=audioCtx.createGain(); fb.gain=Math.min(parseFloat(echoCtrl.value),0.7);
+    const fb=audioCtx.createGain(); fb.gain=Math.min(parseFloat(echoCtrl.value),0.3);
     delayNode.connect(echoDamp).connect(fb).connect(delayNode);
     delayNode.connect(reverbDelay);
 
     const detunes=[-10,-5,0,5,10];
-    const effDensity=parseFloat(densityCtrl.value)*0.85; // reduce density by 15%
+    const effDensity=parseFloat(densityCtrl.value)*0.85;
+    const step=Math.max(1, Math.floor(bufferLength/(effDensity*20)));
+    const slice=canvas.width/(bufferLength/step);
     detunes.forEach(off=>{
       const osc=audioCtx.createOscillator();
       osc.type='square'; osc.frequency.setValueAtTime(freqVal,now);
@@ -164,15 +166,16 @@
 
     const grad=ctx.createLinearGradient(0,0,canvas.width,0);
     grad.addColorStop(0,getColor()); grad.addColorStop(1,'#000');
-    const effDensity=parseFloat(densityCtrl.value)*0.85; 
+    let x;
+    const effDensity=parseFloat(densityCtrl.value)*0.85;
     const step=Math.max(1,Math.floor(bufferLength/(effDensity*20)));
     const slice=canvas.width/(bufferLength/step);
-
     trailFrames.forEach((data,t)=>{
-      ctx.beginPath(); let x=0;
+      ctx.beginPath(); x=0;
       for(let i=0;i<data.length;i+=step){
         const y=(data[i]-128)/128*(canvas.height/2*0.9)+canvas.height/2;
-        i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); x+=slice;
+        i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+        x+=slice;
       }
       ctx.strokeStyle=grad; ctx.globalAlpha=0.05+t/trailFrames.length*0.1; ctx.stroke(); ctx.globalAlpha=1;
     });
@@ -183,11 +186,12 @@
   bpmCtrl.oninput = scheduleNotes;
   chorusDepthCtrl.oninput = ()=>{ chorusGain.gain.value=parseFloat(chorusDepthCtrl.value); };
   revDampFreqCtrl.oninput = ()=>{ reverbDamp.frequency.value=parseFloat(revDampFreqCtrl.value); };
+  reverbCtrl.oninput = ()=>{ if(reverbFeedback) reverbFeedback.gain.value=Math.min(parseFloat(reverbCtrl.value),0.3); };
   toggleDisplay.onclick = ()=>{ infoDisplay.style.display = infoDisplay.style.display==='none'?'block':'none'; };
   toggleUI.onclick = ()=>{ 
     const vis = mainUI.style.display!=='none';
     mainUI.style.display = vis?'none':'flex';
-    extraSliders.style.display = vis?'none':'flex';
+    extraSliders.style.display = vis?'none':'flex'; 
   };
   setInterval(()=>{
     infoDisplay.textContent =
