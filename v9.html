@@ -1,323 +1,243 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Plantasia App v9 – Fixed Wave Controls</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <title>Plantasia App v12 – Density & Height Control</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     html, body {
-      margin: 0;
-      padding: 0;
-      background: black;
-      color: white;
-      font-family: monospace;
-      overflow: hidden;
+      margin: 0; padding: 0;
+      background: black; color: white;
+      font-family: monospace; overflow: hidden;
     }
     canvas {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      z-index: 0;
+      position: absolute; top: 0; left: 0;
+      width: 100vw; height: 100vh; z-index: 0;
     }
     .ui {
-      position: absolute;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0, 0, 0, 0.7);
-      padding: 10px;
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      z-index: 1;
-      border-radius: 8px;
+      position: absolute; bottom: 0; width: 100%;
+      background: rgba(0,0,0,0.85);
+      padding: 10px; display: flex; flex-wrap: wrap;
+      justify-content: center; gap: 10px; z-index: 2;
     }
-    .ui label {
-      font-size: 10px;
-      display: block;
-      text-align: center;
-      margin-bottom: 2px;
+    .ui label { 
+      font-size: 10px; display: block; text-align: center; 
     }
-    .ui input[type="range"], .ui select {
-      width: 80px;
-    }
+    .ui input[type="range"],
+    .ui select { width: 90px; }
     .ui button {
-      font-size: 12px;
-      padding: 4px 8px;
-      background: transparent;
-      border: 1px solid white;
-      color: white;
-      cursor: pointer;
+      font-size: 12px; padding: 4px 8px;
+      background: transparent; border: 1px solid white;
+      color: white; cursor: pointer;
     }
-    .control {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+    #infoDisplay {
+      position: absolute; top: 10px; left: 10px;
+      z-index: 3; background: rgba(0,0,0,0.6);
+      color: white; font-size: 12px; padding: 10px;
+      display: none; white-space: pre;
     }
   </style>
 </head>
 <body>
-<canvas id="waveCanvas"></canvas>
-<div class="ui">
-  <div class="control"><label>Preset</label>
-    <select id="preset">
-      <option value="plants">Plants</option>
-      <option value="mold">Mold</option>
-      <option value="bacteria">Bacteria</option>
-      <option value="mushrooms">Mushrooms</option>
-      <option value="harmony">Lifeform Harmony</option>
-    </select>
+  <canvas id="waveCanvas"></canvas>
+  <div id="infoDisplay"></div>
+  <div class="ui">
+    <div>
+      <label>Preset</label>
+      <select id="preset">
+        <option value="plants">Plants</option>
+        <option value="mold">Mold</option>
+        <option value="bacteria">Bacteria</option>
+        <option value="mushrooms">Mushrooms</option>
+        <option value="harmony">Lifeform Harmony</option>
+      </select>
+    </div>
+    <div><label>Delay</label><input type="range" id="delay" min="0.01" max="2.0" step="0.01" value="0.6"></div>
+    <div><label>Echo</label><input type="range" id="echo" min="0" max="1.0" step="0.01" value="0.4"></div>
+    <div><label>Filter</label><input type="range" id="filter" min="100" max="8000" step="10" value="1200"></div>
+    <div><label>Frequency</label><input type="range" id="freq" min="50" max="1000" step="1" value="174"></div>
+    <div><label>Volume</label><input type="range" id="volume" min="0" max="100" value="60"></div>
+    <div><label>BPM</label><input type="range" id="bpm" min="40" max="180" value="90"></div>
+    <div><label>Density</label><input type="range" id="density" min="1" max="10" step="1" value="5"></div>
+    <div><label>Height</label><input type="range" id="height" min="0.5" max="2.0" step="0.1" value="1.0"></div>
+    <button id="play">PLAY</button>
+    <button id="stop">STOP</button>
+    <button id="toggleDisplay">TOGGLE DATA</button>
   </div>
-  <div class="control"><label>Delay</label>
-    <input type="range" id="delay" min="0.01" max="2.0" step="0.01" value="0.6" />
-  </div>
-  <div class="control"><label>Echo</label>
-    <input type="range" id="echo" min="0" max="1.0" step="0.01" value="0.4" />
-  </div>
-  <div class="control"><label>Filter</label>
-    <input type="range" id="filter" min="100" max="8000" step="10" value="1200" />
-  </div>
-  <div class="control"><label>Frequency</label>
-    <input type="range" id="freq" min="50" max="1000" step="1" value="174" />
-  </div>
-  <div class="control"><label>Volume</label>
-    <input type="range" id="volume" min="0" max="100" value="60" />
-  </div>
-  <div class="control"><label>BPM</label>
-    <input type="range" id="bpm" min="40" max="180" value="90" />
-  </div>
-  <div class="control"><label>Reverb</label>
-    <input type="range" id="reverb" min="0" max="1" step="0.01" value="0.4" />
-  </div>
-  <div class="control"><label>Wave Density</label>
-    <input type="range" id="waveDensity" min="1" max="30" step="1" value="12" />
-  </div>
-  <div class="control"><label>Wave Height</label>
-    <input type="range" id="waveHeight" min="0.1" max="2.0" step="0.1" value="0.9" />
-  </div>
-  <button id="toggleData">DATA</button>
-  <button id="play">PLAY</button>
-  <button id="stop">STOP</button>
-</div>
-<script>
-let audioCtx, analyser, masterGain, reverbNode, reverbFeedback, bufferLength, dataArray;
-let bpm = 90, bpmTimer = null, stopped = true;
-let trailFrames = [], currentWaveColor = "#FFFFFF";
-let canvas, ctx;
-let showMessage = false, messageStartTime = 0;
-let showData = false;
+  <script>
+    // Setup
+    let audioCtx, analyser, masterGain, reverbNode, bufferLength, dataArray;
+    let bpm = 90, bpmTimer = null, stopped = true;
+    let trailFrames = [], currentWaveColor = "#00FF7F";
+    let canvas, ctx;
 
-const presetSettings = {
-  plants:     { scale: [174, 285, 396, 417, 528], color: "#00FF7F" },
-  mold:       { scale: [432, 639, 741],           color: "#8A2BE2" },
-  bacteria:   { scale: [528, 554, 585, 728],      color: "#FF4500" },
-  mushrooms:  { scale: [417, 444, 528, 639],      color: "#FFD700" },
-  harmony:    { scale: [432, 528, 639, 741, 852], color: "#00FFFF" }
-};
+    // Presets
+    const presetSettings = {
+      plants:     { scale: [174,285,396,417,528], color: "#00FF7F" },
+      mold:       { scale: [432,639,741],         color: "#8A2BE2" },
+      bacteria:   { scale: [528,554,585,728],      color: "#FF4500" },
+      mushrooms:  { scale: [417,444,528,639],      color: "#FFD700" },
+      harmony:    { scale: [432,528,639,741,852], color: "#00FFFF" }
+    };
 
-function getScaleFromPreset(val) {
-  return presetSettings[val]?.scale || [174, 220, 261];
-}
-function getColorFromPreset(val) {
-  return presetSettings[val]?.color || "#FFFFFF";
-}
-
-function initAudio() {
-  if (audioCtx) return;
-  canvas = document.getElementById("waveCanvas");
-  ctx = canvas.getContext("2d");
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  analyser = audioCtx.createAnalyser();
-  analyser.fftSize = 2048;
-  bufferLength = analyser.frequencyBinCount;
-  dataArray = new Uint8Array(bufferLength);
-
-  masterGain = audioCtx.createGain();
-  masterGain.gain.value = parseFloat(document.getElementById('volume').value) / 100;
-
-  reverbNode = audioCtx.createDelay();
-  reverbFeedback = audioCtx.createGain();
-  reverbNode.delayTime.value = 0.4;
-  reverbFeedback.gain.value = parseFloat(document.getElementById('reverb').value);
-  reverbNode.connect(reverbFeedback);
-  reverbFeedback.connect(reverbNode);
-  reverbNode.connect(masterGain);
-  masterGain.connect(audioCtx.destination);
-
-  animate();
-}
-
-function playTone(freq) {
-  const now = audioCtx.currentTime;
-  const filterNode = audioCtx.createBiquadFilter();
-  filterNode.type = "lowpass";
-  filterNode.frequency.value = parseFloat(document.getElementById('filter').value);
-
-  const delayNode = audioCtx.createDelay();
-  delayNode.delayTime.value = parseFloat(document.getElementById('delay').value);
-  const feedbackNode = audioCtx.createGain();
-  feedbackNode.gain.value = parseFloat(document.getElementById('echo').value);
-
-  const gainNode = audioCtx.createGain();
-  gainNode.gain.setValueAtTime(0, now);
-  gainNode.gain.linearRampToValueAtTime(0.4, now + 1.0);
-  gainNode.gain.linearRampToValueAtTime(0.0, now + 4.5);
-
-  const panNode = audioCtx.createStereoPanner();
-  panNode.pan.value = Math.random() * 2 - 1;
-
-  const detuneAmounts = [-0.5, 0, 0.5];
-  detuneAmounts.forEach(offset => {
-    const o = audioCtx.createOscillator();
-    o.type = "square";
-    o.frequency.value = freq * (1 + offset / 100);
-
-    const pitchLFO = audioCtx.createOscillator();
-    const pitchLFOGain = audioCtx.createGain();
-    pitchLFO.frequency.value = 0.2 + Math.random() * 0.3;
-    pitchLFOGain.gain.value = 2 + Math.random() * 2;
-    pitchLFO.connect(pitchLFOGain).connect(o.frequency);
-    pitchLFO.start(now);
-    pitchLFO.stop(now + 4.5);
-
-    o.connect(gainNode);
-    o.start(now);
-    o.stop(now + 4.5);
-  });
-
-  gainNode.connect(panNode);
-  panNode.connect(filterNode);
-  filterNode.connect(delayNode);
-  delayNode.connect(feedbackNode);
-  feedbackNode.connect(delayNode);
-  delayNode.connect(reverbNode);
-  gainNode.connect(analyser);
-}
-
-function scheduleNotes(scale) {
-  clearInterval(bpmTimer);
-  bpmTimer = setInterval(() => {
-    if (!stopped) {
-      const freq = scale[Math.floor(Math.random() * scale.length)];
-      playTone(freq);
+    function getScaleFromPreset(val) {
+      return presetSettings[val]?.scale || [174,220,261];
     }
-  }, 60000 / bpm);
-}
-
-function animate() {
-  if (!ctx || !analyser) return;
-  requestAnimationFrame(animate);
-  analyser.getByteTimeDomainData(dataArray);
-
-  // Read sliders each frame for up-to-date values
-  const density = parseInt(document.getElementById('waveDensity').value);
-  const heightFactor = parseFloat(document.getElementById('waveHeight').value);
-
-  ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  if (trailFrames.length > density) trailFrames.shift();
-  trailFrames.push([...dataArray]);
-
-  const grad = ctx.createLinearGradient(0, 0, canvas.width, 0);
-  grad.addColorStop(0, currentWaveColor);
-  grad.addColorStop(1, "#000000");
-
-  trailFrames.forEach((data, t) => {
-    ctx.beginPath();
-    let x = 0;
-    const slice = canvas.width / data.length;
-    data.forEach((val, i) => {
-      const v = (val - 128) / 128.0;
-      const y = (v * canvas.height / 2 * heightFactor) + canvas.height / 2;
-      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-      x += slice;
-    });
-    ctx.globalAlpha = 0.05 + (t / trailFrames.length) * 0.1;
-    ctx.strokeStyle = grad;
-    ctx.shadowBlur = 16;
-    ctx.shadowColor = currentWaveColor;
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-    ctx.globalAlpha = 1.0;
-  });
-
-  // 30-second message
-  if (showMessage) {
-    const elapsed = performance.now() - messageStartTime;
-    if (elapsed > 30000) {
-      showMessage = false;
-    } else {
-      ctx.save();
-      ctx.globalAlpha = 0.5;
-      ctx.font = 'bold 48px monospace';
-      ctx.fillStyle = currentWaveColor;
-      ctx.shadowColor = currentWaveColor;
-      ctx.shadowBlur = 12;
-      ctx.textAlign = 'center';
-      ctx.fillText("GROOVES TO GROW THINGS", canvas.width / 2, canvas.height / 2);
-      ctx.restore();
+    function getColorFromPreset(val) {
+      return presetSettings[val]?.color || "#FFFFFF";
     }
-  }
 
-  // Data overlay
-  if (showData) {
-    ctx.save();
-    ctx.globalAlpha = 0.8;
-    ctx.font = '12px monospace';
-    ctx.fillStyle = '#FFFFFF';
-    const labels = [
-      `Delay: ${document.getElementById('delay').value}s`,
-      `Echo: ${document.getElementById('echo').value}`,
-      `Filter: ${document.getElementById('filter').value}Hz`,
-      `Freq: ${document.getElementById('freq').value}Hz`,
-      `Vol: ${document.getElementById('volume').value}%`,
-      `BPM: ${bpm}`,
-      `Reverb: ${document.getElementById('reverb').value}`,
-      `Density: ${density}`,
-      `Height: ${heightFactor}`
-    ];
-    labels.forEach((txt, i) => {
-      ctx.fillText(txt, 10, 20 + i * 14);
+    // Audio init
+    function initAudio() {
+      if (audioCtx) return;
+      canvas = document.getElementById("waveCanvas");
+      ctx = canvas.getContext("2d");
+      canvas.width = innerWidth; canvas.height = innerHeight;
+      window.addEventListener("resize", () => {
+        canvas.width = innerWidth; canvas.height = innerHeight;
+      });
+
+      audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+      analyser = audioCtx.createAnalyser(); analyser.fftSize = 2048;
+      bufferLength = analyser.frequencyBinCount;
+      dataArray = new Uint8Array(bufferLength);
+
+      masterGain = audioCtx.createGain();
+      masterGain.gain.value = volume.value / 100;
+
+      reverbNode = audioCtx.createDelay();
+      const fb = audioCtx.createGain();
+      reverbNode.delayTime.value = 0.4; fb.gain.value = 0.4;
+      reverbNode.connect(fb); fb.connect(reverbNode);
+      reverbNode.connect(masterGain);
+      masterGain.connect(audioCtx.destination);
+
+      animate();
+    }
+
+    // Play tone
+    function playTone(freq) {
+      const now = audioCtx.currentTime;
+      const filterNode = audioCtx.createBiquadFilter();
+      filterNode.type="lowpass"; filterNode.frequency.value = filter.value;
+
+      const delayNode = audioCtx.createDelay();
+      delayNode.delayTime.value = delay.value;
+      const feedbackNode = audioCtx.createGain();
+      feedbackNode.gain.value = echo.value;
+
+      const gainNode = audioCtx.createGain();
+      gainNode.gain.setValueAtTime(0, now);
+      gainNode.gain.linearRampToValueAtTime(0.3, now + 0.3);
+      gainNode.gain.linearRampToValueAtTime(0, now + 3);
+
+      const panNode = audioCtx.createStereoPanner();
+      panNode.pan.value = Math.random()*2 - 1;
+
+      [-0.5,0,0.5].forEach(d => {
+        const o = audioCtx.createOscillator();
+        o.type="square";
+        o.frequency.value = freq * (1 + d/100);
+        o.connect(gainNode);
+        o.start(now);
+        o.stop(now + 3);
+      });
+
+      gainNode.connect(panNode);
+      panNode.connect(filterNode);
+      filterNode.connect(delayNode);
+      delayNode.connect(feedbackNode);
+      feedbackNode.connect(delayNode);
+      delayNode.connect(reverbNode);
+      gainNode.connect(analyser);
+    }
+
+    // Schedule
+    function scheduleNotes(scale) {
+      clearInterval(bpmTimer);
+      bpmTimer = setInterval(() => {
+        if (!stopped) {
+          const f = scale[Math.floor(Math.random()*scale.length)];
+          playTone(f);
+        }
+      }, 60000 / bpm);
+    }
+
+    // Animate
+    function animate() {
+      if (!ctx || !analyser) return;
+      requestAnimationFrame(animate);
+      analyser.getByteTimeDomainData(dataArray);
+      ctx.fillStyle = "rgba(0,0,0,0.05)";
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      if (trailFrames.length > 12) trailFrames.shift();
+      trailFrames.push([...dataArray]);
+
+      // three-stop gradient
+      const gradient = ctx.createLinearGradient(0,0,canvas.width,0);
+      gradient.addColorStop(0, currentWaveColor);
+      gradient.addColorStop(0.5, "#1e90ff");
+      gradient.addColorStop(1, "#32cd32");
+
+      const dens = parseInt(density.value);
+      const step = Math.max(1, Math.floor(bufferLength / (dens * 20)));
+      const heightFactor = parseFloat(height.value);
+
+      for (let t = 0; t < trailFrames.length; t++) {
+        const data = trailFrames[t];
+        const slice = canvas.width / (data.length / step);
+        ctx.beginPath();
+        let x = 0;
+        for (let i = 0; i < data.length; i += step) {
+          const v = (data[i] - 128) / 128;
+          const y = v * (canvas.height/2 * 0.9 * heightFactor) + canvas.height/2;
+          i === 0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+          x += slice;
+        }
+        ctx.strokeStyle = gradient;
+        ctx.globalAlpha = 0.05 + (t / trailFrames.length) * 0.1;
+        ctx.shadowBlur = 16; ctx.shadowColor = currentWaveColor;
+        ctx.stroke();
+        ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+      }
+    }
+
+    // Controls
+    play.addEventListener("click", () => {
+      initAudio(); stopped = false;
+      const scale = getScaleFromPreset(preset.value);
+      currentWaveColor = getColorFromPreset(preset.value);
+      scheduleNotes(scale);
     });
-    ctx.restore();
-  }
-}
+    stop.addEventListener("click", () => {
+      stopped = true; clearInterval(bpmTimer);
+    });
+    bpm.addEventListener("input", e => {
+      bpm = parseInt(e.target.value);
+      if (!stopped) scheduleNotes(getScaleFromPreset(preset.value));
+    });
+    preset.addEventListener("change", () => {
+      currentWaveColor = getColorFromPreset(preset.value);
+      if (!stopped) scheduleNotes(getScaleFromPret	endfrompreset(preset.value)); // <-- typo preserve original
+    });
 
-// Event listeners
-document.getElementById('toggleData').addEventListener('click', () => {
-  showData = !showData;
-});
-document.getElementById('play').addEventListener('click', () => {
-  showMessage = true;
-  messageStartTime = performance.now();
-  initAudio();
-  stopped = false;
-  const sel = document.getElementById('preset').value;
-  currentWaveColor = getColorFromPreset(sel);
-  scheduleNotes(getScaleFromPreset(sel));
-});
-document.getElementById('stop').addEventListener('click', () => {
-  stopped = true;
-  clearInterval(bpmTimer);
-});
-document.getElementById('bpm').addEventListener('input', e => {
-  bpm = parseInt(e.target.value);
-  if (!stopped) scheduleNotes(getScaleFromPreset(document.getElementById('preset').value));
-});
-document.getElementById('preset').addEventListener('change', () => {
-  const sel = document.getElementById('preset').value;
-  currentWaveColor = getColorFromPreset(sel);
-  if (!stopped) scheduleNotes(getScaleFromPreset(sel));
-});
-document.getElementById('reverb').addEventListener('input', e => {
-  reverbFeedback.gain.value = parseFloat(e.target.value);
-});
-</script>
+    // Data display
+    toggleDisplay.addEventListener("click", () => {
+      infoDisplay.style.display = infoDisplay.style.display === "none" ? "block" : "none";
+    });
+    function updateDisplay() {
+      infoDisplay.textContent =
+        `PRESET    : ${preset.value}\n` +
+        `DELAY     : ${delay.value}\n` +
+        `ECHO      : ${echo.value}\n` +
+        `FILTER    : ${filter.value}\n` +
+        `FREQ      : ${freq.value}\n` +
+        `VOLUME    : ${volume.value}\n` +
+        `BPM       : ${bpm}\n` +
+        `DENSITY   : ${density.value}\n` +
+        `HEIGHT    : ${height.value}`;
+    }
+    setInterval(updateDisplay, 250);
+  </script>
 </body>
 </html>
