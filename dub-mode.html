@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>DUB MODE — CLEAN + PARTICLES + PLAY</title>
+  <title>DUB MODE — Presets + Color Mapping</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     html, body {
@@ -36,7 +36,7 @@
       display: block;
       margin-bottom: 2px;
     }
-    .ui input[type="range"] {
+    .ui input[type="range"], .ui select {
       width: 120px;
     }
     .ui button {
@@ -60,6 +60,14 @@
 
 <div class="ui">
   <div>
+    <label>Preset</label>
+    <select id="preset">
+      <option value="greenhouse">Greenhouse</option>
+      <option value="deepspace">Deep Space</option>
+      <option value="daylight">Daylight</option>
+    </select>
+  </div>
+  <div>
     <label>Delay</label>
     <input type="range" id="delay" min="0.05" max="1.5" step="0.01" value="0.8">
   </div>
@@ -75,7 +83,6 @@
     <label>Volume</label>
     <input type="range" id="volume" min="0" max="100" value="60">
   </div>
-  <button id="start">START AUDIO</button>
   <button id="play">PLAY</button>
   <button id="stop">STOP</button>
   <button id="tap">TAP TEMPO</button>
@@ -85,7 +92,7 @@
 <script>
 let audioCtx, analyser, masterGain, bufferLength, dataArray;
 let bpm = 90, tapTimes = [], bpmTimer = null, stopped = true;
-let particles = [];
+let particles = [], currentHue = 120;
 const canvas = document.getElementById('waveCanvas');
 const ctx = canvas.getContext('2d');
 
@@ -97,12 +104,11 @@ resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
 
 class Particle {
-  constructor(x, y, color) {
+  constructor(x, y) {
     this.x = x;
     this.y = y;
     this.radius = 1 + Math.random() * 2;
     this.alpha = 1;
-    this.color = color;
     this.vx = (Math.random() - 0.5) * 0.5;
     this.vy = (Math.random() - 0.5) * 0.5;
   }
@@ -115,12 +121,27 @@ class Particle {
     if (this.alpha <= 0) return;
     ctx.beginPath();
     ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(0,255,0,${this.alpha})`;
+    ctx.fillStyle = `hsla(${currentHue}, 100%, 50%, ${this.alpha})`;
     ctx.fill();
   }
   isDead() {
     return this.alpha <= 0;
   }
+}
+
+function getPreset(name) {
+  const presets = {
+    greenhouse: [150, 350],
+    deepspace: [60, 250],
+    daylight: [300, 600]
+  };
+  return presets[name] || [200, 400];
+}
+
+function frequencyToHue(freq) {
+  const minFreq = 60;
+  const maxFreq = 1000;
+  return Math.floor(((freq - minFreq) / (maxFreq - minFreq)) * 360);
 }
 
 function initAudio() {
@@ -138,8 +159,10 @@ function initAudio() {
 
 function playTone() {
   if (!audioCtx || stopped) return;
-  const freq = 100 + Math.random() * 500;
+  const [minFreq, maxFreq] = getPreset(document.getElementById('preset').value);
+  const freq = minFreq + Math.random() * (maxFreq - minFreq);
   const duration = 1 + Math.random();
+  currentHue = frequencyToHue(freq);
 
   const osc = audioCtx.createOscillator();
   const gainNode = audioCtx.createGain();
@@ -173,7 +196,7 @@ function playTone() {
 
 function scheduleBPM() {
   clearInterval(bpmTimer);
-  if (bpm && bpm >= 30 && bpm <= 300) {
+  if (bpm >= 30 && bpm <= 300) {
     bpmTimer = setInterval(playTone, 60000 / bpm);
   }
 }
@@ -183,11 +206,11 @@ function animate() {
   if (!analyser) return;
 
   analyser.getByteTimeDomainData(dataArray);
-  ctx.fillStyle = "rgba(0, 0, 0, 0.1)";
+  ctx.fillStyle = "rgba(0, 0, 0, 0.08)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   ctx.lineWidth = 1.5;
-  ctx.strokeStyle = "#0f0";
+  ctx.strokeStyle = `hsl(${currentHue}, 100%, 60%)`;
   ctx.beginPath();
 
   const slice = canvas.width / bufferLength;
@@ -197,7 +220,7 @@ function animate() {
     let y = v * canvas.height / 2;
     i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
     if (i % 8 === 0 && v > 1.05) {
-      particles.push(new Particle(x, y, "#0f0"));
+      particles.push(new Particle(x, y));
     }
     x += slice;
   }
@@ -210,7 +233,6 @@ function animate() {
   }
 }
 
-// DOM Elements
 const delay = document.getElementById('delay');
 const feedback = document.getElementById('feedback');
 const filter = document.getElementById('filter');
@@ -221,11 +243,8 @@ volume.addEventListener('input', () => {
   if (masterGain) masterGain.gain.value = parseFloat(volume.value) / 100;
 });
 
-document.getElementById('start').addEventListener('click', () => {
-  initAudio();
-});
-
 document.getElementById('play').addEventListener('click', () => {
+  initAudio();
   stopped = false;
   scheduleBPM();
 });
