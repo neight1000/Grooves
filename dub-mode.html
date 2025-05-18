@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Plant Tone Generator – Slowed Visualization</title>
+  <title>Plant Tone Generator – Pentatonic Presets</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     html, body {
@@ -74,9 +74,11 @@
 <div class="ui">
   <div><label>Preset</label>
     <select id="preset">
-      <option value="greenhouse">Greenhouse</option>
-      <option value="deep">Deep Space</option>
-      <option value="bright">Daylight</option>
+      <option value="plants">Plants</option>
+      <option value="mold">Mold</option>
+      <option value="bacteria">Bacteria</option>
+      <option value="mushrooms">Mushrooms</option>
+      <option value="harmony">Lifeform Harmony</option>
     </select>
   </div>
   <div><label>Delay</label><input type="range" id="delay" min="0.01" max="2.0" step="0.01" value="0.8" /></div>
@@ -87,23 +89,20 @@
   <div><label>BPM</label><input type="range" id="bpm" min="40" max="180" value="90" /></div>
   <button id="play">PLAY</button>
   <button id="stop">STOP</button>
-</div>
-
-<script>
+</div><script>
 let audioCtx, analyser, masterGain, bufferLength, dataArray;
 let bpm = 90, bpmTimer = null, stopped = true;
-let trailFrames = [];
-let slowFrameSkip = 0;
+let trailFrames = [], frameCount = 0;
 
 const canvas = document.getElementById('waveCanvas');
 const ctx = canvas.getContext('2d');
-resizeCanvas();
-window.addEventListener('resize', resizeCanvas);
 
 function resizeCanvas() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
 }
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
 
 function initAudio() {
   if (audioCtx) return;
@@ -121,8 +120,8 @@ function initAudio() {
 function playTone() {
   if (!audioCtx || stopped) return;
   const baseFreq = parseFloat(freqSlider.value);
-  const freqs = [baseFreq * 0.985, baseFreq, baseFreq * 1.015];
-  const pans = [-0.6, 0.0, 0.6];
+  const freqs = [baseFreq * 0.98, baseFreq, baseFreq * 1.02];
+  const pans = [-0.6, 0, 0.6];
 
   freqs.forEach((freq, i) => {
     const osc = audioCtx.createOscillator();
@@ -168,16 +167,13 @@ function scheduleBPM() {
 
 function animate() {
   requestAnimationFrame(animate);
-  if (!analyser) return;
-
-  if (++slowFrameSkip % 1.1 > 1) return;  // ~10% slower
+  if (!analyser || ++frameCount % 2 !== 0) return;
 
   analyser.getByteTimeDomainData(dataArray);
-
-  ctx.fillStyle = "rgba(0, 0, 0, 0.1)";
+  ctx.fillStyle = "rgba(0, 0, 0, 0.07)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  if (trailFrames.length > 8) trailFrames.shift();
+  if (trailFrames.length > 12) trailFrames.shift();
   trailFrames.push([...dataArray]);
 
   for (let t = 0; t < trailFrames.length; t++) {
@@ -194,7 +190,7 @@ function animate() {
     }
     const alpha = 0.06 + (t / trailFrames.length) * 0.1;
     ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
-    ctx.shadowBlur = 12;
+    ctx.shadowBlur = 20;
     ctx.shadowColor = `rgba(255,255,255,${alpha})`;
     ctx.stroke();
     ctx.shadowBlur = 0;
@@ -218,21 +214,31 @@ document.getElementById('bpm').addEventListener('input', e => {
 
 document.getElementById('preset').addEventListener('change', e => {
   const val = e.target.value;
-  if (val === 'greenhouse') {
+  if (val === 'plants') {
+    delay.value = 0.6;
+    echo.value = 0.4;
+    filter.value = 1200;
+    freqSlider.value = 174; // Solfeggio + photosynthesis peak
+  } else if (val === 'mold') {
+    delay.value = 0.9;
+    echo.value = 0.5;
+    filter.value = 900;
+    freqSlider.value = 385; // Mold disruption range
+  } else if (val === 'bacteria') {
+    delay.value = 1.0;
+    echo.value = 0.6;
+    filter.value = 1100;
+    freqSlider.value = 528; // DNA repair, microbial inhibition
+  } else if (val === 'mushrooms') {
     delay.value = 0.7;
     echo.value = 0.5;
-    filter.value = 1300;
-    freq.value = 150;
-  } else if (val === 'deep') {
-    delay.value = 1.3;
-    echo.value = 0.8;
-    filter.value = 800;
-    freq.value = 125;
-  } else if (val === 'bright') {
-    delay.value = 0.3;
-    echo.value = 0.3;
-    filter.value = 2500;
-    freq.value = 210;
+    filter.value = 850;
+    freqSlider.value = 417; // Mycelial stimulation
+  } else if (val === 'harmony') {
+    delay.value = 0.5;
+    echo.value = 0.7;
+    filter.value = 1400;
+    freqSlider.value = 432; // General harmonic resonance
   }
 });
 
@@ -240,7 +246,6 @@ const delay = document.getElementById('delay');
 const echo = document.getElementById('echo');
 const filter = document.getElementById('filter');
 const volume = document.getElementById('volume');
-const freq = document.getElementById('freq');
 const freqSlider = document.getElementById('freq');
 </script>
 </body>
