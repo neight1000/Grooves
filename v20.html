@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Plantasia App v20 – Ensemble Chorus & Shimmer Reverb</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    html, body { margin:0; padding:0; background:black; color:white; font-family:monospace; overflow:hidden; }
+    canvas { position:absolute; top:0; left:0; width:100vw; height:100vh; z-index:0; }
+    .ui { position:absolute; bottom:0; width:100%; background:rgba(0,0,0,0.85);
+          padding:10px; display:flex; flex-wrap:wrap; justify-content:center; gap:10px; z-index:2; }
+    .ui label { font-size:10px; display:block; text-align:center; }
+    .ui input[type="range"], .ui select, .ui input[type="file"] { width:90px; }
+    .ui button { font-size:12px; padding:4px 8px; background:transparent; border:1px solid white; color:white; cursor:pointer; }
+    #infoDisplay { position:absolute; top:10px; left:10px; z-index:3; background:rgba(0,0,0,0.6); color:white; font-size:12px; padding:10px; display:none; white-space:pre; }
+  </style>
+</head>
+<body>
+  <canvas id="waveCanvas"></canvas>
+  <div id="infoDisplay"></div>
+  <div class="ui">
+    <label>Preset<select id="preset">
+      <option value="plants">Plants</option>
+      <option value="mold">Mold</option>
+      <option value="bacteria">Bacteria</option>
+      <option value="mushrooms">Mushrooms</option>
+      <option value="harmony">Lifeform Harmony</option>
+      <option value="dmt">DMT (Slow & Drowny)</option>
+    </select></label>
+    <label>Delay<input type="range" id="delay" min="0.01" max="2.0" step="0.01" value="0.6"></label>
+    <label>Echo<input type="range" id="echo" min="0" max="1.0" step="0.01" value="0.4"></label>
+    <label>Reverb<input type="range" id="reverb" min="0" max="1.0" step="0.01" value="0.4"></label>
+    <label>Filter<input type="range" id="filter" min="100" max="8000" step="10" value="1200"></label>
+    <label>Frequency<input type="range" id="freq" min="50" max="1000" step="1" value="174"></label>
+    <label>Volume<input type="range" id="volume" min="0" max="100" value="60"></label>
+    <label>BPM<input type="range" id="bpm" min="10" max="180" value="90"></label>
+    <label>Density<input type="range" id="density" min="1" max="10" step="1" value="5"></label>
+    <label>Height<input type="range" id="height" min="0.5" max="2.0" step="0.1" value="1.0"></label>
+    <label>Load IR<input type="file" id="irLoad" accept="audio/*"></label>
+    <button id="play">PLAY</button><button id="stop">STOP</button><button id="toggleDisplay">TOGGLE DATA</button>
+  </div>
+  <script>
+    const preset = document.getElementById('preset'),
+          delayCtrl = document.getElementById('delay'),
+          echoCtrl = document.getElementById('echo'),
+          reverbCtrl = document.getElementById('reverb'),
+          filterCtrl = document.getElementById('filter'),
+          freqCtrl = document.getElementById('freq'),
+          volumeCtrl = document.getElementById('volume'),
+          bpmCtrl = document.getElementById('bpm'),
+          densityCtrl = document.getElementById('density'),
+          heightCtrl = document.getElementById('height'),
+          irLoad = document.getElementById('irLoad'),
+          playBtn = document.getElementById('play'),
+          stopBtn = document.getElementById('stop'),
+          toggleBtn = document.getElementById('toggleDisplay'),
+          infoDisplay = document.getElementById('infoDisplay'),
+          canvas = document.getElementById('waveCanvas'),
+          ctx = canvas.getContext('2d');
+
+    let audioCtx, analyser, masterGain, reverbDelay, reverbFeedback, shimmerConvolver;
+    let chorusLFO, chorusGain;
+    let bufferLength, dataArray, bpmTimer, stopped=true, trail=[];
+    let currentColor="#00FF7F";
+
+    const presetSettings = {
+      plants:   {scale:[174,285,396,417,528], color:"#00FF7F", slow:1},
+      mold:     {scale:[432,639,741],         color:"#8A2BE2", slow:1},
+      bacteria: {scale:[528,554,585,728],      color:"#FF4500", slow:1},
+      mushrooms:{scale:[417,444,528,639],      color:"#FFD700", slow:1},
+      harmony:  {scale:[432,528,639,741,852],  color:"#00FFFF", slow:1},
+      dmt:      {scale:[100,140,200,250,310],  color:"#7F00FF", slow:4}
+    };
+
+    function getScale(){return presetSettings[preset.value].scale;}
+    function getColor(){return presetSettings[preset.value].color;}
+    function getSlow(){return presetSettings[preset.value].slow;}
+
+    async function initAudio(){
+      if(audioCtx) return;
+      canvas.width=innerWidth; canvas.height=innerHeight;
+      window.addEventListener('resize',()=>{canvas.width=innerWidth;canvas.height=innerHeight;});
+
+      audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+      await audioCtx.audioWorklet.addModule(URL.createObjectURL(new Blob([`
+        class PitchShifter extends AudioWorkletProcessor{
+          process(i,o){o.forEach((ch,ci)=>ch.set(i[ci]||[]));return true;}
+        }
+        registerProcessor('pitch-shifter',PitchShifter);
+      `],{type:'application/javascript'})));
+      shimmerConvolver=audioCtx.createConvolver();
+
+      analyser=audioCtx.createAnalyser(); analyser.fftSize=2048;
+      bufferLength=analyser.frequencyBinCount; dataArray=new Uint8Array(bufferLength);
+
+      masterGain=audioCtx.createGain(); masterGain.gain.value=volumeCtrl.value/100;
+
+      // chorus LFO
+      chorusLFO=audioCtx.createOscillator(); chorusLFO.type='sine'; chorusLFO.frequency.value=0.1;
+      chorusGain=audioCtx.createGain(); chorusGain.gain.value=5; // in cents
+      chorusLFO.connect(chorusGain); chorusLFO.start();
+
+      // reverb with shimmer
+      reverbDelay=audioCtx.createDelay(); reverbDelay.delayTime.value=0.4;
+      reverbFeedback=audioCtx.createGain(); reverbFeedback.gain.value=reverbCtrl.value;
+      reverbDelay.connect(reverbFeedback).connect(reverbDelay);
+      // shimmer in tail
+      reverbDelay.connect(shimmerConvolver).connect(masterGain);
+
+      masterGain.connect(audioCtx.destination);
+      analyser.connect(masterGain);
+      animate();
+    }
+
+    function handleIR(e){
+      const file=e.target.files[0], fr=new FileReader();
+      fr.onload=async ()=> {
+        const buf=await audioCtx.decodeAudioData(fr.result);
+        shimmerConvolver.buffer=buf;
+      };
+      fr.readAsArrayBuffer(file);
+    }
+
+    function playTone(freq){
+      const now=audioCtx.currentTime, slow=getSlow();
+      const scaleFreq=freq;
+      const detuneOffsets=[-10,-5,0,5,10]; // cents
+      const filterNode=audioCtx.createBiquadFilter();
+      filterNode.type='lowpass'; filterNode.frequency.value=filterCtrl.value;
+
+      const delayNode=audioCtx.createDelay(); delayNode.delayTime.value=delayCtrl.value;
+      const fb=audioCtx.createGain(); fb.gain.value=echoCtrl.value;
+      delayNode.connect(fb).connect(delayNode);
+      delayNode.connect(reverbDelay);
+
+      detuneOffsets.forEach(off=>{
+        const osc=audioCtx.createOscillator();
+        osc.type='square';
+        osc.frequency.setValueAtTime(scaleFreq,now);
+        osc.detune.setValueAtTime(off, now);
+        chorusGain.connect(osc.detune);
+
+        const gainNode=audioCtx.createGain();
+        gainNode.gain.setValueAtTime(0, now);
+        gainNode.gain.linearRampToValueAtTime(0.2, now+0.5*slow);
+        gainNode.gain.linearRampToValueAtTime(0, now+2*slow);
+
+        const pan=audioCtx.createStereoPanner();
+        pan.pan.value = (off/10)*0.8;
+
+        osc.connect(gainNode).connect(pan).connect(filterNode);
+        gainNode.connect(analyser).connect(masterGain);
+
+        osc.start(now); osc.stop(now+2*slow);
+      });
+
+      filterNode.connect(delayNode);
+    }
+
+    function schedule(){
+      clearInterval(bpmTimer);
+      const interval=60000/bpmCtrl.value*getSlow();
+      bpmTimer=setInterval(()=>{ if(!stopped) playTone(getScale()[Math.floor(Math.random()*getScale().length)]); }, interval);
+    }
+
+    function animate(){
+      requestAnimationFrame(animate);
+      analyser.getByteTimeDomainData(dataArray);
+      ctx.fillStyle='rgba(0,0,0,0.05)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+      if(trail.length>12) trail.shift(); trail.push([...dataArray]);
+      const grad=ctx.createLinearGradient(0,0,canvas.width,0);
+      grad.addColorStop(0,getColor()); grad.addColorStop(1,'#32cd32');
+      trail.forEach((data,t)=>{
+        ctx.beginPath(); let x=0,step=Math.max(1,Math.floor(bufferLength/(densityCtrl.value*20))),slice=canvas.width/(data.length/step);
+        data.forEach((v,i)=>{
+          if(i%step)return;
+          const y=(v-128)/128*(canvas.height/2*0.9*heightCtrl.value)+canvas.height/2;
+          i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); x+=slice;
+        });
+        ctx.strokeStyle=grad; ctx.globalAlpha=0.05+(t/trail.length)*0.1; ctx.shadowBlur=16; ctx.shadowColor=getColor(); ctx.stroke(); ctx.shadowBlur=0; ctx.globalAlpha=1;
+      });
+    }
+
+    playBtn.addEventListener('click',()=>{initAudio();stopped=false;bpmCtrl.dispatchEvent(new Event('input'));schedule();});
+    stopBtn.addEventListener('click',()=>{stopped=true;clearInterval(bpmTimer);});
+    bpmCtrl.addEventListener('input',schedule);
+    preset.addEventListener('change',()=>{currentColor=getColor();schedule();});
+    reverbCtrl.addEventListener('input',()=>{reverbFeedback.gain.value=reverbCtrl.value;});
+    irLoad.addEventListener('change',handleIR);
+    toggleBtn.addEventListener('click',()=>{infoDisplay.style.display=infoDisplay.style.display==='none'?'block':'none';});
+    setInterval(()=>{infoDisplay.textContent=`PRESET:${preset.value}\nBPM:${bpmCtrl.value}\nCOLOR:${getColor()}`},250);
+  </script>
+</body>
+</html>
