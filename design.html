@@ -3,134 +3,93 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Modern Plantasia App v34</title>
+  <title>Modern Plantasia App v38</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap');
-
-    :root {
-      --bg: #000000;
-      --fg: #FFFFFF;
-      --surface: #000000;
-      --font: 'Roboto Mono', monospace;
+    :root { --bg: #000; --fg: #fff; --font: 'Roboto Mono', monospace; }
+    * { box-sizing: border-box; margin:0; padding:0; }
+    body { font-family: var(--font); background: var(--bg); color: var(--fg); overflow:hidden; }
+    h1 { text-align:center; margin:1rem 0; font-size:1.5rem; }
+    #uiPanel { position:absolute; top:1rem; right:1rem; display:flex; gap:0.5rem; z-index:3; }
+    button, select, input[type="range"] {
+      background:transparent; color:var(--fg); border:1px solid var(--fg);
+      padding:0.5rem 1rem; font-size:0.9rem; text-transform:uppercase;
+      font-family:var(--font);
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: var(--font);
-      background-color: var(--bg);
-      color: var(--fg);
-      overflow: hidden;
-    }
-    h1 {
-      text-align: center;
-      margin: 1rem 0;
-      font-size: 1.5rem;
-    }
-    #uiPanel {
-      position: absolute; top: 1rem; right: 1rem;
-      display: flex; gap: 0.5rem; z-index: 3;
-    }
-    button, input[type="range"], select {
-      background: var(--surface);
-      color: var(--fg);
-      border: 1px solid var(--fg);
-      border-radius: 0;
-      padding: 0.5rem 1rem;
-      font-size: 0.9rem;
-      transition: background 0.2s ease;
-    }
-    button:hover {
-      background: var(--fg);
-      color: var(--bg);
-      cursor: pointer;
-    }
-    input[type="range"] {
-      -webkit-appearance: none;
-      width: 150px; height: 6px;
-      background: var(--fg);
-      outline: none; border-radius: 3px;
-    }
-    select {
-      font-family: var(--font);
-      width: 160px;
-    }
+    button:hover { background:var(--fg); color:var(--bg); cursor:pointer; }
+    input[type="range"] { -webkit-appearance:none; width:150px; height:6px; background:var(--fg); border-radius:3px; }
+    label { font-size:0.75rem; text-transform:uppercase; display:flex; flex-direction:column; align-items:center; gap:0.25rem; }
     #controlsWrapper {
-      position: absolute; bottom: 1rem; left: 50%;
-      transform: translateX(-50%);
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.5rem;
-      z-index: 3;
+      position:absolute; bottom:1rem; left:50%; transform:translateX(-50%);
+      display:none; flex-direction:row; gap:1rem; background:rgba(0,0,0,0.85); padding:0.5rem; z-index:3;
     }
-    .controls {
-      display: flex; flex-wrap: wrap; gap: 0.5rem;
-    }
+    .controls { display:flex; flex-wrap:wrap; gap:0.5rem; }
     #infoDisplay {
-      position: absolute; top: 1rem; left: 1rem;
-      background: rgba(0,0,0,0.6);
-      color: var(--fg);
-      font-family: var(--font);
-      font-size: 0.9rem;
-      padding: 0.5rem;
-      white-space: pre;
-      display: none;
-      z-index: 3;
+      position:absolute; top:1rem; left:1rem; background:rgba(0,0,0,0.6);
+      padding:0.5rem; white-space:pre; display:none; z-index:3;
     }
     #visualizer {
-      position: absolute; top: 0; left: 0;
-      width: 100vw; height: 100vh;
-      background: var(--bg);
-      z-index: 1;
+      position:absolute; top:0; left:0; width:100vw; height:100vh; background:var(--bg); z-index:1;
     }
-    .footer {
-      position: absolute; bottom: 0.5rem;
-      font-size: 0.75rem; color: #888;
-      width: 100%; text-align: center;
-      z-index: 3;
-    }
+    .footer { position:absolute; bottom:0.5rem; width:100%; text-align:center; font-size:0.75rem; color:#888; z-index:3; }
   </style>
 </head>
 <body>
-
-  <h1>Plantasia Sound App</h1>
-
+  <h1>PLANTASIA APP</h1>
   <div id="uiPanel">
     <button id="toggleUI">Show Controls</button>
     <button id="toggleDisplay">Show Data</button>
   </div>
-
   <div id="controlsWrapper">
     <div class="controls" id="mainUI">
-      <select id="preset">
-        <option value="plants">Plants</option>
-        <option value="mold">Mold</option>
-        <option value="bacteria">Bacteria</option>
-        <option value="mushrooms">Mushrooms</option>
-        <option value="harmony">Lifeform Harmony</option>
-      </select>
-      <input type="range" id="delay"   min="0.01" max="2.0" step="0.01" value="0.6">
-      <input type="range" id="echo"    min="0"    max="1.0" step="0.01" value="0.4">
-      <input type="range" id="reverb"  min="0"    max="1.0" step="0.01" value="0.4">
-      <input type="range" id="filter"  min="100"  max="8000"step="10"   value="1200">
-      <input type="range" id="freq"    min="50"   max="1000"step="1"    value="174">
-      <input type="range" id="volume"  min="0"    max="100" step="1"    value="60">
-      <input type="range" id="bpm"     min="40"   max="180" step="1"    value="90">
-      <input type="range" id="density" min="1"    max="20"  step="1"    value="5">
+      <label>Preset
+        <select id="preset">
+          <option value="plants">Plants</option>
+          <option value="mold">Mold</option>
+          <option value="bacteria">Bacteria</option>
+          <option value="mushrooms">Mushrooms</option>
+          <option value="harmony">Lifeform Harmony</option>
+          <option value="bachPreludeC">Bach: Prelude in C</option>
+        </select>
+      </label>
+      <label>Delay<input type="range" id="delay" min="0.01" max="2.0" step="0.01" value="0.6"/></label>
+      <label>Echo<input type="range" id="echo" min="0" max="1.0" step="0.01" value="0.4"/></label>
+      <label>Reverb<input type="range" id="reverb" min="0" max="1.0" step="0.01" value="0.4"/></label>
+      <label>Filter<input type="range" id="filter" min="100" max="8000" step="10" value="1200"/></label>
+      <label>Freq<input type="range" id="freq" min="50" max="1000" step="1" value="174"/></label>
+      <label>Vol<input type="range" id="volume" min="0" max="100" step="1" value="60"/></label>
+      <label>BPM<input type="range" id="bpm" min="40" max="180" step="1" value="90"/></label>
+      <label>Density<input type="range" id="density" min="1" max="20" step="1" value="5"/></label>
     </div>
     <div class="controls" id="extraSliders">
-      <input type="range" id="wetDry"      min="0"  max="1.0"  step="0.01" value="0.5">
-      <input type="range" id="chorusDepth" min="0"  max="50"   step="1"    value="5">
-      <input type="range" id="revDampFreq" min="500"max="5000" step="100"  value="1200">
-      <button id="play">PLAY</button>
-      <button id="stop">STOP</button>
+      <label>Wet/Dry<input type="range" id="wetDry" min="0" max="1" step="0.01" value="0.5"/></label>
+      <label>Chorus Depth<input type="range" id="chorusDepth" min="0" max="50" step="1" value="5"/></label>
+      <label>Reverb Damp<input type="range" id="revDampFreq" min="500" max="5000" step="100" value="1200"/></label>
+      <button id="play">Play</button>
+      <button id="stop">Stop</button>
     </div>
   </div>
-
   <canvas id="visualizer"></canvas>
   <div id="infoDisplay"></div>
-  <div class="footer">Â© 2025 Nate Thousand</div>
-
+  <div class="footer">Â© 2025 Nate</div>
   <script>
+    // Frequency maps
+    const presetSettings = {
+      plants:   { scale:[174,285,396,417,528], color:"#00FF7F" },
+      mold:     { scale:[432,639,741], color:"#8A2BE2" },
+      bacteria: { scale:[528,554,585,728], color:"#FF4500" },
+      mushrooms:{ scale:[417,444,528,639], color:"#FFD700" },
+      harmony:  { scale:[432,528,639,741,852], color:"#00FFFF" }
+    };
+    const classicalMelodies = {
+      bachPreludeC: {
+        scale: [261.63,293.66,329.63,349.23,392.00,440.00,493.88,523.25],
+        melody: [261.63,293.66,329.63,349.23,392.00,392.00,349.23,329.63],
+        color: "#FFFFFF"
+      }
+    };
+
+    // DOM refs
     const preset = document.getElementById('preset'),
           delayCtrl = document.getElementById('delay'),
           echoCtrl = document.getElementById('echo'),
@@ -152,32 +111,27 @@
           canvas = document.getElementById('visualizer'),
           ctx = canvas.getContext('2d');
 
-    let audioCtx, analyser, masterGain, chorusLFO, chorusGain,
-        bufferLength, dataArray, bpmTimer, stopped=true, trailFrames=[];
+    let audioCtx, analyser, masterGain, chorusLFO, chorusGain;
+    let bufferLength, dataArray, bpmTimer, stopped=true, trailFrames=[], melodyIndex=0;
 
-    const presetSettings = {
-      plants:   { scale:[174,285,396,417,528], color:"#FFFFFF" },
-      mold:     { scale:[432,639,741],         color:"#FFFFFF" },
-      bacteria: { scale:[528,554,585,728],      color:"#FFFFFF" },
-      mushrooms:{ scale:[417,444,528,639],      color:"#FFFFFF" },
-      harmony:  { scale:[432,528,639,741,852],  color:"#FFFFFF" }
-    };
-
-    const getScale = ()=>presetSettings[preset.value].scale,
-          getColor = ()=>presetSettings[preset.value].color;
+    function getScale() {
+      if (classicalMelodies[preset.value]) return classicalMelodies[preset.value].scale;
+      return presetSettings[preset.value].scale;
+    }
+    function getColor() {
+      if (classicalMelodies[preset.value]) return classicalMelodies[preset.value].color;
+      return presetSettings[preset.value].color;
+    }
 
     function initAudio(){
       if(audioCtx) return;
       canvas.width = innerWidth; canvas.height = innerHeight;
-      window.addEventListener('resize', ()=>{ canvas.width=innerWidth; canvas.height=innerHeight; });
-      audioCtx = new (window.AudioContext||window.webkitAudioContext)();
-      audioCtx.resume();
+      window.addEventListener('resize', ()=>{canvas.width=innerWidth; canvas.height=innerHeight;});
+      audioCtx = new (window.AudioContext||window.webkitAudioContext)(); audioCtx.resume();
       analyser = audioCtx.createAnalyser(); analyser.fftSize = 2048;
       bufferLength = analyser.frequencyBinCount; dataArray = new Uint8Array(bufferLength);
       masterGain = audioCtx.createGain(); masterGain.connect(audioCtx.destination);
-      // Chorus LFO
-      chorusLFO = audioCtx.createOscillator();
-      chorusLFO.type = 'sine'; chorusLFO.frequency.value = 0.1;
+      chorusLFO = audioCtx.createOscillator(); chorusLFO.type='sine'; chorusLFO.frequency.value=0.1;
       chorusGain = audioCtx.createGain(); chorusGain.gain = parseFloat(chorusDepthCtrl.value);
       chorusLFO.connect(chorusGain); chorusLFO.start();
       animate();
@@ -185,30 +139,25 @@
 
     function playTone(freqVal){
       const now = audioCtx.currentTime;
-      masterGain.gain.value = parseFloat(wetDryCtrl.value);
-      const filterNode = audioCtx.createBiquadFilter();
-      filterNode.type = 'lowpass'; filterNode.frequency.value = parseFloat(filterCtrl.value);
+      masterGain.gain = parseFloat(wetDryCtrl.value);
+      const filterNode = audioCtx.createBiquadFilter(); filterNode.type='lowpass';
+      filterNode.frequency.value = parseFloat(filterCtrl.value);
       const delayNode = audioCtx.createDelay(); delayNode.delayTime = parseFloat(delayCtrl.value);
       const echoGain = audioCtx.createGain(); echoGain.gain = parseFloat(echoCtrl.value);
       delayNode.connect(echoGain).connect(masterGain);
-      const reverbNode = audioCtx.createDelay(); reverbNode.delayTime = 0.4;
+      const reverbNode = audioCtx.createDelay(); reverbNode.delayTime=0.4;
       const reverbGain = audioCtx.createGain(); reverbGain.gain = parseFloat(reverbCtrl.value);
       filterNode.connect(reverbNode).connect(reverbGain).connect(masterGain);
-      const detunes = [-10,-5,0,5,10];
-      const effDensity = parseFloat(densityCtrl.value) * 0.85;
-      const step = Math.max(1, Math.floor(bufferLength/(effDensity*20)));
-      const slice = canvas.width/(bufferLength/step);
-      detunes.forEach(off => {
-        const osc = audioCtx.createOscillator();
-        osc.type = 'square';
-        osc.frequency.setValueAtTime(freqVal, now);
-        osc.detune.setValueAtTime(off, now);
+      (classicalMelodies[preset.value]?.melody || [freqVal]).forEach((f, idx, arr) => {
+        // sequential melody or single tone
+        const freq = classicalMelodies[preset.value] ? arr[melodyIndex] : f;
+        melodyIndex = (melodyIndex+1)%arr.length;
+        const osc = audioCtx.createOscillator(); osc.type='square'; osc.frequency.setValueAtTime(freq,now);
         chorusGain.connect(osc.detune);
-        const env = audioCtx.createGain();
-        env.gain.setValueAtTime(0, now);
-        env.gain.linearRampToValueAtTime(0.2, now+0.3);
-        env.gain.linearRampToValueAtTime(0, now+3);
-        const pan = audioCtx.createStereoPanner(); pan.pan.value = off/10;
+        const env = audioCtx.createGain(); env.gain.setValueAtTime(0,now);
+        env.gain.linearRampToValueAtTime(0.2,now+0.3);
+        env.gain.linearRampToValueAtTime(0,now+3);
+        const pan = audioCtx.createStereoPanner(); pan.pan.value=(classicalMelodies[preset.value]?0: (idx/arr.length*2-1));
         osc.connect(env).connect(pan).connect(filterNode);
         env.connect(analyser);
         osc.start(now); osc.stop(now+3);
@@ -218,54 +167,59 @@
 
     function scheduleNotes(){
       clearInterval(bpmTimer);
+      melodyIndex = 0;
       const interval = 60000/parseInt(bpmCtrl.value);
-      bpmTimer = setInterval(()=>{ if(!stopped) playTone(getScale()[Math.floor(Math.random()*getScale().length)]); }, interval);
+      const isClassical = !!classicalMelodies[preset.value];
+      bpmTimer = setInterval(()=>{
+        if(!stopped) {
+          if(isClassical) playTone();
+          else playTone(getScale()[Math.floor(Math.random()*getScale().length)]);
+        }
+      }, interval);
     }
 
     function animate(){
       requestAnimationFrame(animate);
       analyser.getByteTimeDomainData(dataArray);
-      ctx.fillStyle = 'rgba(0,0,0,0.02)';
-      ctx.fillRect(0,0,canvas.width,canvas.height);
-      if(trailFrames.length>12) trailFrames.shift();
-      trailFrames.push([...dataArray]);
-      ctx.strokeStyle = getColor();
+      ctx.fillStyle='rgba(0,0,0,0.02)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+      if(trailFrames.length>12) trailFrames.shift(); trailFrames.push([...dataArray]);
+      const grad = ctx.createLinearGradient(0,0,canvas.width,0);
+      grad.addColorStop(0,getColor()); grad.addColorStop(1,getColor());
+      ctx.lineJoin='round'; ctx.lineCap='round'; ctx.strokeStyle=grad;
+      ctx.shadowBlur=12; ctx.shadowColor=getColor();
+      const ampFactor=0.85, effDensity=parseFloat(densityCtrl.value)*0.85;
+      const step=Math.max(1,Math.floor(bufferLength/(effDensity*20)));
       let x;
-      const effDensity = parseFloat(densityCtrl.value) * 0.85;
-      const step = Math.max(1, Math.floor(bufferLength/(effDensity*20)));
-      const slice = canvas.width/(bufferLength/step);
       trailFrames.forEach((data,t)=>{
         ctx.beginPath(); x=0;
         for(let i=0;i<data.length;i+=step){
-          const y=(data[i]-128)/128*(canvas.height/2*0.9)+canvas.height/2;
+          const y=(data[i]-128)/128*(canvas.height/2*0.9*ampFactor)+canvas.height/2;
           i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
-          x+=slice;
+          x+=canvas.width/(bufferLength/step);
         }
-        ctx.globalAlpha = 0.05 + (t/trailFrames.length)*0.1;
-        ctx.stroke(); ctx.globalAlpha = 1;
+        ctx.globalAlpha=0.05+(t/trailFrames.length)*0.1; ctx.stroke();
       });
+      ctx.globalAlpha=1; ctx.shadowBlur=0;
     }
 
-    playBtn.onclick = ()=>{
-      initAudio(); stopped=false; playTone(getScale()[0]); scheduleNotes();
+    playBtn.onclick=()=>{ initAudio(); stopped=false; playTone(getScale()[0]); scheduleNotes(); };
+    stopBtn.onclick=()=>{ stopped=true; clearInterval(bpmTimer); };
+    bpmCtrl.oninput=scheduleNotes;
+    chorusDepthCtrl.oninput=()=>{ chorusGain.gain=parseFloat(chorusDepthCtrl.value); };
+    toggleUI.onclick=()=>{
+      const vis = controlsWrapper.style.display!=='flex';
+      controlsWrapper.style.display = vis?'flex':'none';
+      toggleUI.textContent = vis?'Hide Controls':'Show Controls';
     };
-    stopBtn.onclick = ()=>{
-      stopped=true; clearInterval(bpmTimer);
+    toggleDisplay.onclick=()=>{
+      const vis = infoDisplay.style.display!=='block';
+      infoDisplay.style.display = vis?'block':'none';
+      toggleDisplay.textContent = vis?'Hide Data':'Show Data';
     };
-    bpmCtrl.oninput = scheduleNotes;
-    chorusDepthCtrl.oninput = ()=>{ chorusGain.gain = parseFloat(chorusDepthCtrl.value); };
-    toggleUI.onclick = ()=>{
-      const vis = controlsWrapper.style.display !== 'flex';
-      controlsWrapper.style.display = vis ? 'flex' : 'none';
-      toggleUI.textContent = vis ? 'Hide Controls' : 'Show Controls';
-    };
-    toggleDisplay.onclick = ()=>{
-      const vis = infoDisplay.style.display !== 'block';
-      infoDisplay.style.display = vis ? 'block' : 'none';
-      toggleDisplay.textContent = vis ? 'Hide Data' : 'Show Data';
-    };
-    setInterval(()=>{ infoDisplay.textContent =
-      `PRESET: ${preset.value}\nDELAY: ${delayCtrl.value}\nECHO: ${echoCtrl.value}\nREVERB: ${reverbCtrl.value}\nFILTER: ${filterCtrl.value}\nFREQ: ${freqCtrl.value}\nVOL: ${volumeCtrl.value}\nBPM: ${bpmCtrl.value}\nDENSITY: ${densityCtrl.value}%`; }, 250);
+    setInterval(()=>{
+      infoDisplay.textContent =
+        `PRESET: ${preset.value}\nDELAY: ${delayCtrl.value}\nECHO: ${echoCtrl.value}\nREVERB: ${reverbCtrl.value}\nFILTER: ${filterCtrl.value}\nFREQ: ${freqCtrl.value}\nVOL: ${volumeCtrl.value}\nBPM: ${bpmCtrl.value}\nDENSITY: ${densityCtrl.value}%`;
+    },250);
   </script>
 </body>
 </html>
