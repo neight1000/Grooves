@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Plantasia App v17 – Moog Enhancements</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    html, body { margin:0; padding:0; background:black; color:white; font-family:monospace; overflow:hidden; }
+    canvas { position:absolute; top:0; left:0; width:100vw; height:100vh; z-index:0; }
+    .ui { position:absolute; bottom:0; width:100%; background:rgba(0,0,0,0.85);
+          padding:10px; display:flex; flex-wrap:wrap; justify-content:center; gap:10px; z-index:2; }
+    .ui label { font-size:10px; display:block; text-align:center; }
+    .ui input[type="range"], .ui select { width:90px; }
+    .ui button { font-size:12px; padding:4px 8px; background:transparent;
+                 border:1px solid white; color:white; cursor:pointer; }
+    #infoDisplay { position:absolute; top:10px; left:10px; z-index:3;
+                   background:rgba(0,0,0,0.6); color:white; font-size:12px;
+                   padding:10px; display:none; white-space:pre; }
+  </style>
+</head>
+<body>
+  <canvas id="waveCanvas"></canvas>
+  <div id="infoDisplay"></div>
+  <div class="ui">
+    <div>
+      <label>Preset</label>
+      <select id="preset">
+        <option value="plants">Plants</option>
+        <option value="mold">Mold</option>
+        <option value="bacteria">Bacteria</option>
+        <option value="mushrooms">Mushrooms</option>
+        <option value="harmony">Lifeform Harmony</option>
+      </select>
+    </div>
+    <div><label>Delay</label><input type="range" id="delay" min="0.01" max="2.0" step="0.01" value="0.6"></div>
+    <div><label>Echo</label><input type="range" id="echo" min="0" max="1.0" step="0.01" value="0.4"></div>
+    <div><label>Reverb</label><input type="range" id="reverb" min="0" max="1.0" step="0.01" value="0.4"></div>
+    <div><label>Filter</label><input type="range" id="filter" min="100" max="8000" step="10" value="1200"></div>
+    <div><label>Frequency</label><input type="range" id="freq" min="50" max="1000" step="1" value="174"></div>
+    <div><label>Volume</label><input type="range" id="volume" min="0" max="100" value="60"></div>
+    <div><label>BPM</label><input type="range" id="bpm" min="40" max="180" value="90"></div>
+    <div><label>Density</label><input type="range" id="density" min="1" max="10" step="1" value="5"></div>
+    <div><label>Height</label><input type="range" id="height" min="0.5" max="2.0" step="0.1" value="1.0"></div>
+    <button id="play">PLAY</button>
+    <button id="stop">STOP</button>
+    <button id="toggleDisplay">TOGGLE DATA</button>
+  </div>
+  <script>
+    // Element refs
+    const preset = document.getElementById('preset'), delay=document.getElementById('delay'),
+          echo=document.getElementById('echo'), reverb=document.getElementById('reverb'),
+          filter=document.getElementById('filter'), freq=document.getElementById('freq'),
+          volume=document.getElementById('volume'), bpmControl=document.getElementById('bpm'),
+          density=document.getElementById('density'), height=document.getElementById('height'),
+          playBtn=document.getElementById('play'), stopBtn=document.getElementById('stop'),
+          toggleDisplayBtn=document.getElementById('toggleDisplay'),
+          infoDisplay=document.getElementById('infoDisplay');
+    let bpm = +bpmControl.value;
+
+    // Audio & visual
+    let audioCtx, analyser, masterGain, reverbNode, reverbFeedback, distortion, bufferLength, dataArray;
+    let bpmTimer=null, stopped=true, trailFrames=[], currentWaveColor="#00FF7F";
+    let fractalScale=0.98, fractalAlpha=0.1, canvas, ctx, lastFreq=null, glideTime=0.1;
+
+    // Preset settings
+    const presetSettings = {
+      plants: { scale:[174,285,396,417,528], color:"#00FF7F", fractalScale:0.98, fractalAlpha:0.1 },
+      mold: { scale:[432,639,741], color:"#8A2BE2", fractalScale:0.96, fractalAlpha:0.12 },
+      bacteria: { scale:[528,554,585,728], color:"#FF4500", fractalScale:0.95, fractalAlpha:0.08 },
+      mushrooms: { scale:[417,444,528,639], color:"#FFD700", fractalScale:0.99, fractalAlpha:0.09 },
+      harmony: { scale:[432,528,639,741,852], color:"#00FFFF", fractalScale:0.94, fractalAlpha:0.15 }
+    };
+
+    function getScale(val){ return presetSettings[val]?.scale || [174,220,261]; }
+    function getColor(val){ return presetSettings[val]?.color || "#FFFFFF"; }
+    function setFractal(val){ fractalScale=presetSettings[val].fractalScale; fractalAlpha=presetSettings[val].fractalAlpha; }
+
+    // Distortion curve
+    function makeDistortionCurve(amount=50){
+      const n=44100, curve=new Float32Array(n);
+      const k=typeof amount==='number'?amount:50;
+      for(let i=0;i<n;i++){
+        const x=2*i/n-1;
+        curve[i]=(3+k)*x*20*Math.PI/180/(Math.PI+k*Math.abs(x));
+      }
+      return curve;
+    }
+
+    function initAudio(){
+      if(audioCtx) return;
+      canvas=document.getElementById('waveCanvas');
+      ctx=canvas.getContext('2d');
+      canvas.width=innerWidth; canvas.height=innerHeight;
+      window.addEventListener('resize',_=>{canvas.width=innerWidth; canvas.height=innerHeight;});
+
+      audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+      audioCtx.resume();
+      analyser=audioCtx.createAnalyser(); analyser.fftSize=2048;
+      bufferLength=analyser.frequencyBinCount;
+      dataArray=new Uint8Array(bufferLength);
+
+      masterGain=audioCtx.createGain();
+      masterGain.gain.value=+volume.value/100;
+
+      // Noise source
+      const noiseBuf=audioCtx.createBuffer(1,audioCtx.sampleRate*3,audioCtx.sampleRate);
+      const d=noiseBuf.getChannelData(0);
+      for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+      const noiseSrc=audioCtx.createBufferSource();
+      noiseSrc.buffer=noiseBuf; noiseSrc.loop=true;
+      const noiseGain=audioCtx.createGain(); noiseGain.gain.value=0.02;
+      noiseSrc.connect(noiseGain).connect(masterGain); noiseSrc.start();
+
+      // Reverb
+      reverbNode=audioCtx.createDelay();
+      reverbFeedback=audioCtx.createGain();
+      reverbNode.delayTime=0.4; reverbFeedback.gain=+reverb.value;
+      reverbNode.connect(reverbFeedback); reverbFeedback.connect(reverbNode);
+      reverbNode.connect(masterGain);
+
+      // Distortion (soft-clip)
+      distortion=audioCtx.createWaveShaper();
+      distortion.curve=makeDistortionCurve(50); distortion.oversample='4x';
+      masterGain.connect(distortion).connect(audioCtx.destination);
+
+      animate();
+    }
+
+    function playTone(f){
+      const now=audioCtx.currentTime;
+      const filterNodeChain=[];
+      // Moog ladder emulation: 4 cascaded Biquads
+      for(let i=0;i<4;i++){
+        const fl=audioCtx.createBiquadFilter();
+        fl.type='lowpass'; fl.Q.value=1;
+        fl.frequency.value=parseFloat(filter.value);
+        filterNodeChain.push(fl);
+      }
+
+      // Envelope on filter cutoff
+      const cutoff=parseFloat(filter.value);
+      const envAttack=0.05, envDecay=0.2, envSustain=0.6, noteDur=3;
+      filterNodeChain[0].frequency.setValueAtTime(cutoff*0.2, now);
+      filterNodeChain[0].frequency.linearRampToValueAtTime(cutoff, now+envAttack);
+      filterNodeChain[0].frequency.linearRampToValueAtTime(cutoff*envSustain, now+envAttack+envDecay);
+      filterNodeChain[0].frequency.setValueAtTime(cutoff*envSustain, now+noteDur-envDecay);
+      filterNodeChain[0].frequency.linearRampToValueAtTime(cutoff*0.2, now+noteDur);
+
+      // Connect chain
+      for(let i=0;i<3;i++) filterNodeChain[i].connect(filterNodeChain[i+1]);
+
+      // Create nodes
+      const pan=audioCtx.createStereoPanner();
+      pan.pan.value=Math.random()*2-1;
+
+      const delayN=audioCtx.createDelay(), fbN=audioCtx.createGain();
+      delayN.delayTime=parseFloat(delay.value);
+      fbN.gain=parseFloat(echo.value);
+      delayN.connect(fbN).connect(delayN);
+
+      // One gain/Gain envelope
+      const gainNode=audioCtx.createGain();
+      gainNode.gain.setValueAtTime(0, now);
+      gainNode.gain.linearRampToValueAtTime(1, now+0.05);
+      gainNode.gain.linearRampToValueAtTime(0.6, now+0.25);
+      gainNode.gain.setValueAtTime(0.6, now+2.5);
+      gainNode.gain.linearRampToValueAtTime(0, now+3);
+
+      // Glide
+      const baseStart=lastFreq||f;
+      lastFreq=f;
+
+      [-0.5,0,0.5].forEach(off=>{
+        const osc=audioCtx.createOscillator();
+        osc.type='square';
+        const startF=baseStart*(1+off/100), targetF=f*(1+off/100);
+        osc.frequency.setValueAtTime(startF, now);
+        osc.frequency.linearRampToValueAtTime(targetF, now+glideTime);
+
+        // Minor pitch LFO
+        const lfo=audioCtx.createOscillator(), lfoGain=audioCtx.createGain();
+        lfo.frequency.value=0.2; lfoGain.gain.value=2;
+        lfo.connect(lfoGain).connect(osc.frequency);
+        lfo.start(now); lfo.stop(now+3);
+
+        osc.connect(gainNode); osc.start(now); osc.stop(now+3);
+      });
+
+      // Wire graph: gain->pan->filter chain->delay->reverb->masterGain
+      gainNode.connect(pan);
+      pan.connect(filterNodeChain[0]);
+      filterNodeChain[3].connect(delayN);
+      delayN.connect(reverbNode);
+      gainNode.connect(analyser);
+    }
+
+    function scheduleNotes(scale){
+      clearInterval(bpmTimer);
+      bpmTimer=setInterval(()=>{
+        if(!stopped){
+          const f=scale[Math.floor(Math.random()*scale.length)];
+          playTone(f);
+        }
+      },60000/bpm);
+    }
+
+    function animate(){
+      if(!ctx||!analyser) return;
+      requestAnimationFrame(animate);
+      analyser.getByteTimeDomainData(dataArray);
+      ctx.fillStyle="rgba(0,0,0,0.05)"; ctx.fillRect(0,0,canvas.width,canvas.height);
+      if(trailFrames.length>12) trailFrames.shift();
+      trailFrames.push([...dataArray]);
+
+      const grad=ctx.createLinearGradient(0,0,canvas.width,0);
+      grad.addColorStop(0,currentWaveColor); grad.addColorStop(0.5,"#1e90ff"); grad.addColorStop(1,"#32cd32");
+
+      const dens=parseInt(density.value);
+      const step=Math.max(1,Math.floor(bufferLength/(dens*20)));
+      const hf=parseFloat(height.value);
+
+      trailFrames.forEach((data,t)=>{
+        ctx.beginPath();
+        let x=0, slice=canvas.width/(data.length/step);
+        for(let i=0;i<data.length;i+=step){
+          const v=(data[i]-128)/128;
+          const y=v*(canvas.height/2*0.9*hf)+canvas.height/2;
+          i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); x+=slice;
+        }
+        ctx.strokeStyle=grad; ctx.globalAlpha=0.05+(t/trailFrames.length)*0.1;
+        ctx.shadowBlur=16;ctx.shadowColor=currentWaveColor;ctx.stroke();
+        ctx.shadowBlur=0;ctx.globalAlpha=1;
+      });
+
+      // fractal feedback
+      ctx.save(); ctx.globalAlpha=fractalAlpha;
+      ctx.translate(canvas.width/2,canvas.height/2);
+      ctx.scale(fractalScale,fractalScale);
+      ctx.translate(-canvas.width/2,-canvas.height/2);
+      ctx.drawImage(canvas,0,0); ctx.restore();
+    }
+
+    // Controls
+    playBtn.addEventListener("click",()=>{
+      initAudio(); stopped=false; bpm=+bpmControl.value;
+      const val=preset.value; setFractal(val); currentWaveColor=getColor(val);
+      scheduleNotes(getScale(val));
+    });
+    stopBtn.addEventListener("click",()=>{stopped=true;clearInterval(bpmTimer);});
+    bpmControl.addEventListener("input",e=>{bpm=+e.target.value; if(!stopped) scheduleNotes(getScale(preset.value));});
+    preset.addEventListener("change",()=>{const v=preset.value; setFractal(v); currentWaveColor=getColor(v); if(!stopped) scheduleNotes(getScale(v));});
+    reverb.addEventListener("input",e=>{if(reverbFeedback)reverbFeedback.gain.value=+e.target.value;});
+    toggleDisplayBtn.addEventListener("click",()=>{infoDisplay.style.display=infoDisplay.style.display==="none"?"block":"none";});
+    setInterval(()=>{infoDisplay.textContent=
+      `PRESET:${preset.value}\nDELAY:${delay.value}\nECHO:${echo.value}\nREVERB:${reverb.value}\nFILTER:${filter.value}\nFREQ:${freq.value}\nVOLUME:${volume.value}\nBPM:${bpm}\nDENSITY:${density.value}\nHEIGHT:${height.value}`;},250);
+  </script>
+</body>
+</html>
