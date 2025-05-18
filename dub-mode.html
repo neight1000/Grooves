@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Plant Tone Generator – Glowing Waveform + Frequency Labels</title>
+  <title>Plant Tone Generator – Slowed Visualization</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     html, body {
@@ -93,6 +93,7 @@
 let audioCtx, analyser, masterGain, bufferLength, dataArray;
 let bpm = 90, bpmTimer = null, stopped = true;
 let trailFrames = [];
+let slowFrameSkip = 0;
 
 const canvas = document.getElementById('waveCanvas');
 const ctx = canvas.getContext('2d');
@@ -168,6 +169,8 @@ function scheduleBPM() {
 function animate() {
   requestAnimationFrame(animate);
   if (!analyser) return;
+
+  if (++slowFrameSkip % 1.1 > 1) return;  // ~10% slower
 
   analyser.getByteTimeDomainData(dataArray);
 
