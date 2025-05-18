@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Plant Tone Generator – Verified Working</title>
+  <title>Plant Tone Generator – Layered Oscillators</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     html, body {
@@ -67,7 +67,6 @@
   <div><label>Filter</label><input type="range" id="filter" min="200" max="4000" step="1" value="1000" /></div>
   <div><label>Frequency</label><input type="range" id="freq" min="100" max="400" step="1" value="180" /></div>
   <div><label>Volume</label><input type="range" id="volume" min="0" max="100" value="60" /></div>
-  <div><label>Particles</label><input type="range" id="particles" min="1" max="40" value="12" /></div>
   <div><label>BPM</label><input type="range" id="bpm" min="50" max="130" value="90" /></div>
   <button id="play">PLAY</button>
   <button id="stop">STOP</button>
@@ -76,7 +75,6 @@
 <script>
 let audioCtx, analyser, masterGain, bufferLength, dataArray;
 let bpm = 90, bpmTimer = null, stopped = true;
-let particles = [], currentHue = 180;
 
 const canvas = document.getElementById('waveCanvas');
 const ctx = canvas.getContext('2d');
@@ -86,42 +84,6 @@ window.addEventListener('resize', resizeCanvas);
 function resizeCanvas() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
-}
-
-class Particle {
-  constructor(x, y, hue) {
-    this.x = x;
-    this.y = y;
-    this.hue = hue;
-    this.radius = Math.random() * 20 + 2;
-    this.alpha = 1;
-    this.angle = Math.random() * 2 * Math.PI;
-    this.spin = (Math.random() - 0.5) * 0.05;
-    this.vx = (Math.random() - 0.5) * 0.3;
-    this.vy = -0.3 - Math.random() * 0.2;
-  }
-
-  update() {
-    this.angle += this.spin;
-    this.x += Math.cos(this.angle) * 0.4 + this.vx;
-    this.y += Math.sin(this.angle) * 0.2 + this.vy;
-    this.alpha -= 0.004;
-  }
-
-  draw(ctx) {
-    if (this.alpha <= 0) return;
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-    ctx.fillStyle = `hsla(${this.hue}, 100%, 65%, ${this.alpha})`;
-    ctx.shadowBlur = 8;
-    ctx.shadowColor = `hsla(${this.hue}, 100%, 75%, ${this.alpha})`;
-    ctx.fill();
-    ctx.shadowBlur = 0;
-  }
-
-  isDead() {
-    return this.alpha <= 0;
-  }
 }
 
 function initAudio() {
@@ -139,45 +101,43 @@ function initAudio() {
 
 function playTone() {
   if (!audioCtx || stopped) return;
-  const freq = parseFloat(freqSlider.value) + Math.random() * 40;
-  currentHue = 120 + Math.random() * 120;
+  const freqBase = parseFloat(freqSlider.value);
+  const freqs = [freqBase, freqBase * 1.01, freqBase * 0.985];
+  const pans = [-0.5, 0, 0.5];
 
-  const osc1 = audioCtx.createOscillator();
-  const osc2 = audioCtx.createOscillator();
-  const gainNode = audioCtx.createGain();
-  const delayNode = audioCtx.createDelay();
-  const feedbackNode = audioCtx.createGain();
-  const filterNode = audioCtx.createBiquadFilter();
-  const panner = audioCtx.createStereoPanner();
+  freqs.forEach((freq, index) => {
+    const osc = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+    const delayNode = audioCtx.createDelay();
+    const feedbackNode = audioCtx.createGain();
+    const filterNode = audioCtx.createBiquadFilter();
+    const panner = audioCtx.createStereoPanner();
 
-  osc1.type = 'sine';
-  osc2.type = 'sine';
-  osc1.frequency.value = freq;
-  osc2.frequency.value = freq * 1.01;
+    osc.type = 'sine';
+    osc.frequency.value = freq;
 
-  gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-  gainNode.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + 0.1);
-  gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1.0);
+    gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+    gainNode.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + 0.1);
+    gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1.0);
 
-  delayNode.delayTime.value = parseFloat(delay.value);
-  feedbackNode.gain.value = parseFloat(echo.value);
-  filterNode.type = "lowpass";
-  filterNode.frequency.value = parseFloat(filter.value);
+    delayNode.delayTime.value = parseFloat(delay.value);
+    feedbackNode.gain.value = parseFloat(echo.value);
+    filterNode.type = "lowpass";
+    filterNode.frequency.value = parseFloat(filter.value);
+    panner.pan.value = pans[index];
 
-  osc1.connect(gainNode);
-  osc2.connect(gainNode);
-  gainNode.connect(filterNode);
-  filterNode.connect(delayNode);
-  delayNode.connect(feedbackNode);
-  feedbackNode.connect(delayNode);
-  delayNode.connect(panner);
-  panner.connect(masterGain);
-  gainNode.connect(analyser);
+    osc.connect(gainNode);
+    gainNode.connect(filterNode);
+    filterNode.connect(delayNode);
+    delayNode.connect(feedbackNode);
+    feedbackNode.connect(delayNode);
+    delayNode.connect(panner);
+    panner.connect(masterGain);
+    gainNode.connect(analyser);
 
-  osc1.start();
-  osc2.start();
-  osc1.stop(audioCtx.currentTime + 1.0);
-  osc2.stop(audioCtx.currentTime + 1.0);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 1.0);
+  });
 }
 
 function scheduleBPM() {
@@ -200,27 +160,15 @@ function animate() {
   ctx.beginPath();
 
   const slice = canvas.width / bufferLength;
-  const threshold = 0.25;
-  const particleRate = 42 - parseInt(particlesSlider.value);
   let x = 0;
   for (let i = 0; i < bufferLength; i++) {
     const v = (dataArray[i] - 128) / 128.0;
     const y = (v * canvas.height / 0.85) + canvas.height / 2;
     if (i === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
-
-    if (i % particleRate === 0 && v > threshold) {
-      particles.push(new Particle(x, y, currentHue));
-    }
     x += slice;
   }
   ctx.stroke();
-
-  for (let i = particles.length - 1; i >= 0; i--) {
-    particles[i].update();
-    particles[i].draw(ctx);
-    if (particles[i].isDead()) particles.splice(i, 1);
-  }
 }
 
 document.getElementById('play').addEventListener('click', () => {
@@ -238,7 +186,6 @@ const echo = document.getElementById('echo');
 const filter = document.getElementById('filter');
 const volume = document.getElementById('volume');
 const freqSlider = document.getElementById('freq');
-const particlesSlider = document.getElementById('particles');
 
 document.getElementById('bpm').addEventListener('input', e => {
   bpm = parseInt(e.target.value);
