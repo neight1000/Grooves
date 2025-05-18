@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Plantasia App v6 – Working Complete Build</title>
+  <title>Plantasia App v7 – Enhanced Build</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     html, body {
@@ -69,16 +69,21 @@
   <div><label>Frequency</label><input type="range" id="freq" min="50" max="1000" step="1" value="174" /></div>
   <div><label>Volume</label><input type="range" id="volume" min="0" max="100" value="60" /></div>
   <div><label>BPM</label><input type="range" id="bpm" min="40" max="180" value="90" /></div>
+  <div><label>Reverb</label><input type="range" id="reverb" min="0" max="1" step="0.01" value="0.4" /></div>
+  <div><label>Wave Density</label><input type="range" id="waveDensity" min="1" max="30" step="1" value="12" /></div>
+  <div><label>Wave Height</label><input type="range" id="waveHeight" min="0.1" max="2.0" step="0.1" value="0.9" /></div>
+  <button id="toggleData">DATA</button>
   <button id="play">PLAY</button>
   <button id="stop">STOP</button>
 </div>
 <script>
-let audioCtx, analyser, masterGain, reverbNode, bufferLength, dataArray;
+let audioCtx, analyser, masterGain, reverbNode, reverbFeedback, bufferLength, dataArray;
 let bpm = 90, bpmTimer = null, stopped = true;
 let trailFrames = [], currentWaveColor = "#FFFFFF";
 let canvas, ctx;
 let showMessage = false;
 let messageStartTime = 0;
+let showData = false;
 
 const presetSettings = {
   plants:     { scale: [174, 285, 396, 417, 528], color: "#00FF7F" },
@@ -112,13 +117,14 @@ function initAudio() {
   masterGain.gain.value = parseFloat(document.getElementById('volume').value) / 100;
 
   reverbNode = audioCtx.createDelay();
-  const reverbFeedback = audioCtx.createGain();
+  reverbFeedback = audioCtx.createGain();
   reverbNode.delayTime.value = 0.4;
-  reverbFeedback.gain.value = 0.4;
+  reverbFeedback.gain.value = parseFloat(document.getElementById('reverb').value);
   reverbNode.connect(reverbFeedback);
   reverbFeedback.connect(reverbNode);
   reverbNode.connect(masterGain);
   masterGain.connect(audioCtx.destination);
+
   animate();
 }
 
@@ -183,10 +189,14 @@ function animate() {
   if (!ctx || !analyser) return;
   requestAnimationFrame(animate);
   analyser.getByteTimeDomainData(dataArray);
+
+  const density = parseInt(document.getElementById('waveDensity').value);
+  const heightFactor = parseFloat(document.getElementById('waveHeight').value);
+
   ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  if (trailFrames.length > 12) trailFrames.shift();
+  if (trailFrames.length > density) trailFrames.shift();
   trailFrames.push([...dataArray]);
 
   const grad = ctx.createLinearGradient(0, 0, canvas.width, 0);
@@ -195,13 +205,12 @@ function animate() {
 
   trailFrames.forEach((data, t) => {
     ctx.beginPath();
-    const slice = canvas.width / data.length;
     let x = 0;
+    const slice = canvas.width / data.length;
     data.forEach((val, i) => {
       const v = (val - 128) / 128.0;
-      const y = (v * canvas.height / 2 * 0.9) + canvas.height / 2;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
+      const y = (v * canvas.height / 2 * heightFactor) + canvas.height / 2;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
       x += slice;
     });
     const alpha = 0.05 + (t / trailFrames.length) * 0.1;
@@ -230,6 +239,28 @@ function animate() {
       ctx.restore();
     }
   }
+
+  if (showData) {
+    ctx.save();
+    ctx.globalAlpha = 0.8;
+    ctx.font = '12px monospace';
+    ctx.fillStyle = '#FFFFFF';
+    const labels = [
+      `Delay: ${document.getElementById('delay').value}s`,
+      `Echo: ${document.getElementById('echo').value}`,
+      `Filter: ${document.getElementById('filter').value}Hz`,
+      `Freq: ${document.getElementById('freq').value}Hz`,
+      `Vol: ${document.getElementById('volume').value}%`,
+      `BPM: ${bpm}`,
+      `Reverb: ${document.getElementById('reverb').value}`,
+      `Density: ${density}`,
+      `Height: ${heightFactor}`
+    ];
+    labels.forEach((txt, i) => {
+      ctx.fillText(txt, 10, 20 + i * 14);
+    });
+    ctx.restore();
+  }
 }
 
 document.getElementById('play').addEventListener('click', () => {
@@ -257,7 +288,14 @@ document.getElementById('preset').addEventListener('change', () => {
   currentWaveColor = getColorFromPreset(sel);
   if (!stopped) scheduleNotes(getScaleFromPreset(sel));
 });
+
+document.getElementById('reverb').addEventListener('input', e => {
+  reverbFeedback.gain.value = parseFloat(e.target.value);
+});
+
+document.getElementById('toggleData').addEventListener('click', () => {
+  showData = !showData;
+});
 </script>
 </body>
 </html>
-
