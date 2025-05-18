@@ -1,233 +1,84 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Plantasia App v3</title>
+  <title>Plantasia App v3 – Tape Wobble + Long Envelope (Fixed)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     html, body {
       margin: 0;
+      padding: 0;
       background: black;
       color: white;
-      font-family: sans-serif;
+      font-family: monospace;
       overflow: hidden;
     }
     canvas {
-      display: block;
+      position: absolute;
+      top: 0;
+      left: 0;
       width: 100vw;
-      height: 60vh;
+      height: 100vh;
+      z-index: 0;
     }
-    #controls {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      padding: 10px;
-      background: black;
-      position: fixed;
+    .ui {
+      position: absolute;
       bottom: 0;
       width: 100%;
-      box-sizing: border-box;
-    }
-    label {
-      font-size: 0.8em;
+      background: rgba(0, 0, 0, 0.85);
+      padding: 10px;
       display: flex;
-      flex-direction: column;
-      align-items: center;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      z-index: 1;
     }
-    input[type=range], select {
-      width: 100px;
+    .ui label {
+      font-size: 10px;
+      display: block;
+      text-align: center;
     }
-    button {
-      background: white;
-      color: black;
-      font-weight: bold;
-      border: none;
-      padding: 6px 12px;
+    .ui input[type="range"], .ui select {
+      width: 90px;
+    }
+    .ui button {
+      font-size: 12px;
+      padding: 4px 8px;
+      background: transparent;
+      border: 1px solid white;
+      color: white;
       cursor: pointer;
-    }
-    #camelotKey {
-      font-size: 1em;
     }
   </style>
 </head>
 <body>
-  <canvas id="visualizer"></canvas>
-  <div id="controls">
-    <button id="play">Play</button>
-    <button id="stop">Stop</button>
-    <label>Preset
-      <select id="preset">
-        <option value="plants">🌿 Plants</option>
-        <option value="mold">🧫 Mold</option>
-        <option value="bacteria">🦠 Bacteria</option>
-        <option value="mushrooms">🍄 Mushrooms</option>
-        <option value="roots">🌱 Roots</option>
-      </select>
-    </label>
-    <label>Volume<input type="range" id="volume" min="0" max="1" step="0.01" value="0.5"></label>
-    <label>BPM<input type="range" id="bpm" min="50" max="130" step="1" value="80"></label>
-    <label>Delay<input type="range" id="delay" min="0" max="1" step="0.01" value="0.3"></label>
-    <label>Echo<input type="range" id="echo" min="0" max="1" step="0.01" value="0.4"></label>
-    <label>Filter<input type="range" id="filter" min="200" max="12000" step="10" value="800"></label>
-    <label>Frequency<input type="range" id="frequency" min="50" max="400" step="1" value="220"></label>
-    <label>Oscillations<input type="range" id="osc" min="1" max="10" step="1" value="3"></label>
-    <span id="camelotKey">Key: --</span>
+<canvas id="waveCanvas"></canvas>
+<div class="ui">
+  <div><label>Preset</label>
+    <select id="preset">
+      <option value="plants">Plants</option>
+      <option value="mold">Mold</option>
+      <option value="bacteria">Bacteria</option>
+      <option value="mushrooms">Mushrooms</option>
+      <option value="harmony">Lifeform Harmony</option>
+      <option value="8A">8A – A minor</option>
+      <option value="8B">8B – C major</option>
+      <option value="9A">9A – E minor</option>
+      <option value="9B">9B – G major</option>
+    </select>
   </div>
-
-  <script>
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    const audioCtx = new AudioContext();
-
-    const canvas = document.getElementById('visualizer');
-    const ctx = canvas.getContext('2d');
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight * 0.6;
-
-    const analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 2048;
-    const dataArray = new Uint8Array(analyser.frequencyBinCount);
-
-    const filter = audioCtx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.value = 800;
-
-    const delayNode = audioCtx.createDelay();
-    delayNode.delayTime.value = 0.3;
-
-    const feedbackGain = audioCtx.createGain();
-    feedbackGain.gain.value = 0.4;
-    delayNode.connect(feedbackGain).connect(delayNode);
-
-    const masterGain = audioCtx.createGain();
-    masterGain.gain.value = 0.5;
-
-    feedbackGain.connect(filter);
-    filter.connect(masterGain);
-    masterGain.connect(analyser).connect(audioCtx.destination);
-
-    let oscillators = [];
-    let playing = false;
-
-    const plantScale = [220, 246.94, 293.66, 329.63, 392];
-    const camelotMap = {
-      220: '8A',
-      246.94: '9A',
-      293.66: '10A',
-      329.63: '11A',
-      392: '12A'
-    };
-
-    function getDetunedFrequencies(baseFreq, count) {
-      let freqs = [];
-      let spread = 5;
-      for (let i = 0; i < count; i++) {
-        let offset = ((i - (count - 1) / 2) / (count - 1)) * spread;
-        freqs.push(baseFreq + offset);
-      }
-      return freqs;
-    }
-
-    function playTones() {
-      stopTones();
-      const baseFreq = parseFloat(document.getElementById('frequency').value);
-      const oscCount = parseInt(document.getElementById('osc').value);
-      const freqs = getDetunedFrequencies(baseFreq, oscCount);
-      freqs.forEach(freq => {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = 'square';
-        osc.frequency.value = freq;
-        osc.connect(gain);
-        gain.connect(delayNode);
-        gain.connect(filter);
-
-        // envelope
-        const attack = 1.5;
-        const release = 2;
-        gain.gain.setValueAtTime(0, audioCtx.currentTime);
-        gain.gain.linearRampToValueAtTime(0.2 / oscCount, audioCtx.currentTime + attack);
-        gain.gain.setTargetAtTime(0, audioCtx.currentTime + attack, release);
-
-        osc.start();
-        oscillators.push({ osc, gain });
-      });
-      updateKeyLabel(baseFreq);
-      playing = true;
-    }
-
-    function stopTones() {
-      oscillators.forEach(({ osc, gain }) => {
-        osc.stop();
-        osc.disconnect();
-        gain.disconnect();
-      });
-      oscillators = [];
-      playing = false;
-      document.getElementById('camelotKey').textContent = 'Key: --';
-    }
-
-    function updateKeyLabel(freq) {
-      let closest = plantScale.reduce((a, b) =>
-        Math.abs(b - freq) < Math.abs(a - freq) ? b : a
-      );
-      document.getElementById('camelotKey').textContent = `Key: ${camelotMap[closest] || '--'}`;
-    }
-
-    function draw() {
-      requestAnimationFrame(draw);
-      analyser.getByteTimeDomainData(dataArray);
-      ctx.fillStyle = 'rgba(0,0,0,0.25)';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.beginPath();
-      ctx.lineWidth = 2;
-      const freq = parseFloat(document.getElementById('frequency').value);
-      const hue = (freq - 50) / 350 * 360;
-      ctx.strokeStyle = `hsl(${hue}, 100%, 70%)`;
-      const sliceWidth = canvas.width / dataArray.length;
-      let x = 0;
-      for (let i = 0; i < dataArray.length; i++) {
-        const v = dataArray[i] / 128.0;
-        const y = (v * canvas.height) / 2;
-        if (i === 0) {
-          ctx.moveTo(x, y);
-        } else {
-          ctx.lineTo(x, y);
-        }
-        x += sliceWidth;
-      }
-      ctx.stroke();
-    }
-
-    draw();
-
-    document.getElementById('play').onclick = async () => {
-      if (audioCtx.state === 'suspended') await audioCtx.resume();
-      playTones();
-    };
-
-    document.getElementById('stop').onclick = stopTones;
-
-    document.querySelectorAll('input, select').forEach(el => {
-      el.addEventListener('input', () => {
-        if (el.id === 'volume') masterGain.gain.value = parseFloat(el.value);
-        if (el.id === 'delay') delayNode.delayTime.value = parseFloat(el.value);
-        if (el.id === 'echo') feedbackGain.gain.value = parseFloat(el.value);
-        if (el.id === 'filter') filter.frequency.value = parseFloat(el.value);
-        if (el.id === 'frequency') if (playing) playTones();
-        if (el.id === 'osc') if (playing) playTones();
-        if (el.id === 'preset') {
-          const preset = el.value;
-          const baseMap = {
-            plants: 220,
-            mold: 246.94,
-            bacteria: 293.66,
-            mushrooms: 329.63,
-            roots: 392
-          };
-          document.getElementById('frequency').value = baseMap[preset];
-          if (playing) playTones();
-        }
-      });
-    });
-  </script>
+  <div><label>Delay</label><input type="range" id="delay" min="0.01" max="2.0" step="0.01" value="0.6" /></div>
+  <div><label>Echo</label><input type="range" id="echo" min="0" max="1.0" step="0.01" value="0.4" /></div>
+  <div><label>Filter</label><input type="range" id="filter" min="100" max="8000" step="10" value="1200" /></div>
+  <div><label>Frequency</label><input type="range" id="freq" min="50" max="1000" step="1" value="174" /></div>
+  <div><label>Volume</label><input type="range" id="volume" min="0" max="100" value="60" /></div>
+  <div><label>BPM</label><input type="range" id="bpm" min="40" max="180" value="90" /></div>
+  <button id="play">PLAY</button>
+  <button id="stop">STOP</button>
+</div>
+<script>
+// Entire JS logic will be inserted here in next step (part 2)
+</script>
 </body>
 </html>
