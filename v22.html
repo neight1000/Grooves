@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Modern Plantasia App v36</title>
+  <title>Modern Plantasia App v37</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap');
 
@@ -26,20 +26,16 @@
       color: var(--fg);
     }
     #uiPanel {
-      position: absolute;
-      top: 1rem; right: 1rem;
-      display: flex; gap: 0.5rem;
-      z-index: 3;
+      position: absolute; top: 1rem; right: 1rem;
+      display: flex; gap: 0.5rem; z-index: 3;
     }
     button, select, input[type="range"] {
       background: transparent;
       color: var(--fg);
       border: 1px solid var(--fg);
-      border-radius: 0;
       padding: 0.5rem 1rem;
       font-size: 0.9rem;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
       font-family: var(--font);
     }
     button:hover {
@@ -56,56 +52,34 @@
     label {
       font-size: 0.75rem;
       text-transform: uppercase;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.25rem;
-      color: var(--fg);
-      font-family: var(--font);
+      display: flex; flex-direction: column;
+      align-items: center; gap: 0.25rem;
     }
     #controlsWrapper {
-      position: absolute;
-      bottom: 1rem; left: 50%;
+      position: absolute; bottom: 1rem; left: 50%;
       transform: translateX(-50%);
-      display: none;
-      flex-direction: row;
-      gap: 1rem;
-      background: rgba(0,0,0,0.85);
-      padding: 0.5rem;
-      z-index: 3;
+      display: none; flex-direction: row;
+      gap: 1rem; background: rgba(0,0,0,0.85);
+      padding: 0.5rem; z-index: 3;
     }
     .controls {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
+      display: flex; flex-wrap: wrap; gap: 0.5rem;
     }
     #infoDisplay {
-      position: absolute;
-      top: 1rem; left: 1rem;
+      position: absolute; top: 1rem; left: 1rem;
       background: rgba(0,0,0,0.6);
-      color: var(--fg);
-      font-family: var(--font);
-      font-size: 0.9rem;
-      padding: 0.5rem;
-      white-space: pre;
-      display: none;
-      z-index: 3;
+      padding: 0.5rem; white-space: pre;
+      display: none; z-index: 3;
     }
     #visualizer {
-      position: absolute;
-      top: 0; left: 0;
+      position: absolute; top: 0; left: 0;
       width: 100vw; height: 100vh;
-      background: var(--bg);
-      z-index: 1;
+      background: var(--bg); z-index: 1;
     }
     .footer {
-      position: absolute;
-      bottom: 0.5rem;
-      width: 100%;
-      text-align: center;
-      font-size: 0.75rem;
-      color: #888;
-      z-index: 3;
+      position: absolute; bottom: 0.5rem;
+      width: 100%; text-align: center;
+      font-size: 0.75rem; color: #888; z-index: 3;
     }
   </style>
 </head>
@@ -202,8 +176,7 @@
     function playTone(freqVal){
       const now = audioCtx.currentTime;
       masterGain.gain = parseFloat(wetDryCtrl.value);
-      const filterNode = audioCtx.createBiquadFilter();
-      filterNode.type = 'lowpass'; filterNode.frequency.value = parseFloat(filterCtrl.value);
+      const filterNode = audioCtx.createBiquadFilter(); filterNode.type = 'lowpass'; filterNode.frequency.value = parseFloat(filterCtrl.value);
       const delayNode = audioCtx.createDelay(); delayNode.delayTime = parseFloat(delayCtrl.value);
       const echoGain = audioCtx.createGain(); echoGain.gain = parseFloat(echoCtrl.value);
       delayNode.connect(echoGain).connect(masterGain);
@@ -211,19 +184,15 @@
       const reverbGain = audioCtx.createGain(); reverbGain.gain = parseFloat(reverbCtrl.value);
       filterNode.connect(reverbNode).connect(reverbGain).connect(masterGain);
       const detunes = [-10,-5,0,5,10];
-      const ampFactor = 0.85;  // reduce amplitude by 15%
-      const effDensity = parseFloat(densityCtrl.value) * 0.85;
-      const step = Math.max(1, Math.floor(bufferLength/(effDensity*20)));
-      const slice = canvas.width/(bufferLength/step);
+      const ampFactor = 0.85;
       detunes.forEach(off => {
-        const osc = audioCtx.createOscillator(); osc.type='square';
-        osc.frequency.setValueAtTime(freqVal, now);
-        osc.detune.setValueAtTime(off, now);
+        const osc = audioCtx.createOscillator(); osc.type = 'square';
+        osc.frequency.setValueAtTime(freqVal, now); osc.detune.setValueAtTime(off, now);
         chorusGain.connect(osc.detune);
         const env = audioCtx.createGain(); env.gain.setValueAtTime(0, now);
-        env.gain.linearRampToValueAtTime(0.2, now+0.3);
+        env.gain.linearRampToValueAtTime(0.2*ampFactor, now+0.3);
         env.gain.linearRampToValueAtTime(0, now+3);
-        const pan = audioCtx.createStereoPanner(); pan.pan.value = off/10;
+        const pan = audioCtx.createStereoPanner(); pan.pan = off/10;
         osc.connect(env).connect(pan).connect(filterNode);
         env.connect(analyser);
         osc.start(now); osc.stop(now+3);
@@ -241,38 +210,54 @@
       requestAnimationFrame(animate);
       analyser.getByteTimeDomainData(dataArray);
       ctx.fillStyle = 'rgba(0,0,0,0.02)'; ctx.fillRect(0,0,canvas.width,canvas.height);
-      if(trailFrames.length>12) trailFrames.shift(); trailFrames.push([...dataArray]);
-      ctx.strokeStyle = getColor();
-      const ampFactor = 0.85;
-      const effDensity = parseFloat(densityCtrl.value)*0.85;
-      const step = Math.max(1, Math.floor(bufferLength/(effDensity*20)));
+
+      if(trailFrames.length > 12) trailFrames.shift();
+      trailFrames.push([...dataArray]);
+
+      const grad = ctx.createLinearGradient(0,0,canvas.width,0);
+      grad.addColorStop(0, getColor());
+      grad.addColorStop(1, getColor());
+
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+
       let x;
-      trailFrames.forEach((data,t)=>{
+      const ampFactor = 0.85, effDensity = parseFloat(densityCtrl.value)*0.85;
+      const step = Math.max(1, Math.floor(bufferLength/(effDensity*20)));
+      ctx.strokeStyle = grad;
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = getColor();
+
+      trailFrames.forEach((data,t) => {
         ctx.beginPath(); x = 0;
         for(let i=0; i<data.length; i+=step){
-          const y = ((data[i]-128)/128) * (canvas.height/2*0.9*ampFactor) + canvas.height/2;
-          i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+          const v = (data[i]-128)/128;
+          const y = v * (canvas.height/2*0.9*ampFactor) + canvas.height/2;
+          i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
           x += canvas.width/(bufferLength/step);
         }
         ctx.globalAlpha = 0.05 + (t/trailFrames.length)*0.1;
-        ctx.stroke(); ctx.globalAlpha = 1;
+        ctx.stroke();
       });
+
+      ctx.globalAlpha = 1;
+      ctx.shadowBlur = 0;
     }
 
-    playBtn.onclick=()=>{
-      initAudio(); stopped=false; playTone(getScale()[0]); scheduleNotes();
+    playBtn.onclick = ()=>{
+      initAudio(); stopped = false; playTone(getScale()[0]); scheduleNotes();
     };
-    stopBtn.onclick=()=>{
-      stopped=true; clearInterval(bpmTimer);
+    stopBtn.onclick = ()=>{
+      stopped = true; clearInterval(bpmTimer);
     };
-    bpmCtrl.oninput=scheduleNotes;
-    chorusDepthCtrl.oninput=()=>{ chorusGain.gain = parseFloat(chorusDepthCtrl.value); };
-    toggleUI.onclick=()=>{
+    bpmCtrl.oninput = scheduleNotes;
+    chorusDepthCtrl.oninput = ()=>{ chorusGain.gain = parseFloat(chorusDepthCtrl.value); };
+    toggleUI.onclick = ()=>{
       const vis = controlsWrapper.style.display !== 'flex';
       controlsWrapper.style.display = vis ? 'flex' : 'none';
       toggleUI.textContent = vis ? 'Hide Controls' : 'Show Controls';
     };
-    toggleDisplay.onclick=()=>{
+    toggleDisplay.onclick = ()=>{
       const vis = infoDisplay.style.display !== 'block';
       infoDisplay.style.display = vis ? 'block' : 'none';
       toggleDisplay.textContent = vis ? 'Hide Data' : 'Show Data';
