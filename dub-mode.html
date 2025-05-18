@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Plant Tone Enhanced</title>
+  <title>Plant Harmonic Synth Enhanced</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     html, body {
@@ -52,6 +52,14 @@
       text-align: center;
       width: 100%;
     }
+    #touchpad {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      border: 1px solid white;
+      touch-action: none;
+      z-index: 1;
+    }
   </style>
 </head>
 <body>
@@ -62,19 +70,22 @@
   <div><label>Feedback</label><input type="range" id="feedback" min="0" max="0.95" step="0.01" value="0.7"></div>
   <div><label>Filter</label><input type="range" id="filter" min="200" max="4000" step="1" value="1000"></div>
   <div><label>Volume</label><input type="range" id="volume" min="0" max="100" value="60"></div>
-  <div><label>Particles</label><input type="range" id="particles" min="1" max="24" value="8"></div>
+  <div><label>Particles</label><input type="range" id="particles" min="4" max="40" value="10"></div>
   <button id="play">PLAY</button>
   <button id="stop">STOP</button>
   <button id="tap">TAP TEMPO</button>
+  <button id="record">RECORD</button>
+  <button id="download" disabled>DOWNLOAD</button>
   <div class="bpm" id="bpmDisplay">BPM: --</div>
 </div>
 
+<canvas id="touchpad" width="200" height="200"></canvas>
 <script>
 const scale = [125.0, 140.3, 157.7, 187.8, 210.6];
 let audioCtx, analyser, masterGain, bufferLength, dataArray;
 let bpm = 90, tapTimes = [], bpmTimer = null, stopped = true;
 let particles = [], currentHue = 120, lfo, lfoGain;
-let impulse = null;
+let mediaRecorder, recordedChunks = [];
 
 const canvas = document.getElementById('waveCanvas');
 const ctx = canvas.getContext('2d');
@@ -103,23 +114,22 @@ class Particle {
     if (this.alpha <= 0) return;
     ctx.beginPath();
     ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-    ctx.fillStyle = `hsla(${currentHue}, 100%, 50%, ${this.alpha})`;
+    ctx.fillStyle = `hsla(${currentHue}, 100%, 60%, ${this.alpha})`;
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = `hsla(${currentHue}, 100%, 70%, ${this.alpha})`;
     ctx.fill();
+    ctx.shadowBlur = 0;
   }
   isDead() {
     return this.alpha <= 0;
   }
-}
-
-function frequencyToHue(freq) {
+}function frequencyToHue(freq) {
   return Math.floor(((freq - 60) / (1000 - 60)) * 360);
 }
 
 function initAudio() {
   if (audioCtx) return;
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-  // create master chain
   analyser = audioCtx.createAnalyser();
   analyser.fftSize = 2048;
   bufferLength = analyser.frequencyBinCount;
@@ -128,20 +138,20 @@ function initAudio() {
   masterGain.connect(audioCtx.destination);
   masterGain.gain.value = parseFloat(volume.value) / 100;
 
-  // LFO for filter modulation
+  // LFO
   lfo = audioCtx.createOscillator();
   lfo.frequency.value = 0.05;
   lfoGain = audioCtx.createGain();
-  lfoGain.gain.value = 1000;
+  lfoGain.gain.value = 800;
   lfo.connect(lfoGain);
   lfo.start();
 
   animate();
 }
 
-function playTone() {
+function playTone(freqOverride = null, filterOverride = null) {
   if (!audioCtx || stopped) return;
-  const freq = scale[Math.floor(Math.random() * scale.length)];
+  const freq = freqOverride || scale[Math.floor(Math.random() * scale.length)];
   const duration = 1;
   currentHue = frequencyToHue(freq);
 
@@ -152,13 +162,11 @@ function playTone() {
   const feedbackNode = audioCtx.createGain();
   const filterNode = audioCtx.createBiquadFilter();
   const panner = audioCtx.createStereoPanner();
-  const reverb = audioCtx.createConvolver();
 
-  // Osc settings
   osc1.type = 'sine';
-  osc1.frequency.setValueAtTime(freq, audioCtx.currentTime);
   osc2.type = 'sine';
-  osc2.frequency.setValueAtTime(freq * 1.01, audioCtx.currentTime);
+  osc1.frequency.value = freq;
+  osc2.frequency.value = freq * 1.01;
 
   gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
   gainNode.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + 0.1);
@@ -167,13 +175,11 @@ function playTone() {
   delayNode.delayTime.value = parseFloat(delay.value);
   feedbackNode.gain.value = parseFloat(feedback.value);
   filterNode.type = "lowpass";
-  filterNode.frequency.value = parseFloat(filter.value);
+  filterNode.frequency.value = filterOverride || parseFloat(filter.value);
 
-  // Modulate filter with LFO
   lfoGain.connect(filterNode.frequency);
   panner.pan.value = Math.random() * 2 - 1;
 
-  // Connect chain
   osc1.connect(gainNode);
   osc2.connect(gainNode);
   gainNode.connect(filterNode);
@@ -181,8 +187,7 @@ function playTone() {
   delayNode.connect(feedbackNode);
   feedbackNode.connect(delayNode);
   delayNode.connect(panner);
-  panner.connect(reverb);
-  reverb.connect(masterGain);
+  panner.connect(masterGain);
   gainNode.connect(analyser);
 
   osc1.start();
@@ -217,10 +222,11 @@ function animate() {
   let x = 0;
   for (let i = 0; i < bufferLength; i++) {
     const v = (dataArray[i] - 128) / 128.0;
-    const y = (v * canvas.height / 0.9) + canvas.height / 2;
+    const y = (v * canvas.height / 0.85) + canvas.height / 2;
     if (i === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
-    if (i % parseInt(document.getElementById('particles').value) === 0 && Math.abs(v) > 0.1) {
+
+    if (i % parseInt(document.getElementById('particles').value) === 0 && v > 0.25) {
       particles.push(new Particle(x, y));
     }
     x += slice;
@@ -233,10 +239,6 @@ function animate() {
     if (particles[i].isDead()) particles.splice(i, 1);
   }
 }
-
-document.getElementById('volume').addEventListener('input', () => {
-  if (masterGain) masterGain.gain.value = parseFloat(volume.value) / 100;
-});
 
 document.getElementById('play').addEventListener('click', () => {
   initAudio();
@@ -262,6 +264,51 @@ document.getElementById('tap').addEventListener('click', () => {
     scheduleBPM();
   }
 });
+
+document.getElementById('volume').addEventListener('input', () => {
+  if (masterGain) masterGain.gain.value = parseFloat(volume.value) / 100;
+});
+
+document.getElementById('record').addEventListener('click', () => {
+  if (!mediaRecorder || mediaRecorder.state === "inactive") {
+    const dest = audioCtx.createMediaStreamDestination();
+    masterGain.connect(dest);
+    mediaRecorder = new MediaRecorder(dest.stream);
+    mediaRecorder.ondataavailable = e => recordedChunks.push(e.data);
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "plant-tone-recording.webm";
+      a.click();
+      document.getElementById("download").disabled = false;
+    };
+    recordedChunks = [];
+    mediaRecorder.start();
+    document.getElementById("record").textContent = "STOP";
+  } else {
+    mediaRecorder.stop();
+    document.getElementById("record").textContent = "RECORD";
+  }
+});
+
+// Touchpad Tone Control
+const touchpad = document.getElementById("touchpad");
+const tctx = touchpad.getContext("2d");
+
+touchpad.addEventListener("pointerdown", handleTouch);
+touchpad.addEventListener("pointermove", e => { if (e.buttons) handleTouch(e); });
+
+function handleTouch(e) {
+  const rect = touchpad.getBoundingClientRect();
+  const x = (e.clientX - rect.left) / rect.width;
+  const y = (e.clientY - rect.top) / rect.height;
+
+  const freq = scale[0] + x * (scale[scale.length - 1] - scale[0]);
+  const filterFreq = 200 + y * 3800;
+  playTone(freq, filterFreq);
+}
 </script>
 </body>
 </html>
