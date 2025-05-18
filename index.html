@@ -2,16 +2,20 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Ambient Plant Tone Generator</title>
+  <title>AMBIENT PLANT INTERFACE</title>
   <style>
     html, body {
       margin: 0;
       padding: 0;
       background: #000;
-      color: #b5fcb5;
-      font-family: sans-serif;
+      color: #FFF;
+      font-family: "Courier New", monospace;
       height: 100%;
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
       touch-action: manipulation;
     }
     canvas {
@@ -19,59 +23,116 @@
       top: 0;
       left: 0;
       z-index: 0;
+      width: 100%;
+      height: 100%;
     }
     .overlay {
       position: relative;
       z-index: 1;
       text-align: center;
       padding: 2rem;
+      max-width: 90%;
     }
     h1 {
-      font-size: 1.5em;
+      font-size: 2em;
       margin-bottom: 0.5em;
+      letter-spacing: 0.1em;
     }
-    #status {
-      font-size: 1em;
+    p, #status, label {
+      color: #FFF;
       margin-top: 0.5em;
-      color: #afffaf;
+      font-size: 0.9em;
+    }
+    #volume-container {
+      margin-top: 1em;
+    }
+    input[type="range"] {
+      width: 70%;
+      margin-top: 0.5em;
+    }
+    .button {
+      border: 2px solid #FFF;
+      background: transparent;
+      color: #FFF;
+      font-family: "Courier New", monospace;
+      font-size: 0.9em;
+      padding: 10px 20px;
+      margin-top: 1.5em;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+    .button:hover {
+      background: #222;
     }
   </style>
 </head>
 <body>
   <canvas id="waveCanvas"></canvas>
   <div class="overlay">
-    <h1>Ambient Plant Tone Generator</h1>
-    <p>Tap or click to start. Generates soft random tones in plant-friendly frequencies (100–500 Hz).</p>
-    <div id="status">Waiting to start...</div>
+    <h1>AMBIENT PLANT INTERFACE</h1>
+    <p>Tap or click to activate ambient tone environment.</p>
+    <div id="status">Status: Idle</div>
+    <div id="volume-container">
+      <label for="volume">Volume: <span id="vol-label">50%</span></label><br>
+      <input type="range" id="volume" min="0" max="100" value="50">
+    </div>
+    <button class="button" onclick="stopAudio()">STOP</button>
   </div>
 
   <script>
     const waveforms = ['sine', 'triangle', 'square', 'sawtooth'];
-    const status = document.getElementById('status');
     const canvas = document.getElementById('waveCanvas');
     const ctx2d = canvas.getContext('2d');
-    resizeCanvas();
+    const status = document.getElementById('status');
+    const volSlider = document.getElementById('volume');
+    const volLabel = document.getElementById('vol-label');
 
-    window.addEventListener('resize', resizeCanvas);
+    let audioCtx, analyser, masterGain;
+    let bufferLength, dataArray;
+    let stopped = false;
 
     function resizeCanvas() {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
     }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
 
-    let audioCtx, analyser, dataArray, bufferLength;
+    function setMasterVolume(percent) {
+      if (masterGain) {
+        const linear = percent / 100;
+        masterGain.gain.setValueAtTime(linear, audioCtx.currentTime);
+      }
+    }
+
+    volSlider.addEventListener('input', () => {
+      volLabel.textContent = `${volSlider.value}%`;
+      setMasterVolume(volSlider.value);
+    });
 
     function playAmbientTone() {
+      if (stopped) return;
+
       const oscillator = audioCtx.createOscillator();
       const gainNode = audioCtx.createGain();
+      const delay = audioCtx.createDelay();
+      const feedback = audioCtx.createGain();
+      const filter = audioCtx.createBiquadFilter();
 
       const freq = 100 + Math.random() * 400;
       const wave = waveforms[Math.floor(Math.random() * waveforms.length)];
       const duration = 1 + Math.random() * 2;
-      const peakVol = 0.05 + Math.random() * 0.1;
+      const peakVol = 0.1 + Math.random() * 0.2;
 
       oscillator.type = wave;
       oscillator.frequency.setValueAtTime(freq, audioCtx.currentTime);
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(1200, audioCtx.currentTime);
+
+      delay.delayTime.value = 0.3;
+      feedback.gain.value = 0.4;
+      delay.connect(feedback);
+      feedback.connect(delay);
 
       const now = audioCtx.currentTime;
       gainNode.gain.setValueAtTime(0, now);
@@ -81,51 +142,40 @@
       status.textContent = `Waveform: ${wave}, Frequency: ${freq.toFixed(1)} Hz, Volume: ${peakVol.toFixed(3)}`;
 
       oscillator.connect(gainNode);
-      gainNode.connect(analyser);
-      analyser.connect(audioCtx.destination);
+      gainNode.connect(filter);
+      filter.connect(delay);
+      delay.connect(masterGain);
+      gainNode.connect(analyser); // visualizer
 
       oscillator.start(now);
       oscillator.stop(now + duration);
     }
 
     function scheduleTones() {
+      if (stopped) return;
       playAmbientTone();
       const interval = 800 + Math.random() * 1200;
       setTimeout(scheduleTones, interval);
     }
 
-    function initAudio() {
-      if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 2048;
-        bufferLength = analyser.frequencyBinCount;
-        dataArray = new Uint8Array(bufferLength);
-
-        status.textContent = 'Generating tones...';
-        scheduleTones();
-        animateWaveform();
-      }
-    }
-
     function animateWaveform() {
       requestAnimationFrame(animateWaveform);
-      analyser.getByteTimeDomainData(dataArray);
+      if (!analyser) return;
 
+      analyser.getByteTimeDomainData(dataArray);
       ctx2d.fillStyle = "#000";
       ctx2d.fillRect(0, 0, canvas.width, canvas.height);
 
-      ctx2d.lineWidth = 2;
+      ctx2d.lineWidth = 3;
       ctx2d.strokeStyle = "#FFF";
       ctx2d.beginPath();
 
-      const sliceWidth = canvas.width * 1.0 / bufferLength;
+      const sliceWidth = canvas.width / bufferLength;
       let x = 0;
 
       for (let i = 0; i < bufferLength; i++) {
         const v = dataArray[i] / 128.0;
         const y = v * canvas.height / 2;
-
         if (i === 0) {
           ctx2d.moveTo(x, y);
         } else {
@@ -136,6 +186,32 @@
 
       ctx2d.lineTo(canvas.width, canvas.height / 2);
       ctx2d.stroke();
+    }
+
+    function initAudio() {
+      if (audioCtx) return;
+
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 2048;
+      bufferLength = analyser.frequencyBinCount;
+      dataArray = new Uint8Array(bufferLength);
+
+      masterGain = audioCtx.createGain();
+      setMasterVolume(volSlider.value);
+
+      stopped = false;
+      scheduleTones();
+      animateWaveform();
+      status.textContent = 'Generating tones...';
+    }
+
+    function stopAudio() {
+      stopped = true;
+      status.textContent = 'Stopped';
+      if (audioCtx) {
+        masterGain.gain.setValueAtTime(0, audioCtx.currentTime);
+      }
     }
 
     document.body.addEventListener('click', initAudio, { once: true });
