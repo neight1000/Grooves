@@ -1,8 +1,11 @@
+////woking version v3
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Plantasia App v3 – Full Working Build with Data Display</title>
+  <title>Plantasia App v3 – Working Complete Build</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     html, body {
@@ -31,7 +34,7 @@
       flex-wrap: wrap;
       justify-content: center;
       gap: 10px;
-      z-index: 2;
+      z-index: 1;
     }
     .ui label {
       font-size: 10px;
@@ -49,23 +52,10 @@
       color: white;
       cursor: pointer;
     }
-    #infoDisplay {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      z-index: 3;
-      background: rgba(0, 0, 0, 0.6);
-      color: white;
-      font-size: 12px;
-      padding: 10px;
-      display: none;
-      white-space: pre;
-    }
   </style>
 </head>
 <body>
 <canvas id="waveCanvas"></canvas>
-<div id="infoDisplay"></div>
 <div class="ui">
   <div><label>Preset</label>
     <select id="preset">
@@ -84,13 +74,11 @@
   <div><label>BPM</label><input type="range" id="bpm" min="40" max="180" value="90" /></div>
   <button id="play">PLAY</button>
   <button id="stop">STOP</button>
-  <button id="toggleDisplay">TOGGLE DATA</button>
 </div>
 <script>
-// Core Setup
 let audioCtx, analyser, masterGain, reverbNode, bufferLength, dataArray;
 let bpm = 90, bpmTimer = null, stopped = true;
-let trailFrames = [], currentWaveColor = "#00FF7F";
+let trailFrames = [], currentWaveColor = "#FFFFFF";
 let canvas, ctx;
 
 const presetSettings = {
@@ -148,20 +136,29 @@ function playTone(freq) {
 
   const gainNode = audioCtx.createGain();
   gainNode.gain.setValueAtTime(0, now);
-  gainNode.gain.linearRampToValueAtTime(0.3, now + 0.3);
-  gainNode.gain.linearRampToValueAtTime(0.0, now + 3.0);
+  gainNode.gain.linearRampToValueAtTime(0.4, now + 1.0);
+  gainNode.gain.linearRampToValueAtTime(0.0, now + 4.5);
 
   const panNode = audioCtx.createStereoPanner();
   panNode.pan.value = Math.random() * 2 - 1;
 
-  const detuneOffsets = [-0.5, 0, 0.5];
-  detuneOffsets.forEach(offset => {
+  const detuneAmounts = [-0.5, 0, 0.5];
+  detuneAmounts.forEach(offset => {
     const o = audioCtx.createOscillator();
     o.type = "square";
     o.frequency.value = freq * (1 + offset / 100);
+
+    const pitchLFO = audioCtx.createOscillator();
+    const pitchLFOGain = audioCtx.createGain();
+    pitchLFO.frequency.value = 0.2 + Math.random() * 0.3;
+    pitchLFOGain.gain.value = 2 + Math.random() * 2;
+    pitchLFO.connect(pitchLFOGain).connect(o.frequency);
+    pitchLFO.start(now);
+    pitchLFO.stop(now + 4.5);
+
     o.connect(gainNode);
     o.start(now);
-    o.stop(now + 3.0);
+    o.stop(now + 4.5);
   });
 
   gainNode.connect(panNode);
@@ -247,23 +244,6 @@ document.getElementById('preset').addEventListener('change', () => {
     scheduleNotes(getScaleFromPreset(selected));
   }
 });
-
-// Display Toggle
-const display = document.getElementById("infoDisplay");
-document.getElementById("toggleDisplay").addEventListener("click", () => {
-  display.style.display = display.style.display === "none" ? "block" : "none";
-});
-function updateDisplay() {
-  display.textContent =
-    "PRESET     : " + document.getElementById("preset").value + "\n" +
-    "DELAY      : " + document.getElementById("delay").value + "\n" +
-    "ECHO       : " + document.getElementById("echo").value + "\n" +
-    "FILTER     : " + document.getElementById("filter").value + "\n" +
-    "FREQUENCY  : " + document.getElementById("freq").value + "\n" +
-    "VOLUME     : " + document.getElementById("volume").value + "\n" +
-    "BPM        : " + document.getElementById("bpm").value;
-}
-setInterval(updateDisplay, 250);
 </script>
 </body>
 </html>
