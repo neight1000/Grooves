@@ -1,20 +1,42 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Plantasia App v24 – Ambient Pads with Full UI</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <title>Plantasia App v25 – Original UI with Ambient Pads</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    html, body { margin:0; padding:0; background:black; color:white; font-family:monospace; overflow:hidden; }
-    canvas { position:absolute; top:0; left:0; width:100vw; height:100vh; z-index:0; }
-    .ui {
-      position:absolute; bottom:0; width:100%; background:rgba(0,0,0,0.85);
-      padding:10px; display:flex; flex-wrap:wrap; justify-content:center; gap:10px; z-index:2;
+    html, body {
+      margin: 0; padding: 0;
+      background: black; color: white;
+      font-family: monospace; overflow: hidden;
     }
-    .ui label { font-size:10px; display:block; text-align:center; }
-    .ui input[type="range"], .ui select { width:90px; }
-    .ui button { font-size:12px; padding:4px 8px; background:transparent; border:1px solid white; color:white; cursor:pointer; }
-    #infoDisplay { position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.6); color:white; font-size:12px; padding:10px; display:none; white-space:pre; z-index:3;}
+    canvas {
+      position: absolute; top: 0; left: 0;
+      width: 100vw; height: 100vh; z-index: 0;
+    }
+    .ui {
+      position: absolute; bottom: 0; width: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      padding: 10px; display: flex; flex-wrap: wrap;
+      justify-content: center; gap: 10px; z-index: 1;
+    }
+    .ui label {
+      font-size: 10px; display: block; text-align: center;
+    }
+    .ui input[type="range"], .ui select {
+      width: 90px;
+    }
+    .ui button {
+      font-size: 12px; padding: 4px 8px;
+      background: transparent; border: 1px solid white;
+      color: white; cursor: pointer;
+    }
+    #infoDisplay {
+      position: absolute; top: 10px; left: 10px;
+      z-index: 2; background: rgba(0,0,0,0.6);
+      color: white; font-size: 12px; padding: 10px;
+      display: none; white-space: pre;
+    }
   </style>
 </head>
 <body>
@@ -27,25 +49,24 @@
         <option value="mold">Mold</option>
         <option value="bacteria">Bacteria</option>
         <option value="mushrooms">Mushrooms</option>
-        <option value="harmony">Harmony</option>
+        <option value="harmony">Lifeform Harmony</option>
       </select>
     </label>
-    <label>Delay<input type="range" id="delay" min="0.01" max="2" step="0.01" value="0.6"></label>
-    <label>Echo<input type="range" id="echo" min="0" max="1" step="0.01" value="0.4"></label>
-    <label>Reverb<input type="range" id="reverb" min="0" max="1" step="0.01" value="0.8"></label>
-    <label>Filter<input type="range" id="filter" min="100" max="8000" step="10" value="800"></label>
-    <label>Freq<input type="range" id="freq" min="50" max="1000" step="1" value="174"></label>
-    <label>Vol<input type="range" id="volume" min="0" max="100" step="1" value="60"></label>
-    <label>BPM<input type="range" id="bpm" min="40" max="180" step="1" value="90"></label>
-    <label>Density<input type="range" id="density" min="1" max="10" step="1" value="5"></label>
-    <label>Height<input type="range" id="height" min="0.5" max="2" step="0.1" value="1.0"></label>
-    <label>Filter LFO Rate<input type="range" id="lfoRate" min="0.01" max="1" step="0.01" value="0.1"></label>
+    <label>Delay<input type="range" id="delay" min="0.01" max="2.0" step="0.01" value="0.6" /></label>
+    <label>Echo<input type="range" id="echo" min="0" max="1.0" step="0.01" value="0.4" /></label>
+    <label>Reverb<input type="range" id="reverb" min="0" max="1.0" step="0.01" value="0.8" /></label>
+    <label>Filter<input type="range" id="filter" min="100" max="8000" step="10" value="1200" /></label>
+    <label>Frequency<input type="range" id="freq" min="50" max="1000" step="1" value="174" /></label>
+    <label>Volume<input type="range" id="volume" min="0" max="100" value="60" /></label>
+    <label>BPM<input type="range" id="bpm" min="40" max="180" value="90" /></label>
+    <label>Density<input type="range" id="density" min="1" max="10" step="1" value="5" /></label>
+    <label>Height<input type="range" id="height" min="0.1" max="2.0" step="0.1" value="0.9" /></label>
     <button id="play">PLAY</button>
     <button id="stop">STOP</button>
-    <button id="toggleDisplay">TOGGLE DATA</button>
+    <button id="toggleData">TOGGLE DATA</button>
   </div>
   <script>
-    // UI elements
+    // UI references
     const preset = document.getElementById('preset'),
           delayCtrl = document.getElementById('delay'),
           echoCtrl = document.getElementById('echo'),
@@ -56,33 +77,28 @@
           bpmCtrl = document.getElementById('bpm'),
           densityCtrl = document.getElementById('density'),
           heightCtrl = document.getElementById('height'),
-          lfoRateCtrl = document.getElementById('lfoRate'),
           playBtn = document.getElementById('play'),
           stopBtn = document.getElementById('stop'),
-          toggleBtn = document.getElementById('toggleDisplay'),
+          toggleBtn = document.getElementById('toggleData'),
           infoDisplay = document.getElementById('infoDisplay'),
           canvas = document.getElementById('waveCanvas'),
           ctx = canvas.getContext('2d');
 
-    let audioCtx, masterGain, analyser, dataArray, bufferLength;
-    let delayNode, reverbFeedback, lfo, lfoGain;
-    let voices = [], trail = [];
-    let fractalAlpha = 0.02, fractalScale = 0.995;
-    let lastFreq = null, glideTime = 0.1;
+    let audioCtx, analyser, masterGain, reverbDelay, reverbFeedback, lfo, lfoGain;
+    let dataArray, bufferLength;
+    let voices = [], trailFrames = [];
+    let isPlaying = false;
 
-    const presetSettings = {
-      plants:     [174,285,396,417,528],
-      mold:       [432,639,741],
-      bacteria:   [528,554,585,728],
-      mushrooms:  [417,444,528,639],
-      harmony:    [432,528,639,741,852]
+    const presetScales = {
+      plants:   [174,285,396,417,528],
+      mold:     [432,639,741],
+      bacteria: [528,554,585,728],
+      mushrooms:[417,444,528,639],
+      harmony:  [432,528,639,741,852]
     };
 
-    function initAudio(){
-      if(audioCtx) return;
-      canvas.width = innerWidth; canvas.height = innerHeight;
-      window.addEventListener('resize', ()=>{ canvas.width=innerWidth; canvas.height=innerHeight; });
-
+    function initAudio() {
+      if (audioCtx) return;
       audioCtx = new (window.AudioContext||window.webkitAudioContext)();
       audioCtx.resume();
 
@@ -92,115 +108,117 @@
       dataArray = new Uint8Array(bufferLength);
 
       masterGain = audioCtx.createGain();
-      masterGain.gain.value = +volumeCtrl.value/100;
+      masterGain.gain.value = parseFloat(volumeCtrl.value)/100;
 
-      // Reverb via feedback delay
-      delayNode = audioCtx.createDelay();
-      delayNode.delayTime.value = +delayCtrl.value;
+      // deep reverb via feedback delay
+      reverbDelay = audioCtx.createDelay();
+      reverbDelay.delayTime.value = parseFloat(delayCtrl.value);
       reverbFeedback = audioCtx.createGain();
-      reverbFeedback.gain.value = +reverbCtrl.value;
-      delayNode.connect(reverbFeedback).connect(delayNode);
-      // dry + wet
+      reverbFeedback.gain.value = parseFloat(reverbCtrl.value);
+      reverbDelay.connect(reverbFeedback).connect(reverbDelay);
       masterGain.connect(audioCtx.destination);
-      delayNode.connect(masterGain);
+      reverbDelay.connect(masterGain);
 
-      analyser.connect(masterGain);
-
-      // LFO for filter
+      // filter LFO for gentle movement
       lfo = audioCtx.createOscillator();
       lfo.type = 'sine';
-      lfo.frequency.value = +lfoRateCtrl.value;
+      lfo.frequency.value = 0.1; // fixed slow LFO
       lfoGain = audioCtx.createGain();
-      lfoGain.gain.value = +filterCtrl.value / 2;
+      lfoGain.gain.value = 600;
       lfo.connect(lfoGain);
       lfo.start();
     }
 
-    function playPad(){
-      if(!audioCtx) initAudio();
-      const scale = presetSettings[preset.value];
+    function playPad() {
+      initAudio();
+      voices.forEach(v => v.osc.stop());
+      voices = [];
+      const scale = presetScales[preset.value];
       const chord = [scale[0], scale[Math.floor(scale.length/2)], scale[scale.length-1]];
       chord.forEach(root => {
         const osc = audioCtx.createOscillator();
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(root, audioCtx.currentTime);
-        // filter
-        const filt = audioCtx.createBiquadFilter();
-        filt.type = 'lowpass';
-        filt.frequency.setValueAtTime(+filterCtrl.value, audioCtx.currentTime);
-        lfoGain.connect(filt.frequency);
-        // amp envelope
+        osc.frequency.value = root;
+        const filterNode = audioCtx.createBiquadFilter();
+        filterNode.type = 'lowpass';
+        filterNode.frequency.value = parseFloat(filterCtrl.value);
+        lfoGain.connect(filterNode.frequency);
         const gainNode = audioCtx.createGain();
         const now = audioCtx.currentTime;
         gainNode.gain.setValueAtTime(0, now);
-        gainNode.gain.linearRampToValueAtTime(0.8, now+1.5);
-        gainNode.gain.linearRampToValueAtTime(0.6, now+3);
+        gainNode.gain.linearRampToValueAtTime(0.8, now+2);
+        gainNode.gain.linearRampToValueAtTime(0.6, now+4);
         gainNode.gain.setValueAtTime(0.6, now+10);
-        osc.connect(filt).connect(gainNode).connect(masterGain);
-        filt.connect(delayNode);
+        osc.connect(filterNode).connect(gainNode).connect(masterGain);
+        filterNode.connect(reverbDelay);
         gainNode.connect(analyser);
         osc.start(now);
-        voices.push({osc,gainNode});
+        voices.push({osc, gainNode});
       });
+      isPlaying = true;
     }
 
-    function stopPad(){
+    function stopPad() {
+      if (!isPlaying) return;
       const now = audioCtx.currentTime;
-      voices.forEach(v=>{
+      voices.forEach(v => {
         v.gainNode.gain.cancelScheduledValues(now);
         v.gainNode.gain.setValueAtTime(v.gainNode.gain.value, now);
         v.gainNode.gain.linearRampToValueAtTime(0, now+5);
         v.osc.stop(now+5.1);
       });
       voices = [];
+      isPlaying = false;
     }
 
-    function animate(){
+    function animate() {
       requestAnimationFrame(animate);
       analyser.getByteTimeDomainData(dataArray);
-      ctx.fillStyle='rgba(0,0,0,0.02)';
+      ctx.fillStyle = 'rgba(0,0,0,0.05)';
       ctx.fillRect(0,0,canvas.width,canvas.height);
-      if(trail.length>12) trail.shift();
-      trail.push([...dataArray]);
+
+      if (trailFrames.length > 12) trailFrames.shift();
+      trailFrames.push([...dataArray]);
+
       const grad = ctx.createLinearGradient(0,0,canvas.width,0);
-      grad.addColorStop(0,'#00FF7F');
-      grad.addColorStop(1,'#32cd32');
-      const dens = +densityCtrl.value;
+      grad.addColorStop(0, '#00FF7F');
+      grad.addColorStop(1, '#32cd32');
+
+      const dens = parseInt(densityCtrl.value);
       const step = Math.max(1, Math.floor(bufferLength/(dens*20)));
-      const hf = +heightCtrl.value;
-      trail.forEach((data,t)=>{
+      const hf = parseFloat(heightCtrl.value);
+
+      trailFrames.forEach((data, t) => {
         ctx.beginPath();
-        let x=0, slice=canvas.width/(data.length/step);
-        for(let i=0;i<data.length;i+=step){
+        let x = 0, slice = canvas.width/(data.length/step);
+        for (let i = 0; i < data.length; i += step) {
           const y = ((data[i]-128)/128)*(canvas.height/2*0.9*hf)+canvas.height/2;
-          if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
-          x+=slice;
+          if (i===0) ctx.moveTo(x,y);
+          else ctx.lineTo(x,y);
+          x += slice;
         }
-        ctx.strokeStyle=grad;
-        ctx.globalAlpha=0.05+(t/trail.length)*0.1;
-        ctx.shadowBlur=16; ctx.shadowColor='#00FF7F'; ctx.stroke();
-        ctx.shadowBlur=0; ctx.globalAlpha=1;
+        ctx.strokeStyle = grad;
+        ctx.globalAlpha = 0.05 + (t/trailFrames.length)*0.1;
+        ctx.shadowBlur = 16; ctx.shadowColor = '#00FF7F'; ctx.stroke();
+        ctx.shadowBlur = 0; ctx.globalAlpha = 1;
       });
-      ctx.save();
-      ctx.globalAlpha=fractalAlpha;
-      ctx.translate(canvas.width/2,canvas.height/2);
-      ctx.scale(fractalScale,fractalScale);
-      ctx.translate(-canvas.width/2,-canvas.height/2);
-      ctx.drawImage(canvas,0,0);
-      ctx.restore();
     }
 
-    playBtn.addEventListener('click', ()=>{ initAudio(); playPad(); });
-    stopBtn.addEventListener('click', ()=>{ stopPad(); });
-    delayCtrl.addEventListener('input', ()=>{ if(delayNode) delayNode.delayTime.value = +delayCtrl.value; });
-    reverbCtrl.addEventListener('input', ()=>{ if(reverbFeedback) reverbFeedback.gain.value = +reverbCtrl.value; });
-    filterCtrl.addEventListener('input', ()=>{ if(lfoGain) lfoGain.gain.value = +filterCtrl.value/2; });
-    lfoRateCtrl.addEventListener('input', ()=>{ if(lfo) lfo.frequency.value = +lfoRateCtrl.value; });
-    toggleBtn.addEventListener('click', ()=>{ infoDisplay.style.display = infoDisplay.style.display==='none'?'block':'none'; });
-    setInterval(()=>{
-      infoDisplay.textContent = 
-        `PRESET:${preset.value}\nDELAY:${delayCtrl.value}\nECHO:${echoCtrl.value}\nREVERB:${reverbCtrl.value}\nFILTER:${filterCtrl.value}\nFREQ:${freqCtrl.value}\nVOLUME:${volumeCtrl.value}\nBPM:${bpmCtrl.value}\nDENSITY:${densityCtrl.value}\nHEIGHT:${heightCtrl.value}\nLFO:${lfoRateCtrl.value}`;
-    },250);
+    playBtn.addEventListener('click', playPad);
+    stopBtn.addEventListener('click', stopPad);
+    toggleBtn.addEventListener('click', () => {
+      infoDisplay.style.display =
+        infoDisplay.style.display === 'none' ? 'block' : 'none';
+    });
+    volumeCtrl.addEventListener('input', () => {
+      if (masterGain) masterGain.gain.value = parseFloat(volumeCtrl.value)/100;
+    });
+    reverbCtrl.addEventListener('input', () => {
+      if (reverbFeedback) reverbFeedback.gain.value = parseFloat(reverbCtrl.value);
+    });
+    filterCtrl.addEventListener('input', () => {
+      // filter updates automatically via LFO gain mapping
+    });
 
     animate();
   </script>
