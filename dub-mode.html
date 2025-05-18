@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Plant Harmonic Synth – BW Presets</title>
+  <title>Plant Harmonic Synth – Final Ambient Version</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     html, body {
@@ -51,8 +51,8 @@
     }
     .bpm {
       font-size: 12px;
-      width: 100%;
       text-align: center;
+      width: 100%;
     }
   </style>
 </head>
@@ -72,16 +72,15 @@
   <div><label>Filter</label><input type="range" id="filter" min="200" max="4000" step="1" value="1000"></div>
   <div><label>Volume</label><input type="range" id="volume" min="0" max="100" value="60"></div>
   <div><label>Particles</label><input type="range" id="particles" min="1" max="40" value="9"></div>
+  <div><label>BPM</label><input type="range" id="bpm" min="50" max="130" value="90"></div>
   <button id="play">PLAY</button>
   <button id="stop">STOP</button>
-  <button id="tap">TAP TEMPO</button>
-  <div class="bpm" id="bpmDisplay">BPM: --</div>
 </div>
 
 <script>
 const scale = [125, 140.3, 157.7, 187.8, 210.6];
 let audioCtx, analyser, masterGain, bufferLength, dataArray;
-let bpm = 90, tapTimes = [], bpmTimer = null, stopped = true;
+let bpm = 90, bpmTimer = null, stopped = true;
 let particles = [], currentHue = 180, lfo, lfoGain;
 
 const canvas = document.getElementById('waveCanvas');
@@ -102,16 +101,16 @@ class Particle {
     this.radius = 2 + Math.random() * 3;
     this.alpha = 1;
     this.angle = Math.random() * 2 * Math.PI;
-    this.spin = (Math.random() - 0.5) * 0.1;
-    this.vx = (Math.random() - 0.5) * 0.3;
-    this.vy = -0.5 - Math.random();
+    this.spin = (Math.random() - 0.5) * 0.05;
+    this.vx = (Math.random() - 0.5) * 0.2;
+    this.vy = -0.3 - Math.random() * 0.2;
   }
 
   update() {
     this.angle += this.spin;
-    this.x += Math.cos(this.angle) * 0.5 + this.vx;
-    this.y += Math.sin(this.angle) * 0.3 + this.vy;
-    this.alpha -= 0.005;
+    this.x += Math.cos(this.angle) * 0.4 + this.vx;
+    this.y += Math.sin(this.angle) * 0.2 + this.vy;
+    this.alpha -= 0.004;
   }
 
   draw(ctx) {
@@ -119,8 +118,8 @@ class Particle {
     ctx.beginPath();
     ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
     ctx.fillStyle = `hsla(${this.hue}, 100%, 65%, ${this.alpha})`;
-    ctx.shadowBlur = 10;
-    ctx.shadowColor = `hsla(${this.hue}, 100%, 70%, ${this.alpha})`;
+    ctx.shadowBlur = 8;
+    ctx.shadowColor = `hsla(${this.hue}, 100%, 75%, ${this.alpha})`;
     ctx.fill();
     ctx.shadowBlur = 0;
   }
@@ -209,11 +208,11 @@ function animate() {
   if (!analyser) return;
 
   analyser.getByteTimeDomainData(dataArray);
-  ctx.fillStyle = "rgba(0, 0, 0, 0.1)";
+  ctx.fillStyle = "rgba(0, 0, 0, 0.08)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  ctx.strokeStyle = "white";
-  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
+  ctx.lineWidth = 1.25;
   ctx.beginPath();
 
   const slice = canvas.width / bufferLength;
@@ -223,7 +222,6 @@ function animate() {
     const y = (v * canvas.height / 0.85) + canvas.height / 2;
     if (i === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
-
     if (i % parseInt(document.getElementById('particles').value) === 0 && v > 0.25) {
       particles.push(new Particle(x, y, currentHue));
     }
@@ -243,25 +241,21 @@ document.getElementById('play').addEventListener('click', () => {
   stopped = false;
   scheduleBPM();
 });
+
 document.getElementById('stop').addEventListener('click', () => {
   stopped = true;
   clearInterval(bpmTimer);
 });
-document.getElementById('tap').addEventListener('click', () => {
-  initAudio();
-  const now = performance.now();
-  tapTimes.push(now);
-  if (tapTimes.length > 5) tapTimes.shift();
-  if (tapTimes.length >= 2) {
-    const avg = tapTimes.slice(1).reduce((a, b, i) => a + (b - tapTimes[i]), 0) / (tapTimes.length - 1);
-    bpm = Math.round(60000 / avg);
-    document.getElementById('bpmDisplay').textContent = `BPM: ${bpm}`;
-    scheduleBPM();
-  }
-});
+
 document.getElementById('volume').addEventListener('input', () => {
   if (masterGain) masterGain.gain.value = parseFloat(volume.value) / 100;
 });
+
+document.getElementById('bpm').addEventListener('input', e => {
+  bpm = parseInt(e.target.value);
+  if (!stopped) scheduleBPM();
+});
+
 document.getElementById('preset').addEventListener('change', e => {
   const val = e.target.value;
   if (val === 'greenhouse') {
