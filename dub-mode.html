@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>DUB MODE — Plant Harmonic Scale</title>
+  <title>Plant Synth — Sequencer Mode</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     html, body {
@@ -53,47 +53,47 @@
       text-align: center;
       width: 100%;
     }
+    .sequencer {
+      display: flex;
+      gap: 4px;
+      margin-top: 10px;
+    }
+    .step {
+      width: 20px;
+      height: 20px;
+      border: 1px solid white;
+      background: #222;
+      cursor: pointer;
+    }
+    .step.active {
+      background: #0f0;
+    }
+    .step.playing {
+      border: 2px solid red;
+    }
   </style>
 </head>
 <body>
 <canvas id="waveCanvas"></canvas>
 
 <div class="ui">
-  <div>
-    <label>Preset</label>
-    <select id="preset">
-      <option value="greenhouse">Greenhouse</option>
-      <option value="deepspace">Deep Space</option>
-      <option value="daylight">Daylight</option>
-      <option value="plantscale" selected>Plant Harmonic Scale</option>
-    </select>
-  </div>
-  <div>
-    <label>Delay</label>
-    <input type="range" id="delay" min="0.05" max="1.5" step="0.01" value="0.8">
-  </div>
-  <div>
-    <label>Feedback</label>
-    <input type="range" id="feedback" min="0" max="0.95" step="0.01" value="0.7">
-  </div>
-  <div>
-    <label>Filter</label>
-    <input type="range" id="filter" min="200" max="4000" step="1" value="1000">
-  </div>
-  <div>
-    <label>Volume</label>
-    <input type="range" id="volume" min="0" max="100" value="60">
-  </div>
+  <div><label>Delay</label><input type="range" id="delay" min="0.05" max="1.5" step="0.01" value="0.8"></div>
+  <div><label>Feedback</label><input type="range" id="feedback" min="0" max="0.95" step="0.01" value="0.7"></div>
+  <div><label>Filter</label><input type="range" id="filter" min="200" max="4000" step="1" value="1000"></div>
+  <div><label>Volume</label><input type="range" id="volume" min="0" max="100" value="60"></div>
   <button id="play">PLAY</button>
   <button id="stop">STOP</button>
   <button id="tap">TAP TEMPO</button>
   <div class="bpm" id="bpmDisplay">BPM: --</div>
 </div>
+<div class="sequencer" id="sequencer"></div>
 
 <script>
 let audioCtx, analyser, masterGain, bufferLength, dataArray;
 let bpm = 90, tapTimes = [], bpmTimer = null, stopped = true;
-let particles = [], currentHue = 120;
+let particles = [], currentHue = 120, stepIndex = 0;
+let steps = Array(16).fill(false);
+const scale = [125.0, 140.3, 157.7, 187.8, 210.6];
 const canvas = document.getElementById('waveCanvas');
 const ctx = canvas.getContext('2d');
 
@@ -128,19 +128,7 @@ class Particle {
   isDead() {
     return this.alpha <= 0;
   }
-}
-
-function getPreset(name) {
-  const presets = {
-    greenhouse: [150, 350],
-    deepspace: [60, 250],
-    daylight: [300, 600],
-    plantscale: [125.0, 140.3, 157.7, 187.8, 210.6]
-  };
-  return presets[name] || [200, 400];
-}
-
-function frequencyToHue(freq) {
+}function frequencyToHue(freq) {
   const minFreq = 60;
   const maxFreq = 1000;
   return Math.floor(((freq - minFreq) / (maxFreq - minFreq)) * 360);
@@ -159,15 +147,9 @@ function initAudio() {
   animate();
 }
 
-function playTone() {
+function playTone(freq) {
   if (!audioCtx || stopped) return;
-  const presetName = document.getElementById('preset').value;
-  const preset = getPreset(presetName);
-  const freq = presetName === "plantscale"
-    ? preset[Math.floor(Math.random() * preset.length)]
-    : preset[0] + Math.random() * (preset[1] - preset[0]);
-
-  const duration = 1 + Math.random();
+  const duration = 1;
   currentHue = frequencyToHue(freq);
 
   const osc = audioCtx.createOscillator();
@@ -200,17 +182,24 @@ function playTone() {
   osc.stop(audioCtx.currentTime + duration);
 }
 
-function scheduleBPM() {
+function scheduleSequencer() {
   clearInterval(bpmTimer);
-  if (bpm >= 30 && bpm <= 300) {
-    bpmTimer = setInterval(playTone, 60000 / bpm);
-  }
+  bpmTimer = setInterval(() => {
+    if (stopped) return;
+    const grid = document.querySelectorAll('.step');
+    grid.forEach((el, i) => el.classList.remove('playing'));
+    if (steps[stepIndex]) {
+      const freq = scale[stepIndex % scale.length];
+      playTone(freq);
+    }
+    grid[stepIndex].classList.add('playing');
+    stepIndex = (stepIndex + 1) % steps.length;
+  }, 60000 / bpm / 4);
 }
 
 function animate() {
   requestAnimationFrame(animate);
   if (!analyser) return;
-
   analyser.getByteTimeDomainData(dataArray);
   ctx.fillStyle = "rgba(0, 0, 0, 0.1)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -227,8 +216,7 @@ function animate() {
   for (let i = 0; i < bufferLength; i++) {
     const v = (dataArray[i] - 128) / 128.0;
     const y = (v * canvas.height) / 2 + canvas.height / 2;
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
     if (i % 12 === 0 && Math.abs(v) > 0.3) {
       particles.push(new Particle(x, y));
     }
@@ -250,7 +238,7 @@ document.getElementById('volume').addEventListener('input', () => {
 document.getElementById('play').addEventListener('click', () => {
   initAudio();
   stopped = false;
-  scheduleBPM();
+  scheduleSequencer();
 });
 
 document.getElementById('stop').addEventListener('click', () => {
@@ -265,15 +253,22 @@ document.getElementById('tap').addEventListener('click', () => {
   tapTimes.push(now);
   if (tapTimes.length > 5) tapTimes.shift();
   if (tapTimes.length >= 2) {
-    let intervals = [];
-    for (let i = 1; i < tapTimes.length; i++) {
-      intervals.push(tapTimes[i] - tapTimes[i - 1]);
-    }
-    const avg = intervals.reduce((a, b) => a + b) / intervals.length;
+    const avg = tapTimes.slice(1).reduce((a, b, i) => a + (b - tapTimes[i]), 0) / (tapTimes.length - 1);
     bpm = Math.round(60000 / avg);
     document.getElementById('bpmDisplay').textContent = `BPM: ${bpm}`;
-    scheduleBPM();
+    scheduleSequencer();
   }
+});
+
+const seq = document.getElementById('sequencer');
+steps.forEach((val, i) => {
+  const div = document.createElement('div');
+  div.classList.add('step');
+  div.addEventListener('click', () => {
+    steps[i] = !steps[i];
+    div.classList.toggle('active', steps[i]);
+  });
+  seq.appendChild(div);
 });
 </script>
 </body>
