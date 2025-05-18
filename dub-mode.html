@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Plant Harmonic Synth – Full UI + Ambient Automation</title>
+  <title>Plant Harmonic Synth – Particles Fixed</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     html, body {
@@ -71,7 +71,6 @@
   <div><label>BPM</label><input type="range" id="bpm" min="50" max="130" value="90" /></div>
   <button id="play">PLAY</button>
   <button id="stop">STOP</button>
-  <button id="fullscreen">FULLSCREEN</button>
 </div>
 
 <script>
@@ -81,7 +80,6 @@ let particles = [], currentHue = 180, lfo, lfoGain;
 
 const canvas = document.getElementById('waveCanvas');
 const ctx = canvas.getContext('2d');
-
 resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
 
@@ -251,14 +249,6 @@ document.getElementById('play').addEventListener('click', () => {
 document.getElementById('stop').addEventListener('click', () => {
   stopped = true;
   clearInterval(bpmTimer);
-});
-
-document.getElementById('fullscreen').addEventListener('click', () => {
-  if (!document.fullscreenElement) {
-    document.documentElement.requestFullscreen();
-  } else {
-    document.exitFullscreen();
-  }
 });
 
 document.getElementById('volume').addEventListener('input', () => {
