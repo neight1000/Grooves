@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Plantasia App – Scientific Presets + Reverb</title>
+  <title>Plantasia App v2 – Garson Upgrade</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     html, body {
@@ -67,9 +67,9 @@
       <option value="9B">9B – G major</option>
     </select>
   </div>
-  <div><label>Delay</label><input type="range" id="delay" min="0.01" max="2.0" step="0.01" value="0.8" /></div>
-  <div><label>Echo</label><input type="range" id="echo" min="0" max="1.0" step="0.01" value="0.6" /></div>
-  <div><label>Filter</label><input type="range" id="filter" min="100" max="8000" step="10" value="1000" /></div>
+  <div><label>Delay</label><input type="range" id="delay" min="0.01" max="2.0" step="0.01" value="0.6" /></div>
+  <div><label>Echo</label><input type="range" id="echo" min="0" max="1.0" step="0.01" value="0.4" /></div>
+  <div><label>Filter</label><input type="range" id="filter" min="100" max="8000" step="10" value="1200" /></div>
   <div><label>Frequency</label><input type="range" id="freq" min="50" max="1000" step="1" value="174" /></div>
   <div><label>Volume</label><input type="range" id="volume" min="0" max="100" value="60" /></div>
   <div><label>BPM</label><input type="range" id="bpm" min="40" max="180" value="90" /></div>
@@ -79,16 +79,19 @@
 <script>
 let audioCtx, analyser, masterGain, reverbNode, bufferLength, dataArray;
 let bpm = 90, bpmTimer = null, stopped = true;
-let trailFrames = [];
-let currentWaveColor = "#FFFFFF";
+let trailFrames = [], currentWaveColor = "#FFFFFF";
+let canvas, ctx, lfo;
 
-// Scientific + Camelot Presets with Frequencies and Colors
 const presetSettings = {
-  plants:     { scale: [174, 285, 396, 417, 528],       color: "#00FF7F" },
-  mold:       { scale: [432, 639, 741],                 color: "#8A2BE2" },
-  bacteria:   { scale: [528, 554, 585, 728],            color: "#FF4500" },
-  mushrooms:  { scale: [417, 444, 528, 639],            color: "#FFD700" },
-  harmony:    { scale: [432, 528, 639, 741, 852],       color: "#00FFFF" },
+  plants:     { scale: [174, 285, 396, 417, 528], color: "#00FF7F" },
+  mold:       { scale: [432, 639, 741],           color: "#8A2BE2" },
+  bacteria:   { scale: [528, 554, 585, 728],      color: "#FF4500" },
+  mushrooms:  { scale: [417, 444, 528, 639],      color: "#FFD700" },
+  harmony:    { scale: [432, 528, 639, 741, 852], color: "#00FFFF" },
+  "8A":       { scale: [174, 220, 440],           color: "#32CD32" },
+  "8B":       { scale: [261, 329, 528],           color: "#FFFF00" },
+  "9A":       { scale: [196, 293, 440],           color: "#00CED1" },
+  "9B":       { scale: [293, 392, 587],           color: "#FFA500" }
 };
 
 function getScaleFromPreset(val) {
@@ -102,6 +105,16 @@ function getColorFromPreset(val) {
 
 function initAudio() {
   if (audioCtx) return;
+
+  canvas = document.getElementById("waveCanvas");
+  ctx = canvas.getContext("2d");
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  window.addEventListener("resize", () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  });
+
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   analyser = audioCtx.createAnalyser();
   analyser.fftSize = 2048;
@@ -123,35 +136,50 @@ function initAudio() {
   animate();
 }
 function playTone(freq) {
-  const osc = audioCtx.createOscillator();
-  osc.type = 'square';
-  osc.frequency.value = freq;
-
-  const gainNode = audioCtx.createGain();
   const now = audioCtx.currentTime;
-  gainNode.gain.setValueAtTime(0, now);
-  gainNode.gain.linearRampToValueAtTime(0.2, now + 0.5);
-  gainNode.gain.linearRampToValueAtTime(0, now + 2.5);
-
-  const delayNode = audioCtx.createDelay();
-  delayNode.delayTime.value = parseFloat(delay.value);
-  const feedbackNode = audioCtx.createGain();
-  feedbackNode.gain.value = parseFloat(echo.value);
-
   const filterNode = audioCtx.createBiquadFilter();
   filterNode.type = "lowpass";
   filterNode.frequency.value = parseFloat(filter.value);
 
-  osc.connect(gainNode);
-  gainNode.connect(filterNode);
+  // LFO modulates the filter
+  const lfo = audioCtx.createOscillator();
+  const lfoGain = audioCtx.createGain();
+  lfo.frequency.value = 0.15;
+  lfoGain.gain.value = 300;
+  lfo.connect(lfoGain).connect(filterNode.frequency);
+  lfo.start();
+
+  const delayNode = audioCtx.createDelay();
+  delayNode.delayTime.value = parseFloat(delay.value) + (Math.random() * 0.01);
+
+  const feedbackNode = audioCtx.createGain();
+  feedbackNode.gain.value = parseFloat(echo.value);
+
+  const gainNode = audioCtx.createGain();
+  gainNode.gain.setValueAtTime(0, now);
+  gainNode.gain.linearRampToValueAtTime(0.3, now + 0.3);
+  gainNode.gain.linearRampToValueAtTime(0.0, now + 3.0);
+
+  const panNode = audioCtx.createStereoPanner();
+  panNode.pan.value = Math.random() * 2 - 1;
+
+  const detuneAmounts = [-0.5, 0, 0.5];
+  detuneAmounts.forEach(offset => {
+    const o = audioCtx.createOscillator();
+    o.type = "square";
+    o.frequency.value = freq * (1 + offset / 100);
+    o.connect(gainNode);
+    o.start(now);
+    o.stop(now + 3.2);
+  });
+
+  gainNode.connect(panNode);
+  panNode.connect(filterNode);
   filterNode.connect(delayNode);
   delayNode.connect(feedbackNode);
   feedbackNode.connect(delayNode);
   delayNode.connect(reverbNode);
   gainNode.connect(analyser);
-
-  osc.start(now);
-  osc.stop(now + 2.5);
 }
 
 function scheduleNotes(scale) {
@@ -165,11 +193,10 @@ function scheduleNotes(scale) {
 }
 
 function animate() {
+  if (!ctx || !analyser) return;
   requestAnimationFrame(animate);
-  if (!analyser) return;
-
   analyser.getByteTimeDomainData(dataArray);
-  ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
+  ctx.fillStyle = "rgba(0,0,0,0.05)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   if (trailFrames.length > 12) trailFrames.shift();
@@ -214,8 +241,7 @@ document.getElementById('stop').addEventListener('click', () => {
 document.getElementById('bpm').addEventListener('input', e => {
   bpm = parseInt(e.target.value);
   if (!stopped) {
-    const scale = getScaleFromPreset(preset.value);
-    scheduleNotes(scale);
+    scheduleNotes(getScaleFromPreset(preset.value));
   }
 });
 
