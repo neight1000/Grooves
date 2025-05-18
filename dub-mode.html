@@ -1,16 +1,15 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Plantasia App</title>
+  <title>Plantasia App – Stable + Reverb</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     html, body {
       margin: 0;
       padding: 0;
-      background: #312724;
-      color: #d9c9b3;
+      background: #18220f;
+      color: #dccdbb;
       font-family: monospace;
       overflow: hidden;
     }
@@ -46,26 +45,14 @@
       font-size: 12px;
       padding: 4px 8px;
       background: transparent;
-      border: 1px solid #d9c9b3;
-      color: #d9c9b3;
+      border: 2px solid white;
+      color: #dccdbb;
       cursor: pointer;
-    }
-    .label-display {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      color: #d9c9b3;
-      font-size: 14px;
-      z-index: 2;
-      background: rgba(0,0,0,0.5);
-      padding: 4px 8px;
-      border-radius: 4px;
     }
   </style>
 </head>
 <body>
 <canvas id="waveCanvas"></canvas>
-<div class="label-display" id="keyDisplay">Key: –</div>
 <div class="ui">
   <div><label>Preset</label>
     <select id="preset">
@@ -90,20 +77,12 @@
   <button id="stop">STOP</button>
 </div>
 <script>
-let audioCtx, analyser, masterGain, bufferLength, dataArray;
+let audioCtx, analyser, masterGain, reverbNode, bufferLength, dataArray;
 let bpm = 90, bpmTimer = null, stopped = true;
 let trailFrames = [];
 
 const canvas = document.getElementById('waveCanvas');
 const ctx = canvas.getContext('2d');
-const keyDisplay = document.getElementById('keyDisplay');
-
-// Camelot key mapping
-const camelotMap = {
-  174: "8A – A minor", 196: "9A – B minor", 220: "10A – C# minor",
-  261: "8B – C major", 293: "9B – D major", 329: "10B – E major",
-  440: "11A – A minor", 528: "11B – C major", 432: "Lifeform Harmony"
-};
 
 function resizeCanvas() {
   canvas.width = window.innerWidth;
@@ -119,17 +98,35 @@ function initAudio() {
   analyser.fftSize = 2048;
   bufferLength = analyser.frequencyBinCount;
   dataArray = new Uint8Array(bufferLength);
+
   masterGain = audioCtx.createGain();
   masterGain.gain.value = parseFloat(volume.value) / 100;
+
+  // Reverb using feedback delay simulation
+  reverbNode = audioCtx.createDelay();
+  const reverbFeedback = audioCtx.createGain();
+  reverbNode.delayTime.value = 0.4;
+  reverbFeedback.gain.value = 0.4;
+  reverbNode.connect(reverbFeedback);
+  reverbFeedback.connect(reverbNode);
+  reverbNode.connect(masterGain);
+
   masterGain.connect(audioCtx.destination);
   animate();
 }
 
-function getCurrentKeyLabel(freq) {
-  let closest = Object.keys(camelotMap).reduce((prev, curr) =>
-    Math.abs(curr - freq) < Math.abs(prev - freq) ? curr : prev
-  );
-  return camelotMap[closest] || "–";
+function getScaleFromPreset(val) {
+  const plantScale = [174, 196, 220, 261, 293];
+  if (val === "plants") return plantScale;
+  if (val === "mold") return [396, 417, 432];
+  if (val === "bacteria") return [528, 550, 564];
+  if (val === "mushrooms") return [417, 432, 444];
+  if (val === "harmony") return [432, 528, 639];
+  if (val === "8A") return [174, 220, 440];
+  if (val === "8B") return [261, 329, 528];
+  if (val === "9A") return [196, 293, 440];
+  if (val === "9B") return [293, 392, 587];
+  return plantScale;
 }
 
 function playTone(freq) {
@@ -157,13 +154,11 @@ function playTone(freq) {
   filterNode.connect(delayNode);
   delayNode.connect(feedbackNode);
   feedbackNode.connect(delayNode);
-  delayNode.connect(masterGain);
+  delayNode.connect(reverbNode);
   gainNode.connect(analyser);
 
   osc.start(now);
   osc.stop(now + 2.5);
-
-  keyDisplay.innerText = `Key: ${getCurrentKeyLabel(freq)}`;
 }
 
 function scheduleNotes(scale) {
@@ -175,49 +170,8 @@ function scheduleNotes(scale) {
     }
   }, 60000 / bpm);
 }
-
-document.getElementById('play').addEventListener('click', () => {
-  initAudio();
-  stopped = false;
-  const scale = getScaleFromPreset(preset.value);
-  scheduleNotes(scale);
-});
-
-document.getElementById('stop').addEventListener('click', () => {
-  stopped = true;
-  clearInterval(bpmTimer);
-});
-
-document.getElementById('bpm').addEventListener('input', e => {
-  bpm = parseInt(e.target.value);
-  if (!stopped) {
-    const scale = getScaleFromPreset(preset.value);
-    scheduleNotes(scale);
-  }
-});
 </script>
 <script>
-function getScaleFromPreset(val) {
-  const plantScale = [174, 196, 220, 261, 293];
-  if (val === "plants") return plantScale;
-  if (val === "mold") return [396, 417, 432];
-  if (val === "bacteria") return [528, 550, 564];
-  if (val === "mushrooms") return [417, 432, 444];
-  if (val === "harmony") return [432, 528, 639];
-  if (val === "8A") return [174, 220, 440];
-  if (val === "8B") return [261, 329, 528];
-  if (val === "9A") return [196, 293, 440];
-  if (val === "9B") return [293, 392, 587];
-  return plantScale;
-}
-
-const delay = document.getElementById('delay');
-const echo = document.getElementById('echo');
-const filter = document.getElementById('filter');
-const volume = document.getElementById('volume');
-const preset = document.getElementById('preset');
-const freqSlider = document.getElementById('freq');
-
 function animate() {
   requestAnimationFrame(animate);
   if (!analyser) return;
@@ -242,13 +196,35 @@ function animate() {
       x += slice;
     }
     const alpha = 0.05 + (t / trailFrames.length) * 0.1;
-    ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
-    ctx.shadowBlur = 12;
-    ctx.shadowColor = `rgba(255,255,255,${alpha})`;
+    ctx.strokeStyle = "white";
+    ctx.globalAlpha = alpha;
+    ctx.shadowBlur = 16;
+    ctx.shadowColor = "white";
     ctx.stroke();
     ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1.0;
   }
 }
+
+document.getElementById('play').addEventListener('click', () => {
+  initAudio();
+  stopped = false;
+  const scale = getScaleFromPreset(preset.value);
+  scheduleNotes(scale);
+});
+
+document.getElementById('stop').addEventListener('click', () => {
+  stopped = true;
+  clearInterval(bpmTimer);
+});
+
+document.getElementById('bpm').addEventListener('input', e => {
+  bpm = parseInt(e.target.value);
+  if (!stopped) {
+    const scale = getScaleFromPreset(preset.value);
+    scheduleNotes(scale);
+  }
+});
 </script>
 </body>
 </html>
