@@ -1,254 +1,75 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Ambient Plant Interface</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <title>Plant Harmonic Synth – Full UI + Ambient Automation</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     html, body {
       margin: 0;
       padding: 0;
-      background: #000;
-      color: #FFF;
-      font-family: "Courier New", monospace;
-      height: 100%;
+      background: black;
+      color: white;
+      font-family: monospace;
       overflow: hidden;
     }
     canvas {
       position: absolute;
       top: 0;
       left: 0;
+      width: 100vw;
+      height: 100vh;
       z-index: 0;
+    }
+    .ui {
+      position: absolute;
+      bottom: 0;
       width: 100%;
-      height: 100%;
-    }
-    .grid {
-      position: relative;
-      z-index: 2;
-      display: grid;
-      gap: 1em;
-      padding: 1em;
-      text-align: center;
-      justify-items: center;
-    }
-    h1 {
-      font-size: 1.6em;
-      letter-spacing: 0.1em;
-    }
-    .controls {
+      background: rgba(0, 0, 0, 0.9);
+      padding: 10px;
       display: flex;
-      flex-direction: column;
-      gap: 0.5em;
-      width: 100%;
-      align-items: center;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      z-index: 1;
     }
-    select, input[type="range"], .button {
-      width: 90vw;
-      max-width: 300px;
-      font-family: "Courier New", monospace;
-      font-size: 1em;
-      padding: 0.5em;
+    .ui label {
+      font-size: 10px;
+      display: block;
+      text-align: center;
+    }
+    .ui input[type="range"], .ui select {
+      width: 90px;
+    }
+    .ui button {
+      font-size: 12px;
+      padding: 4px 8px;
       background: transparent;
-      color: #FFF;
-      border: 2px solid #FFF;
-    }
-    .button:hover {
-      background: #222;
-    }
-    #history {
-      font-size: 0.75em;
-      color: #AAA;
-      max-height: 6em;
-      overflow-y: auto;
-      width: 90vw;
-      text-align: left;
-      white-space: pre-wrap;
+      border: 1px solid white;
+      color: white;
+      cursor: pointer;
     }
   </style>
 </head>
 <body>
-  <a href="dub-mode.html" style="
-  display: inline-block;
-  margin-top: 1em;
-  padding: 10px 20px;
-  border: 2px solid #FFF;
-  color: #FFF;
-  background: transparent;
-  font-family: 'Courier New', monospace;
-  font-size: 0.9em;
-  text-decoration: none;
-  text-align: center;
-  transition: background 0.3s ease;
-">
-  DUB MODE
-</a>
 <canvas id="waveCanvas"></canvas>
-<div class="grid">
-  <h1>AMBIENT PLANT INTERFACE</h1>
-  <div id="status">Tap to begin</div>
-  <div class="controls">
+
+<div class="ui">
+  <div><label>Preset</label>
     <select id="preset">
       <option value="greenhouse">Greenhouse</option>
-      <option value="deepspace">Deep Space</option>
-      <option value="daylight">Daylight</option>
+      <option value="deep">Deep Space</option>
+      <option value="bright">Daylight</option>
     </select>
-    <label>Volume: <span id="vol-label">50%</span></label>
-    <input type="range" id="volume" min="0" max="100" value="50">
-    <button class="button" onclick="stopAudio()">STOP</button>
   </div>
-  <div id="history"></div>
+  <div><label>Delay</label><input type="range" id="delay" min="0.05" max="1.5" step="0.01" value="0.8" /></div>
+  <div><label>Echo</label><input type="range" id="echo" min="0" max="0.95" step="0.01" value="0.6" /></div>
+  <div><label>Filter</label><input type="range" id="filter" min="200" max="4000" step="1" value="1000" /></div>
+  <div><label>Frequency</label><input type="range" id="freq" min="100" max="400" step="1" value="180" /></div>
+  <div><label>Volume</label><input type="range" id="volume" min="0" max="100" value="60" /></div>
+  <div><label>Particles</label><input type="range" id="particles" min="1" max="40" value="9" /></div>
+  <div><label>BPM</label><input type="range" id="bpm" min="50" max="130" value="90" /></div>
+  <button id="play">PLAY</button>
+  <button id="stop">STOP</button>
+  <button id="fullscreen">FULLSCREEN</button>
 </div>
-
-<script>
-const canvas = document.getElementById('waveCanvas');
-const ctx = canvas.getContext('2d');
-const status = document.getElementById('status');
-const volSlider = document.getElementById('volume');
-const volLabel = document.getElementById('vol-label');
-const presetSelector = document.getElementById('preset');
-const historyBox = document.getElementById('history');
-
-let audioCtx, analyser, masterGain, bufferLength, dataArray;
-let stopped = false, toneHistory = [], currentColor = "#FFF", currentPan = 0;
-
-function resizeCanvas() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-}
-window.addEventListener('resize', resizeCanvas);
-resizeCanvas();
-
-function frequencyToColor(freq) {
-  const hue = Math.floor((freq - 100) / 400 * 270);
-  return `hsl(${hue}, 100%, 60%)`;
-}
-
-function getPreset(preset) {
-  const presets = {
-    greenhouse: { min: 150, max: 350, delay: 0.2, feedback: 0.3 },
-    deepspace: { min: 60, max: 250, delay: 0.5, feedback: 0.6 },
-    daylight: { min: 300, max: 600, delay: 0.15, feedback: 0.25 }
-  };
-  return presets[preset] || presets.greenhouse;
-}
-
-function logTone(freq, color) {
-  toneHistory.unshift(`${freq.toFixed(1)} Hz — ${color}`);
-  if (toneHistory.length > 10) toneHistory.pop();
-  historyBox.textContent = toneHistory.join('\n');
-}
-
-function playAmbientTone() {
-  if (stopped || !audioCtx) return;
-  const preset = getPreset(presetSelector.value);
-  const freq = preset.min + Math.random() * (preset.max - preset.min);
-  const duration = 1.5 + Math.random();
-  const peakVol = 0.1 + Math.random() * 0.1;
-  currentColor = frequencyToColor(freq);
-
-  const osc = audioCtx.createOscillator();
-  osc.type = 'sine';
-  osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-
-  const gainNode = audioCtx.createGain();
-  gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-  gainNode.gain.linearRampToValueAtTime(peakVol, audioCtx.currentTime + 0.2);
-  gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + duration);
-
-  const panner = audioCtx.createStereoPanner();
-  panner.pan.value = currentPan;
-
-  const delay = audioCtx.createDelay();
-  delay.delayTime.value = preset.delay;
-
-  const feedback = audioCtx.createGain();
-  feedback.gain.value = preset.feedback;
-  delay.connect(feedback);
-  feedback.connect(delay);
-
-  osc.connect(gainNode);
-  gainNode.connect(panner);
-  panner.connect(delay);
-  delay.connect(masterGain);
-  gainNode.connect(analyser);
-
-  osc.start();
-  osc.stop(audioCtx.currentTime + duration);
-
-  status.textContent = `Freq: ${freq.toFixed(1)} Hz — Vol: ${peakVol.toFixed(2)}`;
-  logTone(freq, currentColor);
-}
-
-function scheduleTones() {
-  if (stopped) return;
-  playAmbientTone();
-  setTimeout(scheduleTones, 1000 + Math.random() * 500);
-}
-
-function animateWaveform() {
-  requestAnimationFrame(animateWaveform);
-  if (!analyser) return;
-  analyser.getByteTimeDomainData(dataArray);
-  ctx.fillStyle = "rgba(0, 0, 0, 0.08)";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = currentColor;
-  ctx.beginPath();
-  const sliceWidth = canvas.width / bufferLength;
-  let x = 0;
-  for (let i = 0; i < bufferLength; i++) {
-    const v = dataArray[i] / 128.0;
-    const y = v * canvas.height / 2;
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-    x += sliceWidth;
-  }
-  ctx.stroke();
-}
-
-function setMasterVolume(val) {
-  if (masterGain) masterGain.gain.setValueAtTime(val / 100, audioCtx.currentTime);
-}
-volSlider.addEventListener('input', () => {
-  volLabel.textContent = `${volSlider.value}%`;
-  setMasterVolume(volSlider.value);
-});
-
-function stopAudio() {
-  stopped = true;
-  if (audioCtx) masterGain.gain.setValueAtTime(0, audioCtx.currentTime);
-  status.textContent = "Stopped";
-}
-
-function initAudio() {
-  if (audioCtx) return;
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  analyser = audioCtx.createAnalyser();
-  analyser.fftSize = 2048;
-  bufferLength = analyser.frequencyBinCount;
-  dataArray = new Uint8Array(bufferLength);
-  masterGain = audioCtx.createGain();
-  masterGain.connect(audioCtx.destination);
-  setMasterVolume(volSlider.value);
-  stopped = false;
-  scheduleTones();
-  animateWaveform();
-  status.textContent = "Running...";
-}
-
-document.body.addEventListener('click', initAudio, { once: true });
-document.body.addEventListener('touchstart', initAudio, { once: true });
-
-let startX = null;
-document.body.addEventListener('touchstart', e => {
-  if (e.touches.length === 1) startX = e.touches[0].clientX;
-});
-document.body.addEventListener('touchmove', e => {
-  if (e.touches.length === 1 && startX !== null) {
-    const dx = e.touches[0].clientX - startX;
-    currentPan = Math.max(-1, Math.min(1, dx / window.innerWidth));
-  }
-});
-</script>
-</body>
-</html>
