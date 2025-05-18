@@ -20,10 +20,33 @@ const presetSettings = {
     scale: [432, 528, 639, 741, 852],
     color: "#00FFFF", // cyan
   },
-  "8A": { scale: [174, 220, 440], color: "#32CD32" },
-  "8B": { scale: [261, 329, 528], color: "#FFFF00" },
-  "9A": { scale: [196, 293, 440], color: "#00CED1" },
-  "9B": { scale: [293, 392, 587], color: "#FFA500" }
+const camelotPresets = {
+  "1A": { scale: [55, 110, 220], color: "#FF0000" },     // Ab minor
+  "2A": { scale: [58, 116, 232], color: "#FF4500" },     // Eb minor
+  "3A": { scale: [62, 124, 248], color: "#FF8C00" },     // Bb minor
+  "4A": { scale: [65, 130, 261], color: "#FFA500" },     // F minor
+  "5A": { scale: [69, 138, 277], color: "#FFD700" },     // C minor
+  "6A": { scale: [73, 146, 293], color: "#FFFF00" },     // G minor
+  "7A": { scale: [77, 155, 311], color: "#ADFF2F" },     // D minor
+  "8A": { scale: [87, 174, 220, 440], color: "#32CD32" },// A minor
+  "9A": { scale: [98, 196, 293, 440], color: "#00CED1" },// E minor
+  "10A": { scale: [110, 220, 330, 440], color: "#1E90FF" },// B minor
+  "11A": { scale: [116, 233, 349], color: "#9370DB" },   // F# minor
+  "12A": { scale: [123, 246, 370], color: "#8A2BE2" },   // C# minor
+
+  "1B": { scale: [65, 130, 261, 523], color: "#FF1493" },// B major
+  "2B": { scale: [69, 138, 277, 554], color: "#FF69B4" },// F# major
+  "3B": { scale: [73, 146, 293, 587], color: "#DB7093" },// Db major
+  "4B": { scale: [77, 155, 311, 622], color: "#C71585" },// Ab major
+  "5B": { scale: [82, 164, 329, 659], color: "#FF00FF" },// Eb major
+  "6B": { scale: [87, 174, 349, 698], color: "#DA70D6" },// Bb major
+  "7B": { scale: [93, 186, 370, 740], color: "#BA55D3" },// F major
+  "8B": { scale: [98, 196, 392, 784], color: "#FFFF00" },// C major
+  "9B": { scale: [104, 208, 415, 830], color: "#FFD700" },// G major
+  "10B": { scale: [110, 220, 440, 880], color: "#FFA500" },// D major
+  "11B": { scale: [116, 233, 466, 932], color: "#FF8C00" },// A major
+  "12B": { scale: [123, 246, 493, 987], color: "#FF6347" } // E major
+
 };
 
 function getScaleFromPreset(val) {
