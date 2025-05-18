@@ -24,6 +24,24 @@
       width: 100%;
       height: 100%;
     }
+    #startScreen {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      z-index: 9999;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    #startBtn {
+      font-family: monospace;
+      background: transparent;
+      color: white;
+      border: 2px solid white;
+      padding: 1em 2em;
+      font-size: 1em;
+      cursor: pointer;
+    }
     .interface {
       position: relative;
       z-index: 1;
@@ -47,28 +65,15 @@
       font-size: 1.2em;
       padding: 0.2em 0;
     }
-    #startBtn {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      z-index: 99;
-      padding: 1em 2em;
-      background: #111;
-      border: 2px solid white;
-      color: white;
-      font-family: monospace;
-      font-size: 1em;
-      display: none;
-    }
   </style>
 </head>
 <body>
+<div id="startScreen">
+  <button id="startBtn">START AUDIO</button>
+</div>
+
 <h1>DUB MODE — TAP TEMPO</h1>
 <canvas id="waveCanvas"></canvas>
-
-<!-- Optional start fallback -->
-<button id="startBtn">START AUDIO</button>
 
 <div class="interface">
   <md-outlined-select id="preset" label="Preset">
@@ -93,12 +98,12 @@ const ctx = canvas.getContext('2d');
 const stopBtn = document.getElementById('stopBtn');
 const tapBtn = document.getElementById('tapBtn');
 const startBtn = document.getElementById('startBtn');
+const startScreen = document.getElementById('startScreen');
 const bpmDisplay = document.getElementById('bpmDisplay');
 
 let audioCtx, analyser, masterGain, bufferLength, dataArray;
 let currentColor = "#FFF", stopped = false;
 let bpm = 90, lastTap = 0, tapIntervals = [], bpmTimer = null;
-let initialized = false;
 
 function resizeCanvas() {
   canvas.width = window.innerWidth;
@@ -173,7 +178,6 @@ function scheduleBPMPlayback() {
 }
 
 tapBtn.addEventListener('click', () => {
-  if (!initialized) initAudio();
   const now = performance.now();
   if (lastTap > 0) {
     const diff = now - lastTap;
@@ -225,8 +229,7 @@ function stopAudio() {
 stopBtn.addEventListener('click', stopAudio);
 
 function initAudio() {
-  if (initialized) return;
-  initialized = true;
+  if (audioCtx) return;
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   analyser = audioCtx.createAnalyser();
   analyser.fftSize = 2048;
@@ -236,12 +239,9 @@ function initAudio() {
   masterGain.connect(audioCtx.destination);
   setVolume(document.getElementById('volume').value);
   stopped = false;
-  startBtn.style.display = "none";
   animateWaveform();
+  startScreen.style.display = "none";
 }
-
-// fallback click anywhere
-document.body.addEventListener('click', initAudio);
 startBtn.addEventListener('click', initAudio);
 </script>
 </body>
