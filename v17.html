@@ -108,7 +108,7 @@
       for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
       const noiseSrc=audioCtx.createBufferSource();
       noiseSrc.buffer=noiseBuf; noiseSrc.loop=true;
-      const noiseGain=audioCtx.createGain(); noiseGain.gain.value=0.02;
+      const noiseGain=audioCtx.createGain(); noiseGain.gain.value=0.05;
       noiseSrc.connect(noiseGain).connect(masterGain); noiseSrc.start();
 
       // Reverb
@@ -120,7 +120,7 @@
 
       // Distortion (soft-clip)
       distortion=audioCtx.createWaveShaper();
-      distortion.curve=makeDistortionCurve(50); distortion.oversample='4x';
+      distortion.curve=makeDistortionCurve(20); distortion.oversample='4x';
       masterGain.connect(distortion).connect(audioCtx.destination);
 
       animate();
@@ -161,9 +161,9 @@
       // One gain/Gain envelope
       const gainNode=audioCtx.createGain();
       gainNode.gain.setValueAtTime(0, now);
-      gainNode.gain.linearRampToValueAtTime(1, now+0.05);
-      gainNode.gain.linearRampToValueAtTime(0.6, now+0.25);
-      gainNode.gain.setValueAtTime(0.6, now+2.5);
+      gainNode.gain.linearRampToValueAtTime(0.6,, now+0.05);
+      gainNode.gain.linearRampToValueAtTime(0.3, now+0.25);
+      gainNode.gain.setValueAtTime(0.3, now+2.5);
       gainNode.gain.linearRampToValueAtTime(0, now+3);
 
       // Glide
