@@ -13,7 +13,7 @@
       font-family: monospace;
       overflow: hidden;
     }
-    canvas {
+    #waveCanvas {
       position: absolute;
       top: 0;
       left: 0;
@@ -22,33 +22,36 @@
       z-index: 0;
     }
     .ui {
-      position: relative;
-      z-index: 1;
-      background: rgba(0, 0, 0, 0.85);
-      padding: 10px;
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background: rgba(0, 0, 0, 0.9);
       display: flex;
       flex-wrap: wrap;
-      gap: 10px;
       justify-content: center;
+      gap: 10px;
+      padding: 10px;
+      z-index: 1;
     }
     .ui label {
-      font-size: 12px;
+      font-size: 10px;
       display: block;
-      margin-bottom: 2px;
+      text-align: center;
     }
     .ui input[type="range"] {
-      width: 120px;
+      width: 90px;
     }
     .ui button {
-      font-size: 14px;
-      padding: 6px 12px;
+      font-size: 12px;
+      padding: 4px 8px;
       background: transparent;
       border: 1px solid white;
       color: white;
       cursor: pointer;
     }
     .bpm {
-      font-size: 14px;
+      font-size: 12px;
       text-align: center;
       width: 100%;
     }
@@ -70,13 +73,22 @@
 </div>
 
 <script>
-const scale = [125.0, 140.3, 157.7, 187.8, 210.6];
+const scale = [125, 140.3, 157.7, 187.8, 210.6];
+const scaleColors = [
+  0,     // 125Hz - Red
+  45,    // 140Hz - Orange
+  90,    // 157Hz - Yellow-Green
+  180,   // 187Hz - Cyan
+  270    // 210Hz - Violet
+];
+
 let audioCtx, analyser, masterGain, bufferLength, dataArray;
 let bpm = 90, tapTimes = [], bpmTimer = null, stopped = true;
 let particles = [], currentHue = 120, lfo, lfoGain;
 
 const canvas = document.getElementById('waveCanvas');
 const ctx = canvas.getContext('2d');
+
 function resizeCanvas() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
@@ -85,9 +97,10 @@ resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
 
 class Particle {
-  constructor(x, y) {
+  constructor(x, y, hue) {
     this.x = x;
     this.y = y;
+    this.hue = hue;
     this.radius = 2 + Math.random() * 4;
     this.alpha = 1;
     this.vx = (Math.random() - 0.5) * 0.3;
@@ -102,9 +115,9 @@ class Particle {
     if (this.alpha <= 0) return;
     ctx.beginPath();
     ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-    ctx.fillStyle = `hsla(${currentHue}, 100%, 60%, ${this.alpha})`;
+    ctx.fillStyle = `hsla(${this.hue}, 100%, 60%, ${this.alpha})`;
     ctx.shadowBlur = 10;
-    ctx.shadowColor = `hsla(${currentHue}, 100%, 70%, ${this.alpha})`;
+    ctx.shadowColor = `hsla(${this.hue}, 100%, 70%, ${this.alpha})`;
     ctx.fill();
     ctx.shadowBlur = 0;
   }
@@ -114,7 +127,8 @@ class Particle {
 }
 
 function frequencyToHue(freq) {
-  return Math.floor(((freq - 60) / (1000 - 60)) * 360);
+  const index = scale.findIndex(s => Math.abs(s - freq) < 5);
+  return index !== -1 ? scaleColors[index] : 120;
 }
 
 function initAudio() {
@@ -215,7 +229,7 @@ function animate() {
     if (i === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
     if (i % parseInt(document.getElementById('particles').value) === 0 && v > 0.25) {
-      particles.push(new Particle(x, y));
+      particles.push(new Particle(x, y, currentHue));
     }
     x += slice;
   }
