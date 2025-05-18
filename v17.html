@@ -2,25 +2,20 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Plantasia App v18 – Moog-Style Core & Fractal Visuals</title>
+  <title>Plantasia App v19 – Restored Dry Path & Fractal Visuals</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    html, body { margin: 0; padding: 0; background: black; color: white; font-family: monospace; overflow: hidden; }
-    canvas { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 0; }
-    .ui {
-      position: absolute; bottom: 0; width: 100%;
-      background: rgba(0,0,0,0.85); padding: 10px;
-      display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; z-index: 2;
-    }
-    .ui label { font-size: 10px; display: block; text-align: center; }
-    .ui input[type="range"], .ui select { width: 90px; }
-    .ui button { font-size: 12px; padding: 4px 8px; background: transparent;
-                 border: 1px solid white; color: white; cursor: pointer; }
-    #infoDisplay {
-      position: absolute; top: 10px; left: 10px; z-index: 3;
-      background: rgba(0,0,0,0.6); color: white; font-size: 12px;
-      padding: 10px; display: none; white-space: pre;
-    }
+    html, body { margin:0; padding:0; background:black; color:white; font-family:monospace; overflow:hidden; }
+    canvas { position:absolute; top:0; left:0; width:100vw; height:100vh; z-index:0; }
+    .ui { position:absolute; bottom:0; width:100%; background:rgba(0,0,0,0.85);
+          padding:10px; display:flex; flex-wrap:wrap; justify-content:center; gap:10px; z-index:2; }
+    .ui label { font-size:10px; display:block; text-align:center; }
+    .ui input[type="range"], .ui select { width:90px; }
+    .ui button { font-size:12px; padding:4px 8px; background:transparent;
+                 border:1px solid white; color:white; cursor:pointer; }
+    #infoDisplay { position:absolute; top:10px; left:10px; z-index:3;
+                   background:rgba(0,0,0,0.6); color:white; font-size:12px;
+                   padding:10px; display:none; white-space:pre; }
   </style>
 </head>
 <body>
@@ -74,13 +69,13 @@
     let lastFreq = null, glideTime = 0.1;
     let canvas, ctx;
 
-    // Preset settings (include fractal params)
+    // Preset settings
     const presetSettings = {
-      plants: { scale:[174,285,396,417,528], color:"#00FF7F", fractalScale:0.98, fractalAlpha:0.1 },
-      mold: { scale:[432,639,741], color:"#8A2BE2", fractalScale:0.96, fractalAlpha:0.12 },
-      bacteria: { scale:[528,554,585,728], color:"#FF4500", fractalScale:0.95, fractalAlpha:0.08 },
+      plants:    { scale:[174,285,396,417,528], color:"#00FF7F", fractalScale:0.98, fractalAlpha:0.1 },
+      mold:      { scale:[432,639,741], color:"#8A2BE2", fractalScale:0.96, fractalAlpha:0.12 },
+      bacteria:  { scale:[528,554,585,728], color:"#FF4500", fractalScale:0.95, fractalAlpha:0.08 },
       mushrooms: { scale:[417,444,528,639], color:"#FFD700", fractalScale:0.99, fractalAlpha:0.09 },
-      harmony: { scale:[432,528,639,741,852], color:"#00FFFF", fractalScale:0.94, fractalAlpha:0.15 }
+      harmony:   { scale:[432,528,639,741,852], color:"#00FFFF", fractalScale:0.94, fractalAlpha:0.15 }
     };
 
     function getScale(val){ return presetSettings[val].scale; }
@@ -102,11 +97,10 @@
 
       masterGain = audioCtx.createGain(); masterGain.gain.value = parseFloat(volume.value)/100;
 
-      // Reverb feedback loop
       reverbNode = audioCtx.createDelay();
       reverbFeedback = audioCtx.createGain();
       reverbNode.delayTime = 0.4;
-      reverbFeedback.gain.value = parseFloat(reverb.value);
+      reverbFeedback.gain = parseFloat(reverb.value);
       reverbNode.connect(reverbFeedback);
       reverbFeedback.connect(reverbNode);
       reverbNode.connect(masterGain);
@@ -118,33 +112,25 @@
 
     function playTone(freqVal){
       const now = audioCtx.currentTime;
-      // Ladder filter: 4 cascaded lowpass Biquads
+      // Ladder filter chain
       const filters = Array.from({length:4}, ()=>{
         const f = audioCtx.createBiquadFilter();
-        f.type = 'lowpass';
-        f.Q.value = 1;
-        return f;
+        f.type='lowpass'; f.Q.value=1; return f;
       });
-      // Envelope on cutoff
-      const baseCut = parseFloat(filter.value);
-      filters[0].frequency.setValueAtTime(baseCut*0.2, now);
-      filters[0].frequency.linearRampToValueAtTime(baseCut, now+0.05);
-      filters[0].frequency.linearRampToValueAtTime(baseCut*0.2, now+3);
-
-      // connect filter chain
+      filters[0].frequency.setValueAtTime(parseFloat(filter.value)*0.2, now);
+      filters[0].frequency.linearRampToValueAtTime(parseFloat(filter.value), now+0.05);
+      filters[0].frequency.linearRampToValueAtTime(parseFloat(filter.value)*0.2, now+3);
       for(let i=0;i<3;i++) filters[i].connect(filters[i+1]);
 
       const pan = audioCtx.createStereoPanner();
       pan.pan.value = Math.random()*2-1;
 
-      // delay-echo chain
       const delayNode = audioCtx.createDelay();
-      delayNode.delayTime.value = parseFloat(delay.value);
+      delayNode.delayTime = parseFloat(delay.value);
       const echoFB = audioCtx.createGain();
-      echoFB.gain.value = parseFloat(echo.value);
+      echoFB.gain = parseFloat(echo.value);
       delayNode.connect(echoFB).connect(delayNode);
 
-      // Amplitude envelope
       const gainNode = audioCtx.createGain();
       gainNode.gain.setValueAtTime(0, now);
       gainNode.gain.linearRampToValueAtTime(0.5, now+0.05);
@@ -152,35 +138,41 @@
       gainNode.gain.setValueAtTime(0.2, now+2.5);
       gainNode.gain.linearRampToValueAtTime(0, now+3);
 
-      // Portamento base
-      const startF = lastFreq ? lastFreq : freqVal;
-      lastFreq = freqVal;
+      // portamento
+      const startF = lastFreq||freqVal; lastFreq = freqVal;
 
       [-0.5,0,0.5].forEach(offset=>{
         const osc = audioCtx.createOscillator();
-        osc.type = 'square';
+        osc.type='square';
         osc.frequency.setValueAtTime(startF*(1+offset/100), now);
         osc.frequency.linearRampToValueAtTime(freqVal*(1+offset/100), now+glideTime);
         osc.connect(gainNode);
         osc.start(now); osc.stop(now+3);
       });
 
-      // Graph: gain->pan->filters->delay->reverb->masterGain, and gain->analyser
+      // Connect dry and wet
       gainNode.connect(pan);
       pan.connect(filters[0]);
+
+      // Dry path
+      filters[3].connect(masterGain);
+
+      // Wet path
       filters[3].connect(delayNode);
       delayNode.connect(reverbNode);
+
+      // Visualization tap
       gainNode.connect(analyser);
     }
 
     function scheduleNotes(scale){
       clearInterval(bpmTimer);
-      bpmTimer = setInterval(()=>{
+      bpmTimer=setInterval(()=>{
         if(!stopped){
           const notes = getScale(preset.value);
           playTone(notes[Math.floor(Math.random()*notes.length)]);
         }
-      }, 60000/bpm);
+      },60000/bpm);
     }
 
     function animate(){
@@ -190,48 +182,29 @@
       ctx.fillStyle="rgba(0,0,0,0.05)"; ctx.fillRect(0,0,canvas.width,canvas.height);
       if(trailFrames.length>12) trailFrames.shift();
       trailFrames.push([...dataArray]);
-      const grad = ctx.createLinearGradient(0,0,canvas.width,0);
-      grad.addColorStop(0, currentWaveColor);
-      grad.addColorStop(0.5, "#1e90ff");
-      grad.addColorStop(1, "#32cd32");
-      const dens = parseInt(density.value);
-      const step = Math.max(1, Math.floor(bufferLength/(dens*20)));
-      const hf = parseFloat(height.value);
+      const grad=ctx.createLinearGradient(0,0,canvas.width,0);
+      grad.addColorStop(0,currentWaveColor); grad.addColorStop(0.5,"#1e90ff"); grad.addColorStop(1,"#32cd32");
+      const dens=parseInt(density.value), step=Math.max(1,Math.floor(bufferLength/(dens*20))), hf=parseFloat(height.value);
       trailFrames.forEach((data,t)=>{
-        ctx.beginPath();
-        let x=0, slice=canvas.width/(data.length/step);
+        ctx.beginPath(); let x=0, slice=canvas.width/(data.length/step);
         for(let i=0;i<data.length;i+=step){
-          const v=(data[i]-128)/128;
-          const y=v*(canvas.height/2*0.9*hf)+canvas.height/2;
+          const v=(data[i]-128)/128, y=v*(canvas.height/2*0.9*hf)+canvas.height/2;
           i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); x+=slice;
         }
-        ctx.strokeStyle=grad; ctx.globalAlpha=0.05+(t/trailFrames.length)*0.1;
-        ctx.shadowBlur=16; ctx.shadowColor=currentWaveColor; ctx.stroke();
+        ctx.strokeStyle=grad; ctx.globalAlpha=0.05+(t/trailFrames.length)*0.1; ctx.shadowBlur=16; ctx.shadowColor=currentWaveColor; ctx.stroke();
         ctx.shadowBlur=0; ctx.globalAlpha=1;
       });
-      // fractal feedback
-      ctx.save(); ctx.globalAlpha=fractalAlpha;
-      ctx.translate(canvas.width/2,canvas.height/2);
-      ctx.scale(fractalScale,fractalScale);
-      ctx.translate(-canvas.width/2,-canvas.height/2);
-      ctx.drawImage(canvas,0,0); ctx.restore();
+      ctx.save(); ctx.globalAlpha=fractalAlpha; ctx.translate(canvas.width/2,canvas.height/2); ctx.scale(fractalScale,fractalScale); ctx.translate(-canvas.width/2,-canvas.height/2); ctx.drawImage(canvas,0,0); ctx.restore();
     }
 
     // Controls
-    playBtn.addEventListener("click",()=>{
-      initAudio(); stopped=false; bpm = +bpmControl.value;
-      const val = preset.value; setFractal(val); currentWaveColor = getColor(val);
-      scheduleNotes(getScale(val));
-    });
+    playBtn.addEventListener("click",()=>{ initAudio(); stopped=false; bpm=+bpmControl.value; const v=preset.value; setFractal(v); currentWaveColor=getColor(v); scheduleNotes(getScale(v)); });
     stopBtn.addEventListener("click",()=>{ stopped=true; clearInterval(bpmTimer); });
     bpmControl.addEventListener("input",e=>{ bpm=+e.target.value; if(!stopped) scheduleNotes(getScale(preset.value)); });
-    preset.addEventListener("change",()=>{ const v=preset.value; setFractal(v); currentWaveColor = getColor(v); if(!stopped) scheduleNotes(getScale(v)); });
-    reverb.addEventListener("input",e=>{ if(reverbFeedback) reverbFeedback.gain.value=+e.target.value; }); 
+    preset.addEventListener("change",()=>{ const v=preset.value; setFractal(v); currentWaveColor=getColor(v); if(!stopped) scheduleNotes(getScale(v)); });
+    reverb.addEventListener("input",e=>{ if(reverbFeedback) reverbFeedback.gain.value=+e.target.value; });
     toggleDisplayBtn.addEventListener("click",()=>{ infoDisplay.style.display = infoDisplay.style.display==="none"?"block":"none"; });
-    setInterval(()=>{
-      infoDisplay.textContent = 
-        \`PRESET:${preset.value}\nDELAY:${delay.value}\nECHO:${echo.value}\nREVERB:${reverb.value}\nFILTER:${filter.value}\nFREQ:${freqSlider.value}\nVOLUME:${volume.value}\nBPM:${bpm}\nDENSITY:${density.value}\nHEIGHT:${height.value}\`;
-    },250);
+    setInterval(()=>{ infoDisplay.textContent = `PRESET:${preset.value}\nDELAY:${delay.value}\nECHO:${echo.value}\nREVERB:${reverb.value}\nFILTER:${filter.value}\nFREQ:${freqSlider.value}\nVOLUME:${volume.value}\nBPM:${bpm}\nDENSITY:${density.value}\nHEIGHT:${height.value}`; },250);
   </script>
 </body>
 </html>
