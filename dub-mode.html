@@ -2,15 +2,17 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>DUB MODE — Ambient Plant Generator</title>
+  <title>DUB MODE — Material UI</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script type="module" src="https://unpkg.com/@material/web/all.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/@material/web/all.css">
   <style>
     html, body {
       margin: 0;
       padding: 0;
       background: #000;
       color: #FFF;
-      font-family: "Courier New", monospace;
+      font-family: Roboto, sans-serif;
       height: 100%;
       overflow: hidden;
     }
@@ -18,80 +20,50 @@
       position: absolute;
       top: 0;
       left: 0;
+      z-index: 0;
       width: 100%;
       height: 100%;
-      z-index: 0;
     }
-    .controls {
+    .interface {
       position: relative;
       z-index: 1;
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       gap: 1em;
       padding: 1em;
-      background: rgba(0, 0, 0, 0.85);
-    }
-    .control-group {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-    label {
-      font-size: 0.8em;
-      margin-bottom: 0.3em;
-    }
-    input[type="range"], select {
-      width: 100%;
+      background: rgba(0, 0, 0, 0.9);
     }
     h1 {
       text-align: center;
-      padding: 0.5em;
-      font-size: 1.3em;
-      background: rgba(0, 0, 0, 0.95);
-      z-index: 1;
-      position: relative;
       margin: 0;
+      padding: 0.5em;
+      background: rgba(0, 0, 0, 0.95);
+      color: #FFF;
+    }
+    md-slider, md-select {
+      width: 100%;
     }
   </style>
 </head>
 <body>
 <h1>DUB MODE — AMBIENT INTERFACE</h1>
 <canvas id="waveCanvas"></canvas>
-<div class="controls">
-  <div class="control-group">
-    <label for="preset">Preset</label>
-    <select id="preset">
-      <option value="greenhouse">Greenhouse</option>
-      <option value="deepspace">Deep Space</option>
-      <option value="daylight">Daylight</option>
-    </select>
-  </div>
-  <div class="control-group">
-    <label for="delayTime">Delay Time</label>
-    <input type="range" id="delayTime" min="0.1" max="1.5" step="0.01" value="0.8">
-  </div>
-  <div class="control-group">
-    <label for="feedback">Feedback</label>
-    <input type="range" id="feedback" min="0" max="0.95" step="0.01" value="0.75">
-  </div>
-  <div class="control-group">
-    <label for="filter">Filter Cutoff</label>
-    <input type="range" id="filter" min="200" max="5000" step="1" value="1000">
-  </div>
-  <div class="control-group">
-    <label for="volume">Volume</label>
-    <input type="range" id="volume" min="0" max="100" value="60">
-  </div>
+<div class="interface">
+  <md-outlined-select id="preset" label="Preset">
+    <md-select-option value="greenhouse"><div slot="headline">Greenhouse</div></md-select-option>
+    <md-select-option value="deepspace"><div slot="headline">Deep Space</div></md-select-option>
+    <md-select-option value="daylight"><div slot="headline">Daylight</div></md-select-option>
+  </md-outlined-select>
+
+  <md-slider id="delayTime" min="0.1" max="1.5" value="0.8" step="0.01" labeled></md-slider>
+  <md-slider id="feedback" min="0" max="0.95" value="0.75" step="0.01" labeled></md-slider>
+  <md-slider id="filter" min="200" max="5000" value="1000" step="1" labeled></md-slider>
+  <md-slider id="volume" min="0" max="100" value="60" labeled></md-slider>
 </div>
 
 <script>
 const canvas = document.getElementById('waveCanvas');
 const ctx = canvas.getContext('2d');
-const presetSelector = document.getElementById('preset');
-const delaySlider = document.getElementById('delayTime');
-const feedbackSlider = document.getElementById('feedback');
-const filterSlider = document.getElementById('filter');
-const volumeSlider = document.getElementById('volume');
 
 let audioCtx, analyser, masterGain, bufferLength, dataArray;
 let currentColor = "#FFF";
@@ -119,7 +91,10 @@ function getPreset(preset) {
 
 function playDubTone() {
   if (!audioCtx) return;
-  const preset = getPreset(presetSelector.value);
+
+  const presetEl = document.getElementById('preset');
+  const selected = presetEl && presetEl.value ? presetEl.value : 'greenhouse';
+  const preset = getPreset(selected);
   const freq = preset.min + Math.random() * (preset.max - preset.min);
   const duration = 1.5 + Math.random();
   const peakVol = 0.1 + Math.random() * 0.1;
@@ -135,16 +110,16 @@ function playDubTone() {
   gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + duration);
 
   const delay = audioCtx.createDelay();
-  delay.delayTime.value = parseFloat(delaySlider.value);
+  delay.delayTime.value = parseFloat(document.getElementById('delayTime').value);
 
   const feedback = audioCtx.createGain();
-  feedback.gain.value = parseFloat(feedbackSlider.value);
+  feedback.gain.value = parseFloat(document.getElementById('feedback').value);
   delay.connect(feedback);
   feedback.connect(delay);
 
   const filter = audioCtx.createBiquadFilter();
   filter.type = "lowpass";
-  filter.frequency.value = parseFloat(filterSlider.value);
+  filter.frequency.value = parseFloat(document.getElementById('filter').value);
 
   osc.connect(gainNode);
   gainNode.connect(filter);
@@ -187,8 +162,8 @@ function animateWaveform() {
 function setVolume(val) {
   if (masterGain) masterGain.gain.setValueAtTime(val / 100, audioCtx.currentTime);
 }
-volumeSlider.addEventListener('input', () => {
-  setVolume(volumeSlider.value);
+document.getElementById('volume').addEventListener('input', () => {
+  setVolume(document.getElementById('volume').value);
 });
 
 function initAudio() {
@@ -200,7 +175,7 @@ function initAudio() {
   dataArray = new Uint8Array(bufferLength);
   masterGain = audioCtx.createGain();
   masterGain.connect(audioCtx.destination);
-  setVolume(volumeSlider.value);
+  setVolume(document.getElementById('volume').value);
   scheduleTones();
   animateWaveform();
 }
