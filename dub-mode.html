@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Plant Harmonic Synth Enhanced</title>
+  <title>Plant Harmonic Synth Clean</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     html, body {
@@ -56,9 +56,9 @@
       position: absolute;
       bottom: 10px;
       left: 10px;
-      border: 1px solid white;
       touch-action: none;
       z-index: 1;
+      border: none;
     }
   </style>
 </head>
@@ -74,18 +74,16 @@
   <button id="play">PLAY</button>
   <button id="stop">STOP</button>
   <button id="tap">TAP TEMPO</button>
-  <button id="record">RECORD</button>
-  <button id="download" disabled>DOWNLOAD</button>
   <div class="bpm" id="bpmDisplay">BPM: --</div>
 </div>
 
 <canvas id="touchpad" width="200" height="200"></canvas>
+
 <script>
 const scale = [125.0, 140.3, 157.7, 187.8, 210.6];
 let audioCtx, analyser, masterGain, bufferLength, dataArray;
 let bpm = 90, tapTimes = [], bpmTimer = null, stopped = true;
 let particles = [], currentHue = 120, lfo, lfoGain;
-let mediaRecorder, recordedChunks = [];
 
 const canvas = document.getElementById('waveCanvas');
 const ctx = canvas.getContext('2d');
@@ -123,7 +121,9 @@ class Particle {
   isDead() {
     return this.alpha <= 0;
   }
-}function frequencyToHue(freq) {
+}
+
+function frequencyToHue(freq) {
   return Math.floor(((freq - 60) / (1000 - 60)) * 360);
 }
 
@@ -138,7 +138,6 @@ function initAudio() {
   masterGain.connect(audioCtx.destination);
   masterGain.gain.value = parseFloat(volume.value) / 100;
 
-  // LFO
   lfo = audioCtx.createOscillator();
   lfo.frequency.value = 0.05;
   lfoGain = audioCtx.createGain();
@@ -225,7 +224,6 @@ function animate() {
     const y = (v * canvas.height / 0.85) + canvas.height / 2;
     if (i === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
-
     if (i % parseInt(document.getElementById('particles').value) === 0 && v > 0.25) {
       particles.push(new Particle(x, y));
     }
@@ -245,13 +243,10 @@ document.getElementById('play').addEventListener('click', () => {
   stopped = false;
   scheduleBPM();
 });
-
 document.getElementById('stop').addEventListener('click', () => {
   stopped = true;
   clearInterval(bpmTimer);
-  if (masterGain) masterGain.gain.setValueAtTime(0, audioCtx.currentTime);
 });
-
 document.getElementById('tap').addEventListener('click', () => {
   initAudio();
   const now = performance.now();
@@ -269,34 +264,7 @@ document.getElementById('volume').addEventListener('input', () => {
   if (masterGain) masterGain.gain.value = parseFloat(volume.value) / 100;
 });
 
-document.getElementById('record').addEventListener('click', () => {
-  if (!mediaRecorder || mediaRecorder.state === "inactive") {
-    const dest = audioCtx.createMediaStreamDestination();
-    masterGain.connect(dest);
-    mediaRecorder = new MediaRecorder(dest.stream);
-    mediaRecorder.ondataavailable = e => recordedChunks.push(e.data);
-    mediaRecorder.onstop = () => {
-      const blob = new Blob(recordedChunks, { type: 'audio/webm' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "plant-tone-recording.webm";
-      a.click();
-      document.getElementById("download").disabled = false;
-    };
-    recordedChunks = [];
-    mediaRecorder.start();
-    document.getElementById("record").textContent = "STOP";
-  } else {
-    mediaRecorder.stop();
-    document.getElementById("record").textContent = "RECORD";
-  }
-});
-
-// Touchpad Tone Control
 const touchpad = document.getElementById("touchpad");
-const tctx = touchpad.getContext("2d");
-
 touchpad.addEventListener("pointerdown", handleTouch);
 touchpad.addEventListener("pointermove", e => { if (e.buttons) handleTouch(e); });
 
@@ -304,7 +272,6 @@ function handleTouch(e) {
   const rect = touchpad.getBoundingClientRect();
   const x = (e.clientX - rect.left) / rect.width;
   const y = (e.clientY - rect.top) / rect.height;
-
   const freq = scale[0] + x * (scale[scale.length - 1] - scale[0]);
   const filterFreq = 200 + y * 3800;
   playTone(freq, filterFreq);
