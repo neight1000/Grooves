@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Plant Tone Generator – Plantasia Style</title>
+  <title>Plant Melodic Generator</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     html, body {
@@ -54,31 +54,20 @@
 <body>
 <canvas id="waveCanvas"></canvas>
 <div class="ui">
-  <div><label>Preset</label>
-    <select id="preset">
-      <option value="plants">Plants</option>
-      <option value="mold">Mold</option>
-      <option value="bacteria">Bacteria</option>
-      <option value="mushrooms">Mushrooms</option>
-      <option value="harmony">Lifeform Harmony</option>
-    </select>
-  </div>
-  <div><label>Delay</label><input type="range" id="delay" min="0.01" max="1.5" step="0.01" value="0.6" /></div>
-  <div><label>Echo</label><input type="range" id="echo" min="0" max="0.95" step="0.01" value="0.5" /></div>
-  <div><label>Filter</label><input type="range" id="filter" min="200" max="6000" step="1" value="1400" /></div>
-  <div><label>Freq</label><input type="range" id="freq" min="50" max="600" step="1" value="174" /></div>
   <div><label>Volume</label><input type="range" id="volume" min="0" max="100" value="60" /></div>
-  <div><label>BPM</label><input type="range" id="bpm" min="40" max="160" value="80" /></div>
+  <div><label>BPM</label><input type="range" id="bpm" min="40" max="140" value="70" /></div>
   <button id="play">PLAY</button>
   <button id="stop">STOP</button>
 </div>
 <script>
-let audioCtx, analyser, masterGain, reverb, lfo, lfoGain, bufferLength, dataArray;
-let bpm = 80, bpmTimer = null, stopped = true;
+let audioCtx, analyser, masterGain, bufferLength, dataArray;
+let bpm = 70, intervalId = null, stopped = true;
 let trailFrames = [], frameCount = 0;
 
 const canvas = document.getElementById('waveCanvas');
 const ctx = canvas.getContext('2d');
+
+const plantScale = [174, 196, 220, 261.6, 293.7, 349.2]; // C pentatonic for plants
 
 function resizeCanvas() {
   canvas.width = window.innerWidth;
@@ -89,139 +78,66 @@ window.addEventListener('resize', resizeCanvas);
 
 function initAudio() {
   if (audioCtx) return;
-
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   analyser = audioCtx.createAnalyser();
   analyser.fftSize = 2048;
   bufferLength = analyser.frequencyBinCount;
   dataArray = new Uint8Array(bufferLength);
-
   masterGain = audioCtx.createGain();
   masterGain.gain.value = parseFloat(volume.value) / 100;
-
-  // Basic stereo reverb
-  reverb = audioCtx.createDelay();
-  reverb.delayTime.value = 0.25;
-  const feedback = audioCtx.createGain();
-  feedback.gain.value = 0.5;
-  reverb.connect(feedback);
-  feedback.connect(reverb);
-  reverb.connect(masterGain);
-
-  // LFO for vibrato
-  lfo = audioCtx.createOscillator();
-  lfo.frequency.value = 5;
-  lfoGain = audioCtx.createGain();
-  lfoGain.gain.value = 4;
-  lfo.connect(lfoGain);
-  lfo.start();
-
   masterGain.connect(audioCtx.destination);
   animate();
 }
 
-function playTone() {
-  if (!audioCtx || stopped) return;
-  const baseFreq = parseFloat(freqSlider.value);
-  const freqs = [baseFreq * 0.98, baseFreq, baseFreq * 1.02];
-  const pans = [-0.5, 0.0, 0.5];
+function playMelodyNote() {
+  const freq = plantScale[Math.floor(Math.random() * plantScale.length)] *
+               (1 + (Math.random() * 0.06 - 0.03)); // subtle detune
 
-  freqs.forEach((freq, i) => {
-    const osc = audioCtx.createOscillator();
-    osc.type = 'triangle';
-    osc.frequency.value = freq;
+  const osc = audioCtx.createOscillator();
+  osc.type = 'triangle';
+  osc.frequency.value = freq;
 
-    const gainNode = audioCtx.createGain();
-    const vibrato = audioCtx.createGain();
-    lfoGain.connect(vibrato);
-    vibrato.connect(osc.frequency);
+  const gainNode = audioCtx.createGain();
+  const duration = 1 + Math.random() * 0.5;
+  const now = audioCtx.currentTime;
 
-    const filterNode = audioCtx.createBiquadFilter();
-    filterNode.type = "lowpass";
-    filterNode.frequency.value = parseFloat(filter.value);
+  gainNode.gain.setValueAtTime(0, now);
+  gainNode.gain.linearRampToValueAtTime(0.18, now + 0.3);
+  gainNode.gain.linearRampToValueAtTime(0, now + duration);
 
-    const delayNode = audioCtx.createDelay();
-    delayNode.delayTime.value = parseFloat(delay.value);
-    const feedbackNode = audioCtx.createGain();
-    feedbackNode.gain.value = parseFloat(echo.value);
+  osc.connect(gainNode);
+  gainNode.connect(masterGain);
+  gainNode.connect(analyser);
 
-    const panner = audioCtx.createStereoPanner();
-    panner.pan.value = pans[i];
-
-    gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-    gainNode.gain.linearRampToValueAtTime(0.18, audioCtx.currentTime + 0.6);
-    gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 2.8);
-
-    osc.connect(gainNode);
-    gainNode.connect(filterNode);
-    filterNode.connect(delayNode);
-    delayNode.connect(feedbackNode);
-    feedbackNode.connect(delayNode);
-    delayNode.connect(panner);
-    panner.connect(reverb);
-    gainNode.connect(analyser);
-
-    osc.start();
-    osc.stop(audioCtx.currentTime + 2.8);
-  });
+  osc.start(now);
+  osc.stop(now + duration);
 }
 
-function scheduleBPM() {
-  clearInterval(bpmTimer);
-  bpmTimer = setInterval(() => {
-    if (!stopped) playTone();
+function scheduleMelodies() {
+  clearInterval(intervalId);
+  intervalId = setInterval(() => {
+    if (!stopped) playMelodyNote();
   }, 60000 / bpm);
 }
 
 document.getElementById('play').addEventListener('click', () => {
   initAudio();
   stopped = false;
-  scheduleBPM();
+  scheduleMelodies();
 });
+
 document.getElementById('stop').addEventListener('click', () => {
   stopped = true;
-  clearInterval(bpmTimer);
+  clearInterval(intervalId);
 });
 
-document.getElementById('preset').addEventListener('change', e => {
-  const val = e.target.value;
-  if (val === 'plants') {
-    delay.value = 0.5;
-    echo.value = 0.4;
-    filter.value = 1400;
-    freqSlider.value = 174;
-  } else if (val === 'mold') {
-    delay.value = 0.8;
-    echo.value = 0.6;
-    filter.value = 1000;
-    freqSlider.value = 396;
-  } else if (val === 'bacteria') {
-    delay.value = 1.0;
-    echo.value = 0.5;
-    filter.value = 1100;
-    freqSlider.value = 528;
-  } else if (val === 'mushrooms') {
-    delay.value = 0.7;
-    echo.value = 0.6;
-    filter.value = 800;
-    freqSlider.value = 417;
-  } else if (val === 'harmony') {
-    delay.value = 0.4;
-    echo.value = 0.7;
-    filter.value = 1500;
-    freqSlider.value = 432;
-  }
+document.getElementById('volume').addEventListener('input', () => {
+  if (masterGain) masterGain.gain.value = parseFloat(volume.value) / 100;
 });
 
-const delay = document.getElementById('delay');
-const echo = document.getElementById('echo');
-const filter = document.getElementById('filter');
-const volume = document.getElementById('volume');
-const freqSlider = document.getElementById('freq');
-const bpmSlider = document.getElementById('bpm');
-bpmSlider.addEventListener('input', () => {
-  bpm = parseInt(bpmSlider.value);
-  if (!stopped) scheduleBPM();
+document.getElementById('bpm').addEventListener('input', e => {
+  bpm = parseInt(e.target.value);
+  if (!stopped) scheduleMelodies();
 });
 </script>
 <script>
@@ -230,10 +146,10 @@ function animate() {
   if (!analyser) return;
 
   analyser.getByteTimeDomainData(dataArray);
-  ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
+  ctx.fillStyle = "rgba(0, 0, 0, 0.08)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  if (trailFrames.length > 10) trailFrames.shift();
+  if (trailFrames.length > 12) trailFrames.shift();
   trailFrames.push([...dataArray]);
 
   for (let t = 0; t < trailFrames.length; t++) {
@@ -243,14 +159,14 @@ function animate() {
     let x = 0;
     for (let i = 0; i < data.length; i++) {
       const v = (data[i] - 128) / 128.0;
-      const y = (v * canvas.height / 1.5) + canvas.height / 2;
+      const y = (v * canvas.height / 1.8) + canvas.height / 2;
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
       x += slice;
     }
     const alpha = 0.05 + (t / trailFrames.length) * 0.1;
     ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
-    ctx.shadowBlur = 14;
+    ctx.shadowBlur = 12;
     ctx.shadowColor = `rgba(255,255,255,${alpha})`;
     ctx.stroke();
     ctx.shadowBlur = 0;
