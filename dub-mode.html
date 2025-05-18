@@ -1,231 +1,242 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Plantasia App – Scientific Presets + Reverb</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <title>Plantasia App</title>
   <style>
     html, body {
       margin: 0;
-      padding: 0;
       background: black;
       color: white;
-      font-family: monospace;
+      font-family: sans-serif;
       overflow: hidden;
     }
     canvas {
-      position: absolute;
-      top: 0;
-      left: 0;
+      display: block;
       width: 100vw;
-      height: 100vh;
-      z-index: 0;
+      height: 60vh;
     }
-    .ui {
-      position: absolute;
-      bottom: 0;
-      width: 100%;
-      background: rgba(0, 0, 0, 0.85);
-      padding: 10px;
+    #controls {
       display: flex;
       flex-wrap: wrap;
-      justify-content: center;
-      gap: 10px;
-      z-index: 1;
+      gap: 8px;
+      padding: 10px;
+      background: black;
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      box-sizing: border-box;
     }
-    .ui label {
-      font-size: 10px;
-      display: block;
-      text-align: center;
-    }
-    .ui input[type="range"], .ui select {
-      width: 90px;
-    }
-    .ui button {
-      font-size: 12px;
-      padding: 4px 8px;
-      background: transparent;
-      border: 1px solid white;
+    label {
+      font-size: 0.8em;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
       color: white;
+    }
+    input[type=range], select {
+      width: 100px;
+    }
+    button {
+      background: white;
+      color: black;
+      padding: 6px 12px;
+      font-weight: bold;
+      border: none;
       cursor: pointer;
+    }
+    #camelotKey {
+      font-size: 1em;
+      padding: 4px;
     }
   </style>
 </head>
 <body>
-<canvas id="waveCanvas"></canvas>
-<div class="ui">
-  <div><label>Preset</label>
-    <select id="preset">
-      <option value="plants">Plants</option>
-      <option value="mold">Mold</option>
-      <option value="bacteria">Bacteria</option>
-      <option value="mushrooms">Mushrooms</option>
-      <option value="harmony">Lifeform Harmony</option>
-      <option value="8A">8A – A minor</option>
-      <option value="8B">8B – C major</option>
-      <option value="9A">9A – E minor</option>
-      <option value="9B">9B – G major</option>
-    </select>
+  <canvas id="visualizer"></canvas>
+  <div id="controls">
+    <button id="play">Play</button>
+    <button id="stop">Stop</button>
+    <label>Preset
+      <select id="preset">
+        <option value="plants">🌿 Plants</option>
+        <option value="mold">🧫 Mold</option>
+        <option value="bacteria">🦠 Bacteria</option>
+        <option value="mushrooms">🍄 Mushrooms</option>
+        <option value="roots">🌱 Roots</option>
+      </select>
+    </label>
+    <label>Volume<input type="range" id="volume" min="0" max="1" step="0.01" value="0.5"></label>
+    <label>BPM<input type="range" id="bpm" min="50" max="130" step="1" value="80"></label>
+    <label>Delay<input type="range" id="delay" min="0" max="1" step="0.01" value="0.3"></label>
+    <label>Echo<input type="range" id="echo" min="0" max="1" step="0.01" value="0.4"></label>
+    <label>Filter<input type="range" id="filter" min="200" max="12000" step="10" value="800"></label>
+    <label>Frequency<input type="range" id="frequency" min="50" max="400" step="1" value="220"></label>
+    <label>Oscillations<input type="range" id="osc" min="1" max="10" step="1" value="3"></label>
+    <span id="camelotKey">Key: --</span>
   </div>
-  <div><label>Delay</label><input type="range" id="delay" min="0.01" max="2.0" step="0.01" value="0.8" /></div>
-  <div><label>Echo</label><input type="range" id="echo" min="0" max="1.0" step="0.01" value="0.6" /></div>
-  <div><label>Filter</label><input type="range" id="filter" min="100" max="8000" step="10" value="1000" /></div>
-  <div><label>Frequency</label><input type="range" id="freq" min="50" max="1000" step="1" value="174" /></div>
-  <div><label>Volume</label><input type="range" id="volume" min="0" max="100" value="60" /></div>
-  <div><label>BPM</label><input type="range" id="bpm" min="40" max="180" value="90" /></div>
-  <button id="play">PLAY</button>
-  <button id="stop">STOP</button>
-</div>
-<script>
-let audioCtx, analyser, masterGain, reverbNode, bufferLength, dataArray;
-let bpm = 90, bpmTimer = null, stopped = true;
-let trailFrames = [];
-let currentWaveColor = "#FFFFFF";
 
-// Scientific + Camelot Presets with Frequencies and Colors
-const presetSettings = {
-  plants:     { scale: [174, 285, 396, 417, 528],       color: "#00FF7F" },
-  mold:       { scale: [432, 639, 741],                 color: "#8A2BE2" },
-  bacteria:   { scale: [528, 554, 585, 728],            color: "#FF4500" },
-  mushrooms:  { scale: [417, 444, 528, 639],            color: "#FFD700" },
-  harmony:    { scale: [432, 528, 639, 741, 852],       color: "#00FFFF" },
-};
+  <script>
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const audioCtx = new AudioContext();
 
-function getScaleFromPreset(val) {
-  const preset = presetSettings[val];
-  return preset ? preset.scale : [174, 220, 261];
-}
-function getColorFromPreset(val) {
-  const preset = presetSettings[val];
-  return preset ? preset.color : "#FFFFFF";
-}
+    const canvas = document.getElementById('visualizer');
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight * 0.6;
 
-function initAudio() {
-  if (audioCtx) return;
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  analyser = audioCtx.createAnalyser();
-  analyser.fftSize = 2048;
-  bufferLength = analyser.frequencyBinCount;
-  dataArray = new Uint8Array(bufferLength);
+    const analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 2048;
+    const dataArray = new Uint8Array(analyser.frequencyBinCount);
 
-  masterGain = audioCtx.createGain();
-  masterGain.gain.value = parseFloat(volume.value) / 100;
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 800;
 
-  reverbNode = audioCtx.createDelay();
-  const reverbFeedback = audioCtx.createGain();
-  reverbNode.delayTime.value = 0.4;
-  reverbFeedback.gain.value = 0.4;
-  reverbNode.connect(reverbFeedback);
-  reverbFeedback.connect(reverbNode);
-  reverbNode.connect(masterGain);
+    const delayNode = audioCtx.createDelay();
+    delayNode.delayTime.value = 0.3;
 
-  masterGain.connect(audioCtx.destination);
-  animate();
-}
-function playTone(freq) {
-  const osc = audioCtx.createOscillator();
-  osc.type = 'square';
-  osc.frequency.value = freq;
+    const feedbackGain = audioCtx.createGain();
+    feedbackGain.gain.value = 0.4;
+    delayNode.connect(feedbackGain).connect(delayNode);
 
-  const gainNode = audioCtx.createGain();
-  const now = audioCtx.currentTime;
-  gainNode.gain.setValueAtTime(0, now);
-  gainNode.gain.linearRampToValueAtTime(0.2, now + 0.5);
-  gainNode.gain.linearRampToValueAtTime(0, now + 2.5);
+    const masterGain = audioCtx.createGain();
+    masterGain.gain.value = 0.5;
 
-  const delayNode = audioCtx.createDelay();
-  delayNode.delayTime.value = parseFloat(delay.value);
-  const feedbackNode = audioCtx.createGain();
-  feedbackNode.gain.value = parseFloat(echo.value);
+    feedbackGain.connect(filter);
+    filter.connect(masterGain);
+    masterGain.connect(analyser).connect(audioCtx.destination);
 
-  const filterNode = audioCtx.createBiquadFilter();
-  filterNode.type = "lowpass";
-  filterNode.frequency.value = parseFloat(filter.value);
+    let oscillators = [];
+    let playing = false;
 
-  osc.connect(gainNode);
-  gainNode.connect(filterNode);
-  filterNode.connect(delayNode);
-  delayNode.connect(feedbackNode);
-  feedbackNode.connect(delayNode);
-  delayNode.connect(reverbNode);
-  gainNode.connect(analyser);
+    const plantScale = [220, 246.94, 293.66, 329.63, 392];
+    const camelotMap = {
+      220: '8A',
+      246.94: '9A',
+      293.66: '10A',
+      329.63: '11A',
+      392: '12A'
+    };
 
-  osc.start(now);
-  osc.stop(now + 2.5);
-}
-
-function scheduleNotes(scale) {
-  clearInterval(bpmTimer);
-  bpmTimer = setInterval(() => {
-    if (!stopped) {
-      const freq = scale[Math.floor(Math.random() * scale.length)];
-      playTone(freq);
+    function getDetunedFrequencies(baseFreq, count) {
+      let freqs = [];
+      let spread = 5; // Hz detune
+      for (let i = 0; i < count; i++) {
+        let offset = ((i - (count - 1) / 2) / (count - 1)) * spread;
+        freqs.push(baseFreq + offset);
+      }
+      return freqs;
     }
-  }, 60000 / bpm);
-}
 
-function animate() {
-  requestAnimationFrame(animate);
-  if (!analyser) return;
-
-  analyser.getByteTimeDomainData(dataArray);
-  ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  if (trailFrames.length > 12) trailFrames.shift();
-  trailFrames.push([...dataArray]);
-
-  for (let t = 0; t < trailFrames.length; t++) {
-    const data = trailFrames[t];
-    const slice = canvas.width / data.length;
-    ctx.beginPath();
-    let x = 0;
-    for (let i = 0; i < data.length; i++) {
-      const v = (data[i] - 128) / 128.0;
-      const y = (v * canvas.height / 1.8) + canvas.height / 2;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-      x += slice;
+    function playTones() {
+      stopTones();
+      const baseFreq = parseFloat(document.getElementById('frequency').value);
+      const oscCount = parseInt(document.getElementById('osc').value);
+      const freqs = getDetunedFrequencies(baseFreq, oscCount);
+      freqs.forEach(freq => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'square';
+        osc.frequency.value = freq;
+        osc.connect(gain);
+        gain.connect(delayNode);
+        gain.connect(filter);
+        gain.gain.value = 0.2 / oscCount;
+        osc.start();
+        oscillators.push({ osc, gain });
+      });
+      updateKeyLabel(baseFreq);
+      playing = true;
     }
-    const alpha = 0.05 + (t / trailFrames.length) * 0.1;
-    ctx.strokeStyle = currentWaveColor;
-    ctx.globalAlpha = alpha;
-    ctx.shadowBlur = 16;
-    ctx.shadowColor = currentWaveColor;
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-    ctx.globalAlpha = 1.0;
-  }
-}
 
-document.getElementById('play').addEventListener('click', () => {
-  initAudio();
-  stopped = false;
-  const scale = getScaleFromPreset(preset.value);
-  currentWaveColor = getColorFromPreset(preset.value);
-  scheduleNotes(scale);
-});
+    function stopTones() {
+      oscillators.forEach(({ osc, gain }) => {
+        osc.stop();
+        osc.disconnect();
+        gain.disconnect();
+      });
+      oscillators = [];
+      playing = false;
+      document.getElementById('camelotKey').textContent = 'Key: --';
+    }
 
-document.getElementById('stop').addEventListener('click', () => {
-  stopped = true;
-  clearInterval(bpmTimer);
-});
+    function updateKeyLabel(freq) {
+      let closest = plantScale.reduce((a, b) =>
+        Math.abs(b - freq) < Math.abs(a - freq) ? b : a
+      );
+      document.getElementById('camelotKey').textContent = `Key: ${camelotMap[closest] || '--'}`;
+    }
 
-document.getElementById('bpm').addEventListener('input', e => {
-  bpm = parseInt(e.target.value);
-  if (!stopped) {
-    const scale = getScaleFromPreset(preset.value);
-    scheduleNotes(scale);
-  }
-});
+    function draw() {
+      requestAnimationFrame(draw);
+      analyser.getByteTimeDomainData(dataArray);
+      ctx.fillStyle = 'rgba(0,0,0,0.2)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = 'white';
+      ctx.beginPath();
+      const sliceWidth = canvas.width / dataArray.length;
+      let x = 0;
+      for (let i = 0; i < dataArray.length; i++) {
+        let v = dataArray[i] / 128.0;
+        let y = (v * canvas.height) / 2;
+        if (i === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+        x += sliceWidth;
+      }
+      ctx.stroke();
 
-document.getElementById('preset').addEventListener('change', () => {
-  const selected = preset.value;
-  currentWaveColor = getColorFromPreset(selected);
-  if (!stopped) {
-    scheduleNotes(getScaleFromPreset(selected));
-  }
-});
-</script>
+      // Frequency markers
+      ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+      for (let i = 0; i <= 10; i++) {
+        let y = (canvas.height / 10) * i;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+    }
+
+    draw();
+
+    document.getElementById('play').onclick = async () => {
+      if (audioCtx.state === 'suspended') await audioCtx.resume();
+      playTones();
+    };
+
+    document.getElementById('stop').onclick = stopTones;
+
+    // Controls
+    document.querySelectorAll('input, select').forEach(el => {
+      el.addEventListener('input', () => {
+        if (el.id === 'volume') masterGain.gain.value = parseFloat(el.value);
+        if (el.id === 'bpm') {} // Placeholder for future tempo sync
+        if (el.id === 'delay') delayNode.delayTime.value = parseFloat(el.value);
+        if (el.id === 'echo') feedbackGain.gain.value = parseFloat(el.value);
+        if (el.id === 'filter') filter.frequency.value = parseFloat(el.value);
+        if (el.id === 'frequency') {
+          if (playing) playTones();
+        }
+        if (el.id === 'osc') {
+          if (playing) playTones();
+        }
+        if (el.id === 'preset') {
+          const preset = el.value;
+          const baseMap = {
+            plants: 220,
+            mold: 246.94,
+            bacteria: 293.66,
+            mushrooms: 329.63,
+            roots: 392
+          };
+          document.getElementById('frequency').value = baseMap[preset];
+          if (playing) playTones();
+        }
+      });
+    });
+  </script>
 </body>
 </html>
