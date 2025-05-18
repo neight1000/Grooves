@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Plantasia App</title>
+  <title>Plantasia App – Camelot Color</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     html, body {
@@ -91,17 +91,24 @@
 <script>
 let audioCtx, analyser, masterGain, bufferLength, dataArray;
 let bpm = 90, bpmTimer = null, stopped = true;
-let trailFrames = [];
+let trailFrames = [], currentWaveColor = 'white';
 
 const canvas = document.getElementById('waveCanvas');
 const ctx = canvas.getContext('2d');
 const keyDisplay = document.getElementById('keyDisplay');
 
-// Camelot key mapping
+// Camelot key mapping and color assignments
 const camelotMap = {
-  174: "8A – A minor", 196: "9A – B minor", 220: "10A – C# minor",
-  261: "8B – C major", 293: "9B – D major", 329: "10B – E major",
-  440: "11A – A minor", 528: "11B – C major", 432: "Lifeform Harmony"
+  174: { label: "8A – A minor", color: "#32CD32" },   // green
+  196: { label: "9A – B minor", color: "#00CED1" },   // dark turquoise
+  220: { label: "10A – C# minor", color: "#1E90FF" }, // blue
+  261: { label: "8B – C major", color: "#FFFF00" },   // yellow
+  293: { label: "9B – D major", color: "#FFA500" },   // orange
+  329: { label: "10B – E major", color: "#FF4500" },  // red-orange
+  392: { label: "9B – G major", color: "#FF6347" },   // tomato
+  440: { label: "11A – A minor", color: "#7FFF00" },  // chartreuse
+  528: { label: "11B – C major", color: "#FFD700" },  // gold
+  432: { label: "Harmony", color: "#FFFFFF" }         // white
 };
 
 function resizeCanvas() {
@@ -124,14 +131,18 @@ function initAudio() {
   animate();
 }
 
-function getCurrentKeyLabel(freq) {
-  let closest = Object.keys(camelotMap).reduce((prev, curr) =>
+function getKeyData(freq) {
+  const closest = Object.keys(camelotMap).reduce((prev, curr) =>
     Math.abs(curr - freq) < Math.abs(prev - freq) ? curr : prev
   );
-  return camelotMap[closest] || "–";
+  return camelotMap[closest] || { label: "–", color: "#FFFFFF" };
 }
 
 function playTone(freq) {
+  const keyData = getKeyData(freq);
+  currentWaveColor = keyData.color;
+  keyDisplay.innerText = `Key: ${keyData.label}`;
+
   const osc = audioCtx.createOscillator();
   osc.type = 'square';
   osc.frequency.value = freq;
@@ -161,8 +172,6 @@ function playTone(freq) {
 
   osc.start(now);
   osc.stop(now + 2.5);
-
-  keyDisplay.innerText = `Key: ${getCurrentKeyLabel(freq)}`;
 }
 
 function scheduleNotes(scale) {
@@ -181,12 +190,10 @@ document.getElementById('play').addEventListener('click', () => {
   const scale = getScaleFromPreset(preset.value);
   scheduleNotes(scale);
 });
-
 document.getElementById('stop').addEventListener('click', () => {
   stopped = true;
   clearInterval(bpmTimer);
 });
-
 document.getElementById('bpm').addEventListener('input', e => {
   bpm = parseInt(e.target.value);
   if (!stopped) {
@@ -241,11 +248,13 @@ function animate() {
       x += slice;
     }
     const alpha = 0.05 + (t / trailFrames.length) * 0.1;
-    ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
-    ctx.shadowBlur = 12;
-    ctx.shadowColor = `rgba(255,255,255,${alpha})`;
+    ctx.strokeStyle = currentWaveColor;
+    ctx.globalAlpha = alpha;
+    ctx.shadowBlur = 16;
+    ctx.shadowColor = currentWaveColor;
     ctx.stroke();
     ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1.0;
   }
 }
 </script>
