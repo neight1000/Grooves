@@ -124,11 +124,11 @@ function logTone(freq, color) {
 }
 
 function playAmbientTone() {
-  if (stopped) return;
+  if (stopped || !audioCtx) return;
   const preset = getPreset(presetSelector.value);
   const freq = preset.min + Math.random() * (preset.max - preset.min);
-  const duration = 1 + Math.random() * 2;
-  const peakVol = 0.1 + Math.random() * 0.2;
+  const duration = 1.5 + Math.random();
+  const peakVol = 0.1 + Math.random() * 0.1;
   currentColor = frequencyToColor(freq);
 
   const osc = audioCtx.createOscillator();
@@ -167,16 +167,16 @@ function playAmbientTone() {
 function scheduleTones() {
   if (stopped) return;
   playAmbientTone();
-  setTimeout(scheduleTones, 1000 + Math.random() * 1000);
+  setTimeout(scheduleTones, 1000 + Math.random() * 500);
 }
 
 function animateWaveform() {
   requestAnimationFrame(animateWaveform);
   if (!analyser) return;
   analyser.getByteTimeDomainData(dataArray);
-  ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
+  ctx.fillStyle = "rgba(0, 0, 0, 0.08)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.lineWidth = 3;
+  ctx.lineWidth = 2;
   ctx.strokeStyle = currentColor;
   ctx.beginPath();
   const sliceWidth = canvas.width / bufferLength;
@@ -213,6 +213,7 @@ function initAudio() {
   bufferLength = analyser.frequencyBinCount;
   dataArray = new Uint8Array(bufferLength);
   masterGain = audioCtx.createGain();
+  masterGain.connect(audioCtx.destination);
   setMasterVolume(volSlider.value);
   stopped = false;
   scheduleTones();
@@ -223,7 +224,6 @@ function initAudio() {
 document.body.addEventListener('click', initAudio, { once: true });
 document.body.addEventListener('touchstart', initAudio, { once: true });
 
-// Touchpad pan control
 let startX = null;
 document.body.addEventListener('touchstart', e => {
   if (e.touches.length === 1) startX = e.touches[0].clientX;
