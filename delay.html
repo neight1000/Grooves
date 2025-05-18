@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Plantasia App v4 – Tape Delay Control</title>
+  <title>Plantasia App v3 – Stable with Data Display</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     html, body {
@@ -32,7 +32,7 @@
       flex-wrap: wrap;
       justify-content: center;
       gap: 10px;
-      z-index: 1;
+      z-index: 2;
     }
     .ui label {
       font-size: 10px;
@@ -50,10 +50,23 @@
       color: white;
       cursor: pointer;
     }
+    #infoDisplay {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 3;
+      background: rgba(0, 0, 0, 0.6);
+      color: white;
+      font-size: 12px;
+      padding: 10px;
+      display: none;
+      white-space: pre;
+    }
   </style>
 </head>
 <body>
 <canvas id="waveCanvas"></canvas>
+<div id="infoDisplay"></div>
 <div class="ui">
   <div><label>Preset</label>
     <select id="preset">
@@ -70,13 +83,27 @@
   <div><label>Frequency</label><input type="range" id="freq" min="50" max="1000" step="1" value="174" /></div>
   <div><label>Volume</label><input type="range" id="volume" min="0" max="100" value="60" /></div>
   <div><label>BPM</label><input type="range" id="bpm" min="40" max="180" value="90" /></div>
-  <div><label>Tape Wobble</label><input type="range" id="wobble" min="0" max="10" value="3" /></div>
   <button id="play">PLAY</button>
   <button id="stop">STOP</button>
+  <button id="toggleDisplay">TOGGLE DATA</button>
 </div>
 <script>
-// Full JavaScript logic will go here (next step)
+// Display Toggle Logic
+const display = document.getElementById("infoDisplay");
+document.getElementById("toggleDisplay").addEventListener("click", () => {
+  display.style.display = display.style.display === "none" ? "block" : "none";
+});
+function updateDisplay() {
+  display.textContent =
+    "PRESET     : " + document.getElementById("preset").value + "\n" +
+    "DELAY      : " + document.getElementById("delay").value + "\n" +
+    "ECHO       : " + document.getElementById("echo").value + "\n" +
+    "FILTER     : " + document.getElementById("filter").value + "\n" +
+    "FREQUENCY  : " + document.getElementById("freq").value + "\n" +
+    "VOLUME     : " + document.getElementById("volume").value + "\n" +
+    "BPM        : " + document.getElementById("bpm").value;
+}
+setInterval(updateDisplay, 250);
 </script>
 </body>
 </html>
-
