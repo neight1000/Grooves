@@ -39,7 +39,7 @@
       display: block;
       text-align: center;
     }
-    .ui input[type="range"] {
+    .ui input[type="range"], .ui select {
       width: 90px;
     }
     .ui button {
@@ -61,6 +61,14 @@
 <canvas id="waveCanvas"></canvas>
 
 <div class="ui">
+  <div><label>Preset</label>
+    <select id="preset">
+      <option value="default">Default</option>
+      <option value="deep">Deep</option>
+      <option value="bright">Bright</option>
+      <option value="bubbly">Bubbly</option>
+    </select>
+  </div>
   <div><label>Delay</label><input type="range" id="delay" min="0.05" max="1.5" step="0.01" value="0.8"></div>
   <div><label>Feedback</label><input type="range" id="feedback" min="0" max="0.95" step="0.01" value="0.7"></div>
   <div><label>Filter</label><input type="range" id="filter" min="200" max="4000" step="1" value="1000"></div>
@@ -74,13 +82,7 @@
 
 <script>
 const scale = [125, 140.3, 157.7, 187.8, 210.6];
-const scaleColors = [
-  0,     // 125Hz - Red
-  45,    // 140Hz - Orange
-  90,    // 157Hz - Yellow-Green
-  180,   // 187Hz - Cyan
-  270    // 210Hz - Violet
-];
+const scaleColors = [0, 30, 75, 180, 270]; // Rainbow hues per plant tone
 
 let audioCtx, analyser, masterGain, bufferLength, dataArray;
 let bpm = 90, tapTimes = [], bpmTimer = null, stopped = true;
@@ -115,9 +117,9 @@ class Particle {
     if (this.alpha <= 0) return;
     ctx.beginPath();
     ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-    ctx.fillStyle = `hsla(${this.hue}, 100%, 60%, ${this.alpha})`;
-    ctx.shadowBlur = 10;
-    ctx.shadowColor = `hsla(${this.hue}, 100%, 70%, ${this.alpha})`;
+    ctx.fillStyle = `hsla(${this.hue}, 100%, 70%, ${this.alpha})`;
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = `hsla(${this.hue}, 100%, 85%, ${this.alpha})`;
     ctx.fill();
     ctx.shadowBlur = 0;
   }
@@ -214,26 +216,40 @@ function animate() {
   ctx.fillStyle = "rgba(0, 0, 0, 0.1)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-  grad.addColorStop(0, `hsl(${currentHue}, 100%, 75%)`);
-  grad.addColorStop(1, `hsl(${(currentHue + 180) % 360}, 100%, 35%)`);
-  ctx.strokeStyle = grad;
-  ctx.lineWidth = 2.5;
-  ctx.beginPath();
+  // Frequency gridlines
+  ctx.strokeStyle = "rgba(255,255,255,0.05)";
+  ctx.lineWidth = 1;
+  for (let f = 100; f < 4000; f += 400) {
+    const y = canvas.height * (f / 4000);
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(canvas.width, y);
+    ctx.stroke();
+  }
 
   const slice = canvas.width / bufferLength;
+  ctx.strokeStyle = `hsl(${currentHue}, 100%, 70%)`;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
   let x = 0;
+  let maxY = 0, peakX = 0;
+
   for (let i = 0; i < bufferLength; i++) {
     const v = (dataArray[i] - 128) / 128.0;
     const y = (v * canvas.height / 0.85) + canvas.height / 2;
+
+    if (y < maxY || i === 0) {
+      maxY = y;
+      peakX = x;
+    }
+
     if (i === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
-    if (i % parseInt(document.getElementById('particles').value) === 0 && v > 0.25) {
-      particles.push(new Particle(x, y, currentHue));
-    }
     x += slice;
   }
+
   ctx.stroke();
+  particles.push(new Particle(peakX, maxY, currentHue));
 
   for (let i = particles.length - 1; i >= 0; i--) {
     particles[i].update();
@@ -263,8 +279,30 @@ document.getElementById('tap').addEventListener('click', () => {
     scheduleBPM();
   }
 });
+
 document.getElementById('volume').addEventListener('input', () => {
   if (masterGain) masterGain.gain.value = parseFloat(volume.value) / 100;
+});
+
+document.getElementById('preset').addEventListener('change', e => {
+  const val = e.target.value;
+  if (val === 'deep') {
+    delay.value = 1.1;
+    feedback.value = 0.8;
+    filter.value = 500;
+  } else if (val === 'bright') {
+    delay.value = 0.4;
+    feedback.value = 0.3;
+    filter.value = 3000;
+  } else if (val === 'bubbly') {
+    delay.value = 0.7;
+    feedback.value = 0.5;
+    filter.value = 1200;
+  } else {
+    delay.value = 0.8;
+    feedback.value = 0.7;
+    filter.value = 1000;
+  }
 });
 </script>
 </body>
