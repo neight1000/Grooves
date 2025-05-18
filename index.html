@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>AMBIENT PLANT INTERFACE</title>
+  <title>Ambient Plant Interface</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     html, body {
       margin: 0;
@@ -12,11 +13,6 @@
       font-family: "Courier New", monospace;
       height: 100%;
       overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      touch-action: manipulation;
     }
     canvas {
       position: absolute;
@@ -26,196 +22,218 @@
       width: 100%;
       height: 100%;
     }
-    .overlay {
+    .grid {
       position: relative;
-      z-index: 1;
+      z-index: 2;
+      display: grid;
+      gap: 1em;
+      padding: 1em;
       text-align: center;
-      padding: 2rem;
-      max-width: 90%;
+      justify-items: center;
     }
     h1 {
-      font-size: 2em;
-      margin-bottom: 0.5em;
+      font-size: 1.6em;
       letter-spacing: 0.1em;
     }
-    p, #status, label {
-      color: #FFF;
-      margin-top: 0.5em;
-      font-size: 0.9em;
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5em;
+      width: 100%;
+      align-items: center;
     }
-    #volume-container {
-      margin-top: 1em;
-    }
-    input[type="range"] {
-      width: 70%;
-      margin-top: 0.5em;
-    }
-    .button {
-      border: 2px solid #FFF;
+    select, input[type="range"], .button {
+      width: 90vw;
+      max-width: 300px;
+      font-family: "Courier New", monospace;
+      font-size: 1em;
+      padding: 0.5em;
       background: transparent;
       color: #FFF;
-      font-family: "Courier New", monospace;
-      font-size: 0.9em;
-      padding: 10px 20px;
-      margin-top: 1.5em;
-      cursor: pointer;
-      transition: background 0.3s ease;
+      border: 2px solid #FFF;
     }
     .button:hover {
       background: #222;
     }
+    #history {
+      font-size: 0.75em;
+      color: #AAA;
+      max-height: 6em;
+      overflow-y: auto;
+      width: 90vw;
+      text-align: left;
+      white-space: pre-wrap;
+    }
   </style>
 </head>
 <body>
-  <canvas id="waveCanvas"></canvas>
-  <div class="overlay">
-    <h1>AMBIENT PLANT INTERFACE</h1>
-    <p>Tap or click to activate ambient tone environment.</p>
-    <div id="status">Status: Idle</div>
-    <div id="volume-container">
-      <label for="volume">Volume: <span id="vol-label">50%</span></label><br>
-      <input type="range" id="volume" min="0" max="100" value="50">
-    </div>
+<canvas id="waveCanvas"></canvas>
+<div class="grid">
+  <h1>AMBIENT PLANT INTERFACE</h1>
+  <div id="status">Tap to begin</div>
+  <div class="controls">
+    <select id="preset">
+      <option value="greenhouse">Greenhouse</option>
+      <option value="deepspace">Deep Space</option>
+      <option value="daylight">Daylight</option>
+    </select>
+    <label>Volume: <span id="vol-label">50%</span></label>
+    <input type="range" id="volume" min="0" max="100" value="50">
     <button class="button" onclick="stopAudio()">STOP</button>
   </div>
+  <div id="history"></div>
+</div>
 
-  <script>
-    const waveforms = ['sine', 'triangle', 'square', 'sawtooth'];
-    const canvas = document.getElementById('waveCanvas');
-    const ctx2d = canvas.getContext('2d');
-    const status = document.getElementById('status');
-    const volSlider = document.getElementById('volume');
-    const volLabel = document.getElementById('vol-label');
+<script>
+const canvas = document.getElementById('waveCanvas');
+const ctx = canvas.getContext('2d');
+const status = document.getElementById('status');
+const volSlider = document.getElementById('volume');
+const volLabel = document.getElementById('vol-label');
+const presetSelector = document.getElementById('preset');
+const historyBox = document.getElementById('history');
 
-    let audioCtx, analyser, masterGain;
-    let bufferLength, dataArray;
-    let stopped = false;
+let audioCtx, analyser, masterGain, bufferLength, dataArray;
+let stopped = false, toneHistory = [], currentColor = "#FFF", currentPan = 0;
 
-    function resizeCanvas() {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    }
-    window.addEventListener('resize', resizeCanvas);
-    resizeCanvas();
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
 
-    function setMasterVolume(percent) {
-      if (masterGain) {
-        const linear = percent / 100;
-        masterGain.gain.setValueAtTime(linear, audioCtx.currentTime);
-      }
-    }
+function frequencyToColor(freq) {
+  const hue = Math.floor((freq - 100) / 400 * 270);
+  return `hsl(${hue}, 100%, 60%)`;
+}
 
-    volSlider.addEventListener('input', () => {
-      volLabel.textContent = `${volSlider.value}%`;
-      setMasterVolume(volSlider.value);
-    });
+function getPreset(preset) {
+  const presets = {
+    greenhouse: { min: 150, max: 350, delay: 0.2, feedback: 0.3 },
+    deepspace: { min: 60, max: 250, delay: 0.5, feedback: 0.6 },
+    daylight: { min: 300, max: 600, delay: 0.15, feedback: 0.25 }
+  };
+  return presets[preset] || presets.greenhouse;
+}
 
-    function playAmbientTone() {
-      if (stopped) return;
+function logTone(freq, color) {
+  toneHistory.unshift(`${freq.toFixed(1)} Hz — ${color}`);
+  if (toneHistory.length > 10) toneHistory.pop();
+  historyBox.textContent = toneHistory.join('\n');
+}
 
-      const oscillator = audioCtx.createOscillator();
-      const gainNode = audioCtx.createGain();
-      const delay = audioCtx.createDelay();
-      const feedback = audioCtx.createGain();
-      const filter = audioCtx.createBiquadFilter();
+function playAmbientTone() {
+  if (stopped) return;
+  const preset = getPreset(presetSelector.value);
+  const freq = preset.min + Math.random() * (preset.max - preset.min);
+  const duration = 1 + Math.random() * 2;
+  const peakVol = 0.1 + Math.random() * 0.2;
+  currentColor = frequencyToColor(freq);
 
-      const freq = 100 + Math.random() * 400;
-      const wave = waveforms[Math.floor(Math.random() * waveforms.length)];
-      const duration = 1 + Math.random() * 2;
-      const peakVol = 0.1 + Math.random() * 0.2;
+  const osc = audioCtx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
 
-      oscillator.type = wave;
-      oscillator.frequency.setValueAtTime(freq, audioCtx.currentTime);
-      filter.type = "lowpass";
-      filter.frequency.setValueAtTime(1200, audioCtx.currentTime);
+  const gainNode = audioCtx.createGain();
+  gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+  gainNode.gain.linearRampToValueAtTime(peakVol, audioCtx.currentTime + 0.2);
+  gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + duration);
 
-      delay.delayTime.value = 0.3;
-      feedback.gain.value = 0.4;
-      delay.connect(feedback);
-      feedback.connect(delay);
+  const panner = audioCtx.createStereoPanner();
+  panner.pan.value = currentPan;
 
-      const now = audioCtx.currentTime;
-      gainNode.gain.setValueAtTime(0, now);
-      gainNode.gain.linearRampToValueAtTime(peakVol, now + 0.2);
-      gainNode.gain.linearRampToValueAtTime(0, now + duration);
+  const delay = audioCtx.createDelay();
+  delay.delayTime.value = preset.delay;
 
-      status.textContent = `Waveform: ${wave}, Frequency: ${freq.toFixed(1)} Hz, Volume: ${peakVol.toFixed(3)}`;
+  const feedback = audioCtx.createGain();
+  feedback.gain.value = preset.feedback;
+  delay.connect(feedback);
+  feedback.connect(delay);
 
-      oscillator.connect(gainNode);
-      gainNode.connect(filter);
-      filter.connect(delay);
-      delay.connect(masterGain);
-      gainNode.connect(analyser); // visualizer
+  osc.connect(gainNode);
+  gainNode.connect(panner);
+  panner.connect(delay);
+  delay.connect(masterGain);
+  gainNode.connect(analyser);
 
-      oscillator.start(now);
-      oscillator.stop(now + duration);
-    }
+  osc.start();
+  osc.stop(audioCtx.currentTime + duration);
 
-    function scheduleTones() {
-      if (stopped) return;
-      playAmbientTone();
-      const interval = 800 + Math.random() * 1200;
-      setTimeout(scheduleTones, interval);
-    }
+  status.textContent = `Freq: ${freq.toFixed(1)} Hz — Vol: ${peakVol.toFixed(2)}`;
+  logTone(freq, currentColor);
+}
 
-    function animateWaveform() {
-      requestAnimationFrame(animateWaveform);
-      if (!analyser) return;
+function scheduleTones() {
+  if (stopped) return;
+  playAmbientTone();
+  setTimeout(scheduleTones, 1000 + Math.random() * 1000);
+}
 
-      analyser.getByteTimeDomainData(dataArray);
-      ctx2d.fillStyle = "#000";
-      ctx2d.fillRect(0, 0, canvas.width, canvas.height);
+function animateWaveform() {
+  requestAnimationFrame(animateWaveform);
+  if (!analyser) return;
+  analyser.getByteTimeDomainData(dataArray);
+  ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = currentColor;
+  ctx.beginPath();
+  const sliceWidth = canvas.width / bufferLength;
+  let x = 0;
+  for (let i = 0; i < bufferLength; i++) {
+    const v = dataArray[i] / 128.0;
+    const y = v * canvas.height / 2;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+    x += sliceWidth;
+  }
+  ctx.stroke();
+}
 
-      ctx2d.lineWidth = 3;
-      ctx2d.strokeStyle = "#FFF";
-      ctx2d.beginPath();
+function setMasterVolume(val) {
+  if (masterGain) masterGain.gain.setValueAtTime(val / 100, audioCtx.currentTime);
+}
+volSlider.addEventListener('input', () => {
+  volLabel.textContent = `${volSlider.value}%`;
+  setMasterVolume(volSlider.value);
+});
 
-      const sliceWidth = canvas.width / bufferLength;
-      let x = 0;
+function stopAudio() {
+  stopped = true;
+  if (audioCtx) masterGain.gain.setValueAtTime(0, audioCtx.currentTime);
+  status.textContent = "Stopped";
+}
 
-      for (let i = 0; i < bufferLength; i++) {
-        const v = dataArray[i] / 128.0;
-        const y = v * canvas.height / 2;
-        if (i === 0) {
-          ctx2d.moveTo(x, y);
-        } else {
-          ctx2d.lineTo(x, y);
-        }
-        x += sliceWidth;
-      }
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 2048;
+  bufferLength = analyser.frequencyBinCount;
+  dataArray = new Uint8Array(bufferLength);
+  masterGain = audioCtx.createGain();
+  setMasterVolume(volSlider.value);
+  stopped = false;
+  scheduleTones();
+  animateWaveform();
+  status.textContent = "Running...";
+}
 
-      ctx2d.lineTo(canvas.width, canvas.height / 2);
-      ctx2d.stroke();
-    }
+document.body.addEventListener('click', initAudio, { once: true });
+document.body.addEventListener('touchstart', initAudio, { once: true });
 
-    function initAudio() {
-      if (audioCtx) return;
-
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 2048;
-      bufferLength = analyser.frequencyBinCount;
-      dataArray = new Uint8Array(bufferLength);
-
-      masterGain = audioCtx.createGain();
-      setMasterVolume(volSlider.value);
-
-      stopped = false;
-      scheduleTones();
-      animateWaveform();
-      status.textContent = 'Generating tones...';
-    }
-
-    function stopAudio() {
-      stopped = true;
-      status.textContent = 'Stopped';
-      if (audioCtx) {
-        masterGain.gain.setValueAtTime(0, audioCtx.currentTime);
-      }
-    }
-
-    document.body.addEventListener('click', initAudio, { once: true });
-    document.body.addEventListener('touchstart', initAudio, { once: true });
-  </script>
+// Touchpad pan control
+let startX = null;
+document.body.addEventListener('touchstart', e => {
+  if (e.touches.length === 1) startX = e.touches[0].clientX;
+});
+document.body.addEventListener('touchmove', e => {
+  if (e.touches.length === 1 && startX !== null) {
+    const dx = e.touches[0].clientX - startX;
+    currentPan = Math.max(-1, Math.min(1, dx / window.innerWidth));
+  }
+});
+</script>
 </body>
 </html>
