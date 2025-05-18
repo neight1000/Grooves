@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Ambient Plant Tone Generator</title>
+  <style>
+    body {
+      margin: 0;
+      height: 100vh;
+      background: #111;
+      color: #b5fcb5;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      font-family: sans-serif;
+      text-align: center;
+      user-select: none;
+      touch-action: manipulation;
+    }
+    h1 {
+      font-size: 1.5em;
+      margin-bottom: 0.5em;
+    }
+    #status {
+      font-size: 1em;
+      margin-top: 0.5em;
+      color: #afffaf;
+    }
+  </style>
+</head>
+<body>
+  <h1>Ambient Plant Tone Generator</h1>
+  <p>Tap or click to start. Generates soft randomized tones in plant-friendly frequencies (100–500 Hz).</p>
+  <div id="status">Waiting to start...</div>
+
+  <script>
+    const waveforms = ['sine', 'triangle', 'square', 'sawtooth'];
+    const status = document.getElementById('status');
+    let audioCtx;
+
+    function playAmbientTone() {
+      if (!audioCtx) return;
+
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+
+      // Frequency: 100–500 Hz
+      const freq = 100 + Math.random() * 400;
+      oscillator.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+      // Random waveform
+      const wave = waveforms[Math.floor(Math.random() * waveforms.length)];
+      oscillator.type = wave;
+
+      // Volume envelope
+      const now = audioCtx.currentTime;
+      const duration = 1 + Math.random() * 2; // 1–3 sec
+      const peakVol = 0.05 + Math.random() * 0.1;
+      gainNode.gain.setValueAtTime(0, now);
+      gainNode.gain.linearRampToValueAtTime(peakVol, now + 0.2);
+      gainNode.gain.linearRampToValueAtTime(0, now + duration);
+
+      // Display live info
+      status.textContent = `Waveform: ${wave}, Frequency: ${freq.toFixed(1)} Hz, Volume: ${peakVol.toFixed(3)}`;
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      oscillator.start(now);
+      oscillator.stop(now + duration);
+    }
+
+    function scheduleTones() {
+      playAmbientTone();
+      const interval = 800 + Math.random() * 1200; // ~0.8–2 sec
+      setTimeout(scheduleTones, interval);
+    }
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        status.textContent = 'Generating tones...';
+        scheduleTones();
+      }
+    }
+
+    // Mobile + Desktop click/tap support
+    document.body.addEventListener('click', initAudio, { once: true });
+    document.body.addEventListener('touchstart', initAudio, { once: true });
+  </script>
+</body>
+</html>
