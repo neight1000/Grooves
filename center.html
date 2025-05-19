@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Plantasia App v53 – Fixed Playback</title>
+  <title>Plantasia App v54 – Enhanced Triangle Feedback</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap');
     :root { --bg: #000; --fg: #fff; --font: 'Roboto Mono', monospace; --accent: #00ff00; }
@@ -32,7 +32,10 @@
     .controls { display: flex; flex-wrap: wrap; gap: 0.5rem; }
     #visualizer { position:absolute; top:0; left:0; width:100vw; height:100vh; background:var(--bg); z-index:1; }
     #infoDisplay { position:absolute; top:1rem; left:1rem; background:rgba(0,0,0,0.6); padding:0.5rem; white-space:pre; display:none; z-index:3; }
-    canvas { display: block; }
+    .footer {
+      position:absolute; bottom:0.5rem; width:100%; text-align:center;
+      font-size:0.75rem; color:#888; z-index:3;
+    }
   </style>
 </head>
 <body>
@@ -73,20 +76,26 @@
   </div>
   <canvas id="visualizer"></canvas>
   <div id="infoDisplay"></div>
+  <div class="footer">
+    © 2025 Nate &nbsp;|&nbsp; Category: <span id="categoryLabel">Plants</span>
+  </div>
   <script>
     // Setup
     let audioCtx, analyser, masterGain, bufferLength, dataArray, bpmTimer, stopped=true;
-    let trail = []; const MAX_LAYERS = 6;
-    const canvas = document.getElementById('visualizer');
-    const ctx = canvas.getContext('2d');
+    const MAX_LAYERS = 12;
+    let trail = [];
+    const canvas = document.getElementById('visualizer'), ctx = canvas.getContext('2d');
+
     const ui = {
       play: document.getElementById('play'),
       stop: document.getElementById('stop'),
       toggleUI: document.getElementById('toggleUI'),
       toggleData: document.getElementById('toggleData'),
       controls: document.getElementById('controlsWrapper'),
-      info: document.getElementById('infoDisplay')
+      info: document.getElementById('infoDisplay'),
+      category: document.getElementById('categoryLabel')
     };
+
     const controls = {
       preset: document.getElementById('preset'),
       delay: document.getElementById('delay'),
@@ -145,19 +154,19 @@
       requestAnimationFrame(animate);
       if (!analyser) return;
       analyser.getByteTimeDomainData(dataArray);
-      trail.shift();
-      trail.push(dataArray.slice());
+      trail.shift(); trail.push(dataArray.slice());
       ctx.fillStyle = 'rgba(0,0,0,0.1)';
       ctx.fillRect(0,0,canvas.width,canvas.height);
 
-      const maxSize = Math.min(canvas.width, canvas.height) * 0.3;
+      const maxSize = Math.min(canvas.width, canvas.height) * 0.4;
       for (let i=0; i<trail.length; i++) {
         const layer = trail[i];
-        const alpha = (i+1)/trail.length * 0.5;
+        const alpha = (i+1)/trail.length * 0.7; // more visible
         const size = maxSize * ((i+1)/trail.length);
         ctx.save();
         ctx.translate(canvas.width/2, canvas.height/2);
-        // Draw triangle
+        const scale = 1 + i/trail.length * 0.2; // extra feedback
+        ctx.scale(scale, scale);
         const h = size * Math.sqrt(3)/2;
         ctx.beginPath();
         ctx.moveTo(0, -h);
@@ -165,7 +174,9 @@
         ctx.lineTo(size/2, h/3);
         ctx.closePath();
         ctx.strokeStyle = 'rgba(0,255,0,'+alpha+')';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2 + i*0.5; // thicker for outer layers
+        ctx.shadowBlur = 15; // glow
+        ctx.shadowColor = 'rgba(0,255,0,'+alpha+')';
         ctx.stroke();
         ctx.restore();
       }
@@ -183,10 +194,7 @@
       stopped = false;
       schedule();
     });
-    ui.stop.addEventListener('click', ()=>{
-      stopped = true;
-      clearInterval(bpmTimer);
-    });
+    ui.stop.addEventListener('click', ()=>{ stopped = true; clearInterval(bpmTimer); });
     ui.toggleUI.addEventListener('click', ()=>{
       const vis = ui.controls.style.display !== 'block';
       ui.controls.style.display = vis ? 'block':'none';
@@ -196,6 +204,9 @@
       const vis = ui.info.style.display !== 'block';
       ui.info.style.display = vis?'block':'none';
       ui.toggleData.textContent = vis?'Hide Data':'Show Data';
+    });
+    controls.preset.addEventListener('change', ()=>{
+      ui.category.textContent = controls.preset.options[controls.preset.selectedIndex].text;
     });
     // Display values
     setInterval(() => {
