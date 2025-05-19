@@ -170,7 +170,7 @@
       osc.stop(now + 0.24);
     }
 
-    // --- Vine Particle Animation ---
+    // --- Magical Vine Animation ---
     const vineCanvas = document.getElementById('vine-canvas');
     let vineParticles = [];
     function resizeVineCanvas() {
@@ -180,39 +180,54 @@
     window.addEventListener('resize', resizeVineCanvas);
     resizeVineCanvas();
 
-    function spawnVineSquiggle(x0, y0, text, font) {
-      // Estimate the baseline and length for the vine (start at left edge)
+    function spawnSymmetricalVine(x0, y0, text, font) {
+      // Measure text width for end points
       let ctx = vineCanvas.getContext('2d');
       ctx.save();
       ctx.font = font;
       let textWidth = ctx.measureText(text).width;
       ctx.restore();
-      // Parameters for vine squiggle
-      let length = Math.max(90, Math.min(textWidth, 210));
-      let points = 44; // how many vine "segments"
-      let baseAngle = Math.PI * 0.03;
-      let squiggleAmplitude = 8 + Math.random() * 3;
-      let branchChance = 0.18;
-      let totalDuration = 1600 + Math.random() * 700; // ms
-      let dt = totalDuration / points;
 
+      // Vines grow left-to-right and right-to-left towards the center
+      let L = Math.max(90, Math.min(textWidth, 210));
+      let points = 54;
+      let squiggleAmp = 9 + Math.random() * 4;
+      let duration = 2400 + Math.random() * 800; // ms
+      let dt = duration / points;
       let now = performance.now();
+
+      // LEFT to CENTER
       for (let i = 0; i < points; i++) {
-        let progress = i / points;
-        let angle = baseAngle + Math.sin(i * 0.38 + Math.random()*0.6) * 0.22;
-        let px = x0 + progress * length;
-        let py = y0 + Math.sin(i * 0.45 + Math.random() * 1.7) * (squiggleAmplitude * (1 - progress * 0.3));
-        // Particle lifetime is proportional to progress for trailing effect
+        let t = i / (points - 1);
+        let px = x0 + t * L;
+        let py = y0 + Math.sin(i * 0.32 + Math.cos(i * 0.18)) * (squiggleAmp * (1 - t * 0.25));
         vineParticles.push({
           x: px, y: py,
-          r: 2.2 + Math.random() * 2.3 - progress*1.3,
-          alpha: 0.19 + 0.23 * (1 - progress),
-          color: '#60f88d',
-          born: now + i * dt * 0.13,
-          die: now + totalDuration * (0.7 + progress * 0.4),
-          vx: Math.random()*0.8-0.4,
-          vy: Math.random()*0.7-0.35,
-          branch: (Math.random() < branchChance)
+          r: 2.3 + Math.random() * 2.0 - t*1.2,
+          alpha: 0.23 + 0.32 * (1 - t),
+          color: (Math.random() < 0.13) ? "#baffd3" : "#60f88d",
+          born: now + i * dt * 0.25,
+          die: now + duration * (0.6 + t * 0.47),
+          vx: Math.random()*0.6-0.3,
+          vy: Math.random()*0.5-0.25,
+          branch: (Math.random() < 0.13)
+        });
+      }
+      // RIGHT to CENTER
+      for (let i = 0; i < points; i++) {
+        let t = i / (points - 1);
+        let px = x0 + L - t * L;
+        let py = y0 + Math.sin(i * 0.36 + Math.cos(i * 0.15 + 2.8)) * (squiggleAmp * (1 - t * 0.25));
+        vineParticles.push({
+          x: px, y: py,
+          r: 2.3 + Math.random() * 2.0 - t*1.2,
+          alpha: 0.21 + 0.33 * (1 - t),
+          color: (Math.random() < 0.13) ? "#baffd3" : "#60f88d",
+          born: now + i * dt * 0.25,
+          die: now + duration * (0.6 + t * 0.47),
+          vx: Math.random()*0.6-0.3,
+          vy: Math.random()*0.5-0.25,
+          branch: (Math.random() < 0.13)
         });
       }
     }
@@ -224,32 +239,30 @@
       for (let i = vineParticles.length - 1; i >= 0; i--) {
         let p = vineParticles[i];
         if (now < p.born) continue;
-        // Draw particle
         ctx.save();
         ctx.globalAlpha = p.alpha * Math.max(0, 1 - ((now - p.born)/ (p.die-p.born)));
         ctx.beginPath();
-        ctx.arc(p.x, p.y, Math.max(0.4, p.r), 0, 2 * Math.PI, false);
+        ctx.arc(p.x, p.y, Math.max(0.6, p.r), 0, 2 * Math.PI, false);
         ctx.fillStyle = p.color;
-        ctx.shadowBlur = 11;
-        ctx.shadowColor = '#90ffc9';
+        ctx.shadowBlur = 15 + 16 * p.alpha;
+        ctx.shadowColor = '#80ffcc';
         ctx.fill();
         ctx.restore();
-        // Animate
-        p.x += p.vx * 0.44;
-        p.y += p.vy * 0.44;
-        p.r *= 0.997;
-        p.alpha *= 0.992;
-        // Offshoots
-        if (p.branch && Math.random() < 0.02) {
+        p.x += p.vx * 0.38;
+        p.y += p.vy * 0.38;
+        p.r *= 0.998;
+        p.alpha *= 0.993;
+        // Magical glimmer
+        if (p.branch && Math.random() < 0.018) {
           vineParticles.push({
             x: p.x, y: p.y,
-            r: p.r * 0.7,
-            alpha: p.alpha * 0.8,
-            color: '#1ef168',
+            r: p.r * (0.55 + Math.random()*0.6),
+            alpha: p.alpha * (0.67 + Math.random()*0.24),
+            color: '#c8ffd7',
             born: now,
             die: p.die,
-            vx: -p.vy * (0.15 + Math.random()*0.16),
-            vy: p.vx * (0.11 + Math.random()*0.14),
+            vx: -p.vy * (0.21 + Math.random()*0.14),
+            vy: p.vx * (0.17 + Math.random()*0.18),
             branch: false
           });
         }
@@ -266,13 +279,12 @@
         initSynth();
         playPlantTone(hoverIndex++);
         if (arrow) arrow.classList.remove('hide');
-        // Start at leftmost point of link text
         const rect = link.getBoundingClientRect();
         const font = getComputedStyle(link).font;
         const text = link.textContent.replace(/->/, '').trim();
         const x0 = rect.left + window.scrollX;
-        const y0 = rect.top + rect.height / 2 + window.scrollY;
-        spawnVineSquiggle(x0, y0, text, font);
+        const y0 = rect.top + rect.height / 2 + window.scrollY + 3;
+        spawnSymmetricalVine(x0, y0, text, font);
       });
       link.addEventListener('mouseleave', e => {
         if (arrow) arrow.classList.add('hide');
@@ -285,8 +297,8 @@
         const font = getComputedStyle(link).font;
         const text = link.textContent.replace(/->/, '').trim();
         const x0 = rect.left + window.scrollX;
-        const y0 = rect.top + rect.height / 2 + window.scrollY;
-        spawnVineSquiggle(x0, y0, text, font);
+        const y0 = rect.top + rect.height / 2 + window.scrollY + 3;
+        spawnSymmetricalVine(x0, y0, text, font);
       });
       link.addEventListener('blur', e => {
         if (arrow) arrow.classList.add('hide');
