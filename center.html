@@ -2,36 +2,35 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Plantasia App v62 – Original Waveform Restored</title>
+  <title>Plantasia App v63 – Top Nav Restored</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     html, body {
-      margin: 0;
-      padding: 0;
-      background: black;
-      color: white;
-      font-family: monospace;
-      overflow: hidden;
+      margin: 0; padding: 0;
+      background: black; color: white;
+      font-family: monospace; overflow: hidden;
     }
     canvas {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      z-index: 0;
+      position: absolute; top: 0; left: 0;
+      width: 100vw; height: 100vh; z-index: 0;
+    }
+    .nav {
+      position: absolute; top: 0; width: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex; justify-content: center;
+      padding: 10px; gap: 10px; z-index: 3;
+    }
+    .nav button {
+      font-size: 12px; padding: 4px 8px;
+      background: transparent; border: 1px solid white;
+      color: white; cursor: pointer;
     }
     .ui {
-      position: absolute;
-      bottom: 0;
-      width: 100%;
+      position: absolute; bottom: 0; width: 100%;
       background: rgba(0, 0, 0, 0.85);
       padding: 10px;
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 10px;
-      z-index: 2;
+      display: flex; flex-wrap: wrap;
+      justify-content: center; gap: 10px; z-index: 2;
     }
     .ui label {
       font-size: 10px;
@@ -41,32 +40,25 @@
     .ui input[type="range"], .ui select {
       width: 90px;
     }
-    .ui button {
-      font-size: 12px;
-      padding: 4px 8px;
-      background: transparent;
-      border: 1px solid white;
-      color: white;
-      cursor: pointer;
-    }
     #infoDisplay {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      z-index: 3;
-      background: rgba(0, 0, 0, 0.6);
-      color: white;
-      font-size: 12px;
-      padding: 10px;
-      display: none;
+      position: absolute; top: 50px; left: 10px;
+      z-index: 3; background: rgba(0,0,0,0.6);
+      color: white; font-size: 12px;
+      padding: 10px; display: none;
       white-space: pre;
     }
   </style>
 </head>
 <body>
 <canvas id="waveCanvas"></canvas>
+<div class="nav">
+  <button id="play">PLAY</button>
+  <button id="stop">STOP</button>
+  <button id="toggleUI">TOGGLE CONTROLS</button>
+  <button id="toggleDisplay">TOGGLE DATA</button>
+</div>
 <div id="infoDisplay"></div>
-<div class="ui">
+<div class="ui" id="controlPanel">
   <div><label>Preset<select id="preset">
     <option value="plants">Plants</option>
     <option value="mold">Mold</option>
@@ -93,9 +85,6 @@
   <div><label>BPM<input type="range" id="bpm" min="64" max="130" value="90"></label></div>
   <div><label>Density<input type="range" id="density" min="1" max="10" step="1" value="5"></label></div>
   <div><label>Height<input type="range" id="height" min="0.5" max="2.0" step="0.1" value="1.0"></label></div>
-  <button id="play">PLAY</button>
-  <button id="stop">STOP</button>
-  <button id="toggleDisplay">TOGGLE DATA</button>
 </div>
 <script>
 let audioCtx, analyser, masterGain, reverbNode, reverbFeedback, bufferLength, dataArray;
@@ -112,7 +101,7 @@ const presetSettings = {
   harmony:    { scale: [432,528,639,741,852], color: "#00FFFF" },
   dmt:        { scale: [100,140,200,250,310], color: "#7F00FF" },
   planetRock: { scale: [110,130,180,220,260], color: "#FF1493" },
-  bachPreludeC:[261.6,329.6,392.0,523.3],      // no color override
+  bachPreludeC:[261.6,329.6,392.0,523.3],      // fallback
   euclid:     { scale: [120,240,360,480],     color: "#4B0082" },
   fib:        { scale: [100,161.8,261.8,423.6],color: "#20B2AA" },
   markov:     { scale: [180,200,220,180,240], color: "#6495ED" },
@@ -138,7 +127,6 @@ function initAudio() {
   });
 
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  audioCtx.resume();
   analyser = audioCtx.createAnalyser();
   analyser.fftSize = 2048;
   bufferLength = analyser.frequencyBinCount;
@@ -206,7 +194,6 @@ function scheduleNotes(scale) {
 }
 
 function animate() {
-  if (!ctx || !analyser) return;
   requestAnimationFrame(animate);
   analyser.getByteTimeDomainData(dataArray);
   ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
@@ -242,7 +229,7 @@ function animate() {
   });
 }
 
-document.getElementById('play').addEventListener('click', () => {
+play.addEventListener("click", () => {
   initAudio();
   stopped = false;
   bpm = parseInt(bpm.value);
@@ -251,28 +238,33 @@ document.getElementById('play').addEventListener('click', () => {
   scheduleNotes(scale);
 });
 
-document.getElementById('stop').addEventListener('click', () => {
+stop.addEventListener("click", () => {
   stopped = true;
   clearInterval(bpmTimer);
 });
 
-document.getElementById('bpm').addEventListener('input', e => {
-  bpm = parseInt(e.target.value);
+bpm.addEventListener("input", () => {
+  bpm = parseInt(bpm.value);
   if (!stopped) scheduleNotes(getScaleFromPreset(preset.value));
 });
 
-document.getElementById('preset').addEventListener('change', () => {
+preset.addEventListener("change", () => {
   currentWaveColor = getColorFromPreset(preset.value);
   if (!stopped) scheduleNotes(getScaleFromPreset(preset.value));
 });
 
-document.getElementById('reverb').addEventListener('input', e => {
-  if (reverbFeedback) reverbFeedback.gain.value = parseFloat(e.target.value);
+reverb.addEventListener("input", () => {
+  if (reverbFeedback) reverbFeedback.gain.value = parseFloat(reverb.value);
 });
 
-document.getElementById('toggleDisplay').addEventListener('click', () => {
+toggleDisplay.addEventListener("click", () => {
   const info = document.getElementById("infoDisplay");
   info.style.display = info.style.display === "none" ? "block" : "none";
+});
+
+toggleUI.addEventListener("click", () => {
+  const panel = document.getElementById("controlPanel");
+  panel.style.display = panel.style.display === "none" ? "flex" : "none";
 });
 
 setInterval(() => {
