@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Plantasia App v56 – Triangle Waveform</title>
+  <title>Plantasia App v57 – Full Presets & Triangle Waveform</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap');
     :root { --bg: #000; --fg: #fff; --font: 'Roboto Mono', monospace; --accent: #00ff00; }
@@ -51,6 +51,16 @@
         <option value="bacteria">Bacteria</option>
         <option value="mushrooms">Mushrooms</option>
         <option value="harmony">Lifeform Harmony</option>
+        <option value="euclid">Euclidean Rhythm</option>
+        <option value="fib">Fibonacci Intervals</option>
+        <option value="markov">Markov Chain</option>
+        <option value="raga">Raga (Indian)</option>
+        <option value="hijaz">Hijaz (Middle East)</option>
+        <option value="pelog">Pelog (Gamelan)</option>
+        <option value="insen">In-Sen (Japanese)</option>
+        <option value="bachPreludeC">Bach Prelude</option>
+        <option value="planetRock">Planet Rock</option>
+        <option value="dmt">DMT (Slow & Drowny)</option>
       </select>
     </label>
     <label>Delay <input type="range" id="delay" min="0.01" max="2" step="0.01" value="1.2"/></label>
@@ -68,22 +78,35 @@
     © 2025 Nate &nbsp;|&nbsp; Category: <span id="categoryLabel">Plants</span>
   </div>
   <script>
+    // Setup audio and variables
     let audioCtx, analyser, masterGain, bufferLength, dataArray, bpmTimer, stopped=true;
     const trailFrames = [], MAX_FRAMES=12;
     const canvas=document.getElementById('visualizer'), ctx=canvas.getContext('2d');
-    const ui={ play:document.getElementById('play'), stop:document.getElementById('stop'),
-      toggleUI:document.getElementById('toggleUI'), toggleData:document.getElementById('toggleData'),
-      controls:document.getElementById('controlsWrapper'), info:document.getElementById('infoDisplay'),
-      category:document.getElementById('categoryLabel') };
-    const ctrls={ preset:document.getElementById('preset'), delay:document.getElementById('delay'),
-      echo:document.getElementById('echo'), reverb:document.getElementById('reverb'),
-      filter:document.getElementById('filter'), freq:document.getElementById('freq'),
-      volume:document.getElementById('volume'), bpm:document.getElementById('bpm'),
-      density:document.getElementById('density') };
+    const ui={
+      play:document.getElementById('play'),
+      stop:document.getElementById('stop'),
+      toggleUI:document.getElementById('toggleUI'),
+      toggleData:document.getElementById('toggleData'),
+      controls:document.getElementById('controlsWrapper'),
+      info:document.getElementById('infoDisplay'),
+      category:document.getElementById('categoryLabel')
+    };
+    const ctrls={
+      preset:document.getElementById('preset'),
+      delay:document.getElementById('delay'),
+      echo:document.getElementById('echo'),
+      reverb:document.getElementById('reverb'),
+      filter:document.getElementById('filter'),
+      freq:document.getElementById('freq'),
+      volume:document.getElementById('volume'),
+      bpm:document.getElementById('bpm'),
+      density:document.getElementById('density')
+    };
+
     function resize(){canvas.width=innerWidth;canvas.height=innerHeight;}
     function initAudio(){
       if(audioCtx)return;
-      audioCtx=new(AudioContext||webkitAudioContext)();
+      audioCtx=new (window.AudioContext||webkitAudioContext)();
       analyser=audioCtx.createAnalyser();analyser.fftSize=2048;
       bufferLength=analyser.frequencyBinCount;dataArray=new Uint8Array(bufferLength);
       masterGain=audioCtx.createGain();masterGain.gain.value=parseFloat(ctrls.volume.value)/100;
@@ -91,10 +114,13 @@
       window.addEventListener('resize',resize);resize();
       for(let i=0;i<MAX_FRAMES;i++)trailFrames.push(new Uint8Array(bufferLength));
     }
+
     function playTone(){
       const now=audioCtx.currentTime;
       const osc=audioCtx.createOscillator();
-      osc.type='triangle';osc.frequency.setValueAtTime(parseFloat(ctrls.freq.value),now);
+      osc.type='triangle'; // triangle waveform
+      const scale=getScale(ctrls.preset.value);
+      osc.frequency.setValueAtTime(scale[Math.floor(Math.random()*scale.length)],now);
       const gainNode=audioCtx.createGain();
       gainNode.gain.setValueAtTime(0,now);
       gainNode.gain.linearRampToValueAtTime(0.3,now+0.1);
@@ -102,11 +128,34 @@
       osc.connect(gainNode).connect(masterGain);
       osc.start(now);osc.stop(now+2);
     }
+
     function schedule(){
       clearInterval(bpmTimer);
-      const interval=60000/parseInt(ctrls.bpm.value,10);
+      const interval=60000/parseInt(ctrls.bpm.value);
       bpmTimer=setInterval(()=>{if(!stopped)playTone();},interval);
     }
+
+    function getScale(preset){
+      const settings={
+        plants:[174,285,396,417,528],
+        mold:[432,639,741],
+        bacteria:[528,554,585,728],
+        mushrooms:[417,444,528,639],
+        harmony:[432,528,639,741,852],
+        euclid:[],
+        fib:[],
+        markov:[],
+        raga:[],
+        hijaz:[],
+        pelog:[],
+        insen:[],
+        bachPreludeC:[],
+        planetRock:[],
+        dmt:[100,140,200,250,310]
+      };
+      return settings[preset]||[174,220,261];
+    }
+
     function animate(){
       requestAnimationFrame(animate);
       if(!analyser)return;
@@ -114,6 +163,7 @@
       trailFrames.shift();trailFrames.push(dataArray.slice());
       ctx.fillStyle='rgba(0,0,0,0.05)';ctx.fillRect(0,0,canvas.width,canvas.height);
       ctx.save();
+      // single triangle clip
       ctx.beginPath();
       const size=Math.min(canvas.width,canvas.height)*0.6;
       const h=size*Math.sqrt(3)/2;
@@ -121,16 +171,17 @@
       ctx.lineTo(canvas.width/2-size/2,canvas.height/2+h/3);
       ctx.lineTo(canvas.width/2+size/2,canvas.height/2+h/3);
       ctx.closePath();ctx.clip();
-      const grad=ctx.createLinearGradient(0,0,canvas.width,0);
-      grad.addColorStop(0,'#00FF7F');grad.addColorStop(1,'#00FF7F');
-      ctx.strokeStyle=grad;ctx.lineJoin='round';ctx.lineCap='round';
+      // draw waveform inside
+      ctx.strokeStyle=ctrls.preset.value==='plants'?'#00FF7F':'#FFFFFF';
+      ctx.lineJoin='round';ctx.lineCap='round';
       const step=Math.max(1,Math.floor(bufferLength/(parseFloat(ctrls.density.value)*20)));
       const slice=canvas.width/(bufferLength/step);
       for(let t=0;t<trailFrames.length;t++){
         const data=trailFrames[t];
         ctx.beginPath();let x=0;
         for(let i=0;i<data.length;i+=step){
-          const y=(data[i]-128)/128*(canvas.height/2*0.9)+canvas.height/2;
+          const v=(data[i]-128)/128;
+          const y=v*(canvas.height/2*0.9)+canvas.height/2;
           i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);x+=slice;
         }
         ctx.globalAlpha=0.05+(t/trailFrames.length)*0.15;ctx.stroke();
@@ -140,9 +191,9 @@
       ctx.font="12pt Roboto Mono";ctx.fillStyle="#fff";ctx.textAlign="center";
       ctx.fillText(ctrls.preset.options[ctrls.preset.selectedIndex].text,canvas.width/2,40);
     }
+
     ui.play.addEventListener('click',async()=>{
-      initAudio();
-      if(audioCtx.state==='suspended')await audioCtx.resume();
+      initAudio();if(audioCtx.state==='suspended')await audioCtx.resume();
       stopped=false;schedule();
     });
     ui.stop.addEventListener('click',()=>{stopped=true;clearInterval(bpmTimer);});
