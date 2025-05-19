@@ -3,39 +3,36 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Plantasia App v55</title>
+  <title>Plantasia App v56 – Triangle Waveform</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap');
     :root { --bg: #000; --fg: #fff; --font: 'Roboto Mono', monospace; --accent: #00ff00; }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: var(--font); background: var(--bg); color: var(--fg); overflow: hidden; }
-    h1 { text-align: center; margin: 1rem 0; font-size: 1.5rem; }
-    #uiPanel { position: absolute; top: 1rem; right: 1rem; display: flex; gap: 0.5rem; z-index: 3; }
+    * { box-sizing: border-box; margin:0; padding:0; }
+    body { font-family: var(--font); background: var(--bg); color: var(--fg); overflow:hidden; }
+    h1 { text-align:center; margin:1rem 0; font-size:1.5rem; }
+    #uiPanel { position:absolute; top:1rem; right:1rem; display:flex; gap:0.5rem; z-index:3; }
     button, select, input[type="range"] {
-      background: transparent; color: var(--fg); border: 1px solid var(--fg);
-      padding: 0.5rem 1rem; font-size: 0.9rem; text-transform: uppercase; font-family: var(--font);
+      background:transparent; color:var(--fg); border:1px solid var(--fg);
+      padding:0.5rem 1rem; font-size:0.9rem; text-transform:uppercase; font-family:var(--font);
     }
-    button:hover { background: var(--fg); color: var(--bg); cursor: pointer; }
+    button:hover { background:var(--fg); color:var(--bg); cursor:pointer; }
     input[type="range"] {
-      -webkit-appearance: none; width: 150px; height: 1px; background: var(--fg); margin: 0.5rem 0;
+      -webkit-appearance:none; width:150px; height:1px; background:var(--fg); margin:0.5rem 0;
     }
     input[type="range"]::-webkit-slider-runnable-track { width:100%; height:1px; background:var(--fg); }
     input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance:none; width:24px; height:24px; background:var(--accent);
       border-radius:50%; margin-top:-11px; cursor:pointer;
     }
-    label { font-size:0.75rem; text-transform: uppercase; display:flex; flex-direction:column; align-items:center; gap:0.25rem; }
+    label { font-size:0.75rem; text-transform:uppercase; display:flex; flex-direction:column; align-items:center; gap:0.25rem; }
     #controlsWrapper {
-      position: absolute; bottom: 1rem; left: 50%; transform: translateX(-50%);
-      display: none; background: rgba(0,0,0,0.85); padding: 0.5rem; border: 1px solid var(--fg); z-index:3;
+      position:absolute; bottom:1rem; left:50%; transform:translateX(-50%);
+      display:none; background:rgba(0,0,0,0.85); padding:0.5rem; border:1px solid var(--fg); z-index:3;
     }
-    .controls { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .controls { display:flex; flex-wrap:wrap; gap:0.5rem; }
     #visualizer { position:absolute; top:0; left:0; width:100vw; height:100vh; background:var(--bg); z-index:1; }
     #infoDisplay { position:absolute; top:1rem; left:1rem; background:rgba(0,0,0,0.6); padding:0.5rem; white-space:pre; display:none; z-index:3; }
-    .footer {
-      position:absolute; bottom:0.5rem; width:100%; text-align:center;
-      font-size:0.75rem; color:#888; z-index:3;
-    }
+    .footer { position:absolute; bottom:0.5rem; width:100%; text-align:center; font-size:0.75rem; color:#888; z-index:3; }
   </style>
 </head>
 <body>
@@ -68,149 +65,103 @@
   <canvas id="visualizer"></canvas>
   <div id="infoDisplay"></div>
   <div class="footer">
-    Â© 2025 Nate &nbsp;|&nbsp; Category: <span id="categoryLabel">Plants</span>
+    © 2025 Nate &nbsp;|&nbsp; Category: <span id="categoryLabel">Plants</span>
   </div>
   <script>
-    // Setup
     let audioCtx, analyser, masterGain, bufferLength, dataArray, bpmTimer, stopped=true;
-    let trailFrames = [];
-    const MAX_FRAMES = 12;
-    const canvas = document.getElementById('visualizer'), ctx = canvas.getContext('2d');
-
-    const ui = {
-      play: document.getElementById('play'),
-      stop: document.getElementById('stop'),
-      toggleUI: document.getElementById('toggleUI'),
-      toggleData: document.getElementById('toggleData'),
-      controls: document.getElementById('controlsWrapper'),
-      info: document.getElementById('infoDisplay'),
-      category: document.getElementById('categoryLabel')
-    };
-    const ctrls = {
-      preset: document.getElementById('preset'),
-      delay: document.getElementById('delay'),
-      echo: document.getElementById('echo'),
-      reverb: document.getElementById('reverb'),
-      filter: document.getElementById('filter'),
-      freq: document.getElementById('freq'),
-      volume: document.getElementById('volume'),
-      bpm: document.getElementById('bpm'),
-      density: document.getElementById('density')
-    };
-
-    function resize() {
-      canvas.width = window.innerWidth; canvas.height = window.innerHeight;
-    }
-
-    function initAudio() {
-      if (audioCtx) return;
-      audioCtx = new (window.AudioContext||window.webkitAudioContext)();
-      analyser = audioCtx.createAnalyser(); analyser.fftSize = 2048;
-      bufferLength = analyser.frequencyBinCount;
-      dataArray = new Uint8Array(bufferLength);
-      masterGain = audioCtx.createGain();
-      masterGain.gain.value = parseFloat(ctrls.volume.value)/100;
+    const trailFrames = [], MAX_FRAMES=12;
+    const canvas=document.getElementById('visualizer'), ctx=canvas.getContext('2d');
+    const ui={ play:document.getElementById('play'), stop:document.getElementById('stop'),
+      toggleUI:document.getElementById('toggleUI'), toggleData:document.getElementById('toggleData'),
+      controls:document.getElementById('controlsWrapper'), info:document.getElementById('infoDisplay'),
+      category:document.getElementById('categoryLabel') };
+    const ctrls={ preset:document.getElementById('preset'), delay:document.getElementById('delay'),
+      echo:document.getElementById('echo'), reverb:document.getElementById('reverb'),
+      filter:document.getElementById('filter'), freq:document.getElementById('freq'),
+      volume:document.getElementById('volume'), bpm:document.getElementById('bpm'),
+      density:document.getElementById('density') };
+    function resize(){canvas.width=innerWidth;canvas.height=innerHeight;}
+    function initAudio(){
+      if(audioCtx)return;
+      audioCtx=new(AudioContext||webkitAudioContext)();
+      analyser=audioCtx.createAnalyser();analyser.fftSize=2048;
+      bufferLength=analyser.frequencyBinCount;dataArray=new Uint8Array(bufferLength);
+      masterGain=audioCtx.createGain();masterGain.gain.value=parseFloat(ctrls.volume.value)/100;
       masterGain.connect(audioCtx.destination);
-      window.addEventListener('resize', resize);
-      resize();
-      for (let i=0; i<MAX_FRAMES; i++) trailFrames.push(new Uint8Array(bufferLength));
+      window.addEventListener('resize',resize);resize();
+      for(let i=0;i<MAX_FRAMES;i++)trailFrames.push(new Uint8Array(bufferLength));
     }
-
-    function playTone() {
-      const now = audioCtx.currentTime;
-      const osc = audioCtx.createOscillator();
-      osc.type='square'; osc.frequency.setValueAtTime(parseFloat(ctrls.freq.value), now);
-      const gainNode = audioCtx.createGain();
-      gainNode.gain.setValueAtTime(0, now);
-      gainNode.gain.linearRampToValueAtTime(0.3, now+0.1);
-      gainNode.gain.linearRampToValueAtTime(0, now+2);
+    function playTone(){
+      const now=audioCtx.currentTime;
+      const osc=audioCtx.createOscillator();
+      osc.type='triangle';osc.frequency.setValueAtTime(parseFloat(ctrls.freq.value),now);
+      const gainNode=audioCtx.createGain();
+      gainNode.gain.setValueAtTime(0,now);
+      gainNode.gain.linearRampToValueAtTime(0.3,now+0.1);
+      gainNode.gain.linearRampToValueAtTime(0,now+2);
       osc.connect(gainNode).connect(masterGain);
-      osc.start(now); osc.stop(now+2);
+      osc.start(now);osc.stop(now+2);
     }
-
-    function schedule() {
+    function schedule(){
       clearInterval(bpmTimer);
-      const interval = 60000/parseInt(ctrls.bpm.value);
-      bpmTimer = setInterval(() => { if (!stopped) playTone(); }, interval);
+      const interval=60000/parseInt(ctrls.bpm.value,10);
+      bpmTimer=setInterval(()=>{if(!stopped)playTone();},interval);
     }
-
-    function animate() {
+    function animate(){
       requestAnimationFrame(animate);
-      if (!analyser) return;
+      if(!analyser)return;
       analyser.getByteTimeDomainData(dataArray);
-      trailFrames.shift(); trailFrames.push(dataArray.slice());
-      ctx.fillStyle='rgba(0,0,0,0.05)'; ctx.fillRect(0,0,canvas.width,canvas.height);
-
-      // clip to triangle
+      trailFrames.shift();trailFrames.push(dataArray.slice());
+      ctx.fillStyle='rgba(0,0,0,0.05)';ctx.fillRect(0,0,canvas.width,canvas.height);
       ctx.save();
       ctx.beginPath();
-      const size = Math.min(canvas.width, canvas.height)*0.6;
-      const h = size*Math.sqrt(3)/2;
-      ctx.moveTo(canvas.width/2, canvas.height/2 - 2*h/3);
-      ctx.lineTo(canvas.width/2 - size/2, canvas.height/2 + h/3);
-      ctx.lineTo(canvas.width/2 + size/2, canvas.height/2 + h/3);
-      ctx.closePath();
-      ctx.clip();
-
-      // draw waveform trails
-      const grad = ctx.createLinearGradient(0,0,canvas.width,0);
-      grad.addColorStop(0, ctrls.preset.value==='plants'? '#00FF7F':'#FFFFFF');
-      grad.addColorStop(1, grad.colorStops? grad.colorStops[0]?.color:'#FFFFFF');
-      ctx.strokeStyle = grad;
-      ctx.lineJoin='round'; ctx.lineCap='round';
-      for (let t=0; t<trailFrames.length; t++) {
-        const data = trailFrames[t];
-        ctx.beginPath();
-        let x=0;
-        const step = Math.max(1, Math.floor(bufferLength / (parseFloat(ctrls.density.value)*20)));
-        const slice = canvas.width/(data.length/step);
-        for (let i=0; i<data.length; i+=step) {
-          const v=(data[i]-128)/128;
-          const y=v*(canvas.height/2*0.9)+canvas.height/2;
-          i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
-          x+=slice;
+      const size=Math.min(canvas.width,canvas.height)*0.6;
+      const h=size*Math.sqrt(3)/2;
+      ctx.moveTo(canvas.width/2,canvas.height/2-2*h/3);
+      ctx.lineTo(canvas.width/2-size/2,canvas.height/2+h/3);
+      ctx.lineTo(canvas.width/2+size/2,canvas.height/2+h/3);
+      ctx.closePath();ctx.clip();
+      const grad=ctx.createLinearGradient(0,0,canvas.width,0);
+      grad.addColorStop(0,'#00FF7F');grad.addColorStop(1,'#00FF7F');
+      ctx.strokeStyle=grad;ctx.lineJoin='round';ctx.lineCap='round';
+      const step=Math.max(1,Math.floor(bufferLength/(parseFloat(ctrls.density.value)*20)));
+      const slice=canvas.width/(bufferLength/step);
+      for(let t=0;t<trailFrames.length;t++){
+        const data=trailFrames[t];
+        ctx.beginPath();let x=0;
+        for(let i=0;i<data.length;i+=step){
+          const y=(data[i]-128)/128*(canvas.height/2*0.9)+canvas.height/2;
+          i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);x+=slice;
         }
-        ctx.globalAlpha = 0.05 + (t/trailFrames.length)*0.15;
-        ctx.stroke();
+        ctx.globalAlpha=0.05+(t/trailFrames.length)*0.15;ctx.stroke();
       }
       ctx.restore();
       ctx.globalAlpha=1;
-
-      // title
-      ctx.font="12pt Roboto Mono";
-      ctx.fillStyle="#fff"; ctx.textAlign="center";
-      ctx.fillText(ctrls.preset.options[ctrls.preset.selectedIndex].text, canvas.width/2, 40);
+      ctx.font="12pt Roboto Mono";ctx.fillStyle="#fff";ctx.textAlign="center";
+      ctx.fillText(ctrls.preset.options[ctrls.preset.selectedIndex].text,canvas.width/2,40);
     }
-
-    // events
-    ui.play.addEventListener('click', async ()=>{
+    ui.play.addEventListener('click',async()=>{
       initAudio();
-      if(audioCtx.state==='suspended') await audioCtx.resume();
-      stopped=false; schedule();
+      if(audioCtx.state==='suspended')await audioCtx.resume();
+      stopped=false;schedule();
     });
-    ui.stop.addEventListener('click', ()=>{
-      stopped=true; clearInterval(bpmTimer);
-    });
-    ui.toggleUI.addEventListener('click', ()=>{
-      const v = ui.controls.style.display!=='flex';
+    ui.stop.addEventListener('click',()=>{stopped=true;clearInterval(bpmTimer);});
+    ui.toggleUI.addEventListener('click',()=>{
+      const v=ui.controls.style.display!=='flex';
       ui.controls.style.display=v?'flex':'none';
       ui.toggleUI.textContent=v?'Hide Controls':'Show Controls';
     });
-    ui.toggleData.addEventListener('click', ()=>{
-      const v = ui.info.style.display!=='block';
+    ui.toggleData.addEventListener('click',()=>{
+      const v=ui.info.style.display!=='block';
       ui.info.style.display=v?'block':'none';
       ui.toggleData.textContent=v?'Hide Data':'Show Data';
     });
-    ctrls.preset.addEventListener('change', ()=> {
-      ui.category.textContent = ctrls.preset.options[ctrls.preset.selectedIndex].text;
+    ctrls.preset.addEventListener('change',()=>{
+      ui.category.textContent=ctrls.preset.options[ctrls.preset.selectedIndex].text;
     });
-
-    // info readout
     setInterval(()=>{
-      ui.info.textContent = 
-        `PRESET: ${ctrls.preset.value}\nDELAY: ${ctrls.delay.value}\nECHO: ${ctrls.echo.value}\nREVERB: ${ctrls.reverb.value}\nFILTER: ${ctrls.filter.value}\nFREQ: ${ctrls.freq.value}\nVOL: ${ctrls.volume.value}\nBPM: ${ctrls.bpm.value}\nDENSITY: ${ctrls.density.value}`;
+      ui.info.textContent=\`PRESET: \${ctrls.preset.value}\nDELAY: \${ctrls.delay.value}\nECHO: \${ctrls.echo.value}\nREVERB: \${ctrls.reverb.value}\nFILTER: \${ctrls.filter.value}\nFREQ: \${ctrls.freq.value}\nVOL: \${ctrls.volume.value}\nBPM: \${ctrls.bpm.value}\nDENSITY: \${ctrls.density.value}\`;
     },250);
-
     animate();
   </script>
 </body>
