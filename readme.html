@@ -76,7 +76,6 @@
     .proto-list .arrow.hide {
       opacity: 0;
     }
-    /* Canvas overlay for particles */
     #vine-canvas {
       pointer-events: none;
       position: fixed;
@@ -181,23 +180,39 @@
     window.addEventListener('resize', resizeVineCanvas);
     resizeVineCanvas();
 
-    function spawnVineParticles(startX, startY, len) {
-      // Generate 18-28 vine "nodes" per hover
-      let nodes = 18 + Math.floor(Math.random() * 10);
-      for (let i = 0; i < nodes; i++) {
-        let progress = (i / nodes);
-        let theta = (-Math.PI/7) + progress * (Math.PI/4) + (Math.random() - 0.5) * 0.11;
-        let speed = 0.45 + progress * 1.45;
-        let r = 2.2 + Math.random() * 2.2;
+    function spawnVineSquiggle(x0, y0, text, font) {
+      // Estimate the baseline and length for the vine (start at left edge)
+      let ctx = vineCanvas.getContext('2d');
+      ctx.save();
+      ctx.font = font;
+      let textWidth = ctx.measureText(text).width;
+      ctx.restore();
+      // Parameters for vine squiggle
+      let length = Math.max(90, Math.min(textWidth, 210));
+      let points = 44; // how many vine "segments"
+      let baseAngle = Math.PI * 0.03;
+      let squiggleAmplitude = 8 + Math.random() * 3;
+      let branchChance = 0.18;
+      let totalDuration = 1600 + Math.random() * 700; // ms
+      let dt = totalDuration / points;
+
+      let now = performance.now();
+      for (let i = 0; i < points; i++) {
+        let progress = i / points;
+        let angle = baseAngle + Math.sin(i * 0.38 + Math.random()*0.6) * 0.22;
+        let px = x0 + progress * length;
+        let py = y0 + Math.sin(i * 0.45 + Math.random() * 1.7) * (squiggleAmplitude * (1 - progress * 0.3));
+        // Particle lifetime is proportional to progress for trailing effect
         vineParticles.push({
-          x: startX, y: startY,
-          vx: Math.cos(theta) * speed,
-          vy: Math.sin(theta) * speed * (0.76 + Math.random() * 0.08),
-          r: r,
-          alpha: 0.26 + 0.38 * (1 - progress),
-          grow: 0,
+          x: px, y: py,
+          r: 2.2 + Math.random() * 2.3 - progress*1.3,
+          alpha: 0.19 + 0.23 * (1 - progress),
           color: '#60f88d',
-          branch: (Math.random() < 0.23)
+          born: now + i * dt * 0.13,
+          die: now + totalDuration * (0.7 + progress * 0.4),
+          vx: Math.random()*0.8-0.4,
+          vy: Math.random()*0.7-0.35,
+          branch: (Math.random() < branchChance)
         });
       }
     }
@@ -205,37 +220,40 @@
     function animateVines() {
       const ctx = vineCanvas.getContext('2d');
       ctx.clearRect(0,0,vineCanvas.width,vineCanvas.height);
+      let now = performance.now();
       for (let i = vineParticles.length - 1; i >= 0; i--) {
         let p = vineParticles[i];
+        if (now < p.born) continue;
         // Draw particle
         ctx.save();
-        ctx.globalAlpha = p.alpha;
+        ctx.globalAlpha = p.alpha * Math.max(0, 1 - ((now - p.born)/ (p.die-p.born)));
         ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, 2 * Math.PI, false);
+        ctx.arc(p.x, p.y, Math.max(0.4, p.r), 0, 2 * Math.PI, false);
         ctx.fillStyle = p.color;
-        ctx.shadowBlur = 6 + 10 * (p.alpha);
-        ctx.shadowColor = '#80ffb4';
+        ctx.shadowBlur = 11;
+        ctx.shadowColor = '#90ffc9';
         ctx.fill();
         ctx.restore();
-        // Grow/move particle
-        p.x += p.vx * (0.91 + Math.random() * 0.03);
-        p.y += p.vy * (0.92 + Math.random() * 0.03);
-        if (p.branch && Math.random() < 0.04) {
-          // Spawn a small offshoot
+        // Animate
+        p.x += p.vx * 0.44;
+        p.y += p.vy * 0.44;
+        p.r *= 0.997;
+        p.alpha *= 0.992;
+        // Offshoots
+        if (p.branch && Math.random() < 0.02) {
           vineParticles.push({
             x: p.x, y: p.y,
-            vx: -p.vy * (0.16 + Math.random() * 0.22),
-            vy: p.vx * (0.13 + Math.random() * 0.15),
-            r: 1.5 + Math.random() * 1.5,
-            alpha: p.alpha * 0.6,
-            grow: 0,
+            r: p.r * 0.7,
+            alpha: p.alpha * 0.8,
             color: '#1ef168',
+            born: now,
+            die: p.die,
+            vx: -p.vy * (0.15 + Math.random()*0.16),
+            vy: p.vx * (0.11 + Math.random()*0.14),
             branch: false
           });
         }
-        p.alpha *= 0.978;
-        p.r *= 0.997;
-        if (p.alpha < 0.09 || p.r < 0.7) vineParticles.splice(i, 1);
+        if (now > p.die || p.r < 0.4 || p.alpha < 0.05) vineParticles.splice(i, 1);
       }
       requestAnimationFrame(animateVines);
     }
@@ -248,11 +266,13 @@
         initSynth();
         playPlantTone(hoverIndex++);
         if (arrow) arrow.classList.remove('hide');
-        // Find link position on screen for vine effect
+        // Start at leftmost point of link text
         const rect = link.getBoundingClientRect();
-        let startX = rect.left + 12;
-        let startY = rect.top + rect.height / 2 + window.scrollY;
-        spawnVineParticles(startX, startY, rect.width);
+        const font = getComputedStyle(link).font;
+        const text = link.textContent.replace(/->/, '').trim();
+        const x0 = rect.left + window.scrollX;
+        const y0 = rect.top + rect.height / 2 + window.scrollY;
+        spawnVineSquiggle(x0, y0, text, font);
       });
       link.addEventListener('mouseleave', e => {
         if (arrow) arrow.classList.add('hide');
@@ -261,11 +281,12 @@
         initSynth();
         playPlantTone(hoverIndex++);
         if (arrow) arrow.classList.remove('hide');
-        // Keyboard navigation
         const rect = link.getBoundingClientRect();
-        let startX = rect.left + 12;
-        let startY = rect.top + rect.height / 2 + window.scrollY;
-        spawnVineParticles(startX, startY, rect.width);
+        const font = getComputedStyle(link).font;
+        const text = link.textContent.replace(/->/, '').trim();
+        const x0 = rect.left + window.scrollX;
+        const y0 = rect.top + rect.height / 2 + window.scrollY;
+        spawnVineSquiggle(x0, y0, text, font);
       });
       link.addEventListener('blur', e => {
         if (arrow) arrow.classList.add('hide');
