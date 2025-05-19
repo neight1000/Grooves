@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Plantasia Unique – Touch & MIDI + Fractal Visuals</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.01, user-scalable=no" />
+  <link href="https://fonts.googleapis.com/css?family=Roboto:400,700&display=swap" rel="stylesheet">
+  <style>
+    html, body { margin:0; padding:0; background:#000; color:#fff; font-family:'Roboto',monospace; overflow:hidden; height:100%; width:100vw; user-select:none; overscroll-behavior:none; }
+    body { min-height:100vh; width:100vw; }
+    #waveCanvas { position:fixed; top:0; left:0; width:100vw; height:100vh; display:block; background:#000; z-index:1; }
+    #infoDisplay {
+      position:fixed; top:16px; left:10px; z-index:120;
+      background:rgba(0,0,0,0.82); color:#fff; font-size:11px; padding:8px 13px 8px 11px;
+      border-radius:7px; border:1.3px solid #222; display:none; white-space:pre; letter-spacing:0.3px;
+      max-width:80vw; word-break:break-word; font-family:'Roboto',monospace;
+      box-shadow:0 2px 16px #000c;
+    }
+    .tray {
+      position:fixed; bottom:0; left:0; width:100vw; z-index:101;
+      display:flex; justify-content:center; align-items:flex-end; pointer-events:none;
+    }
+    .tray.open { pointer-events:auto; }
+    .ui {
+      background:rgba(0,0,0,0.97);
+      border-radius:32px 32px 0 0;
+      box-shadow:0 -2px 24px #000c;
+      display:flex; flex-wrap:wrap; justify-content:center; align-items:center;
+      gap:10px 12px; padding:22px 12px 14px 12px; pointer-events:auto;
+      min-width:300px; min-height:132px; max-width:96vw; margin:0 auto; border-top:1px solid #222;
+      transition:transform 0.25s cubic-bezier(.87,0,.13,1); font-family:'Roboto',monospace;
+    }
+    .ui.closed { transform:translateY(110%); pointer-events:none; }
+    .ui.open { transform:translateY(0%); pointer-events:auto; }
+    .ui label, .ui select, .ui input, .ui button, .ui span { font-family:'Roboto',monospace; font-size:13px; text-transform:lowercase; color:#fff; letter-spacing:0.04em;}
+    .ui label { margin-bottom:2px; font-weight:400; text-align:center; display:block; }
+    .ui input[type="range"], .ui select { width:100%; height:28px; font-size:13px; border-radius:8px; background:#111; border:1px solid #222; appearance:none; outline:none; accent-color:#00ffe0; margin:0 0 2px 0; padding:0; display:block; }
+    .ui select { font-size:13px; padding:2px 4px; min-width:58px; max-width:120px; height:28px; background:#111; border:1px solid #222; border-radius:8px; }
+    .ui button { width:36px; height:36px; border-radius:8px; border:none; background:#171717; color:#fff; font-size:13px; font-family:'Roboto',monospace; letter-spacing:0.09em; font-weight:400; margin:0 2px; padding:0; box-shadow:0 1px 7px #000c; cursor:pointer; transition:background .16s, border .13s, color .13s; text-transform:lowercase; display:flex; align-items:center; justify-content:center; }
+    .ui button:active, .ui button.active { background:#222; color:#0ffea0; border:1.5px solid #0ffea0; }
+    .ui > div { flex:1 1 54px; min-width:56px; max-width:150px; margin:2px 2px; display:flex; flex-direction:column; align-items:center; gap:0; }
+    .ui .noise-slider-group { min-width:54px; max-width:120px; gap:0; }
+    .tray-toggle-btn { position:fixed; right:14px; bottom:18px; z-index:102; background:#111; color:#fff; border:1.5px solid #00ffe0; border-radius:8px; width:36px; height:36px; font-size:18px; cursor:pointer; box-shadow:0 1px 8px #000b; display:flex; align-items:center; justify-content:center; transition:background 0.14s, color 0.14s, border 0.14s; }
+    .tray-toggle-btn.open { background:#232323; color:#0ffea0; border-color:#0ffea0; }
+    .tray.open ~ .tray-toggle-btn { display:none; }
+    .ui input[type="range"]::-webkit-slider-thumb { width:18px; height:18px; border-radius:50%; background:#00ffe0; border:none; }
+    .ui input[type="range"]:focus { outline:1px solid #0ffea0; }
+    #midiLegend, #toggleLegend { display:none; }
+    @media (max-width:900px) {
+      .ui { max-width:99vw; gap:8px 4px; min-width:220px; }
+      .ui > div, .noise-slider-group { min-width:36vw; max-width:99vw; }
+      .ui input[type="range"], .ui select { min-width:28vw; font-size:12px; }
+      .ui button { min-width:32px; min-height:32px; font-size:12px; }
+    }
+    @media (max-width:600px) {
+      .ui { flex-direction:column; align-items:stretch; min-width:95vw; max-width:99vw; padding:14px 3vw 12px 3vw; gap:7px; }
+      .ui > div, .noise-slider-group { min-width:88vw; max-width:99vw; }
+      .ui input[type="range"], .ui select { min-width:75vw; }
+      .ui button { min-width:70vw; font-size:12px; }
+    }
+  </style>
+</head>
+<body>
+<canvas id="waveCanvas"></canvas>
+<div id="infoDisplay"></div>
+<div class="tray closed" id="tray">
+  <form class="ui closed" id="touchUI" autocomplete="off" onsubmit="return false;">
+    <div><label for="preset">preset</label>
+      <select id="preset" aria-label="preset" tabindex="0">
+        <option value="plants">plants</option>
+        <option value="mold">mold</option>
+        <option value="bacteria">bacteria</option>
+        <option value="mushrooms">mushrooms</option>
+        <option value="harmony">harmony</option>
+      </select>
+    </div>
+    <div><label for="delay">delay</label><input type="range" id="delay" min="0.01" max="2.0" step="0.01" value="0.6" aria-label="delay" tabindex="0" /></div>
+    <div><label for="echo">echo</label><input type="range" id="echo" min="0" max="1.0" step="0.01" value="0.4" aria-label="echo" tabindex="0" /></div>
+    <div><label for="filter">filter</label><input type="range" id="filter" min="100" max="8000" step="10" value="1200" aria-label="filter" tabindex="0" /></div>
+    <div><label for="freq">freq</label><input type="range" id="freq" min="50" max="1000" step="1" value="174" aria-label="frequency" tabindex="0" /></div>
+    <div><label for="volume">vol</label><input type="range" id="volume" min="0" max="100" value="60" aria-label="volume" tabindex="0" /></div>
+    <div><label for="bpm">bpm</label><input type="range" id="bpm" min="40" max="180" value="90" aria-label="bpm" tabindex="0" /></div>
+    <div>
+      <label for="midiChannelSelect">ch</label>
+      <select id="midiChannelSelect" aria-label="midi channel" tabindex="0">
+        <option value="-1">all</option>
+        <option value="0">1</option>
+        <option value="1">2</option>
+        <option value="2">3</option>
+        <option value="3">4</option>
+        <option value="4">5</option>
+        <option value="5">6</option>
+        <option value="6">7</option>
+        <option value="7">8</option>
+        <option value="8">9</option>
+        <option value="9">10</option>
+        <option value="10">11</option>
+        <option value="11">12</option>
+        <option value="12">13</option>
+        <option value="13">14</option>
+        <option value="14">15</option>
+        <option value="15">16</option>
+      </select>
+    </div>
+    <div class="noise-slider-group">
+      <span class="color-slider-label">fractal noise</span>
+      <input type="range" id="noiseSlider" min="25" max="150" value="60" aria-label="fractal noise" tabindex="0" />
+    </div>
+    <button id="play" aria-label="play" tabindex="0" title="play">&#9654;</button>
+    <button id="stop" aria-label="stop" tabindex="0" title="stop">&#9632;</button>
+    <button id="toggleDisplay" aria-label="data" tabindex="0" title="data">&#8505;</button>
+    <button id="toggleMidiIn" aria-label="midi" tabindex="0" title="midi">midi</button>
+    <button id="closeTray" aria-label="close tray" type="button" title="close" style="width:36px;height:36px;">&#215;</button>
+  </form>
+</div>
+<button class="tray-toggle-btn" id="openTrayBtn" aria-label="open tray" title="open" tabindex="0">&#9776;</button>
+<script>
+// --- Tray logic ---
+const tray = document.getElementById('tray');
+const touchUI = document.getElementById('touchUI');
+const openTrayBtn = document.getElementById('openTrayBtn');
+const closeTrayBtn = document.getElementById('closeTray');
+function openTray() {
+  tray.classList.remove('closed'); tray.classList.add('open');
+  touchUI.classList.remove('closed'); touchUI.classList.add('open');
+  openTrayBtn.style.display = 'none';
+}
+function closeTray() {
+  tray.classList.remove('open'); tray.classList.add('closed');
+  touchUI.classList.remove('open'); touchUI.classList.add('closed');
+  openTrayBtn.style.display = '';
+}
+openTrayBtn.addEventListener('click', openTray);
+closeTrayBtn.addEventListener('click', closeTray);
+
+// --- DATA PANEL logic ---
+const infoDisplay = document.getElementById('infoDisplay');
+const toggleDisplayBtn = document.getElementById('toggleDisplay');
+let infoDisplayActive = false;
+function updateInfoDisplay() {
+  if (!infoDisplayActive) return;
+  infoDisplay.textContent =
+    "preset      : " + getInput("preset").value + "\n" +
+    "delay       : " + getInput("delay").value + "\n" +
+    "echo        : " + getInput("echo").value + "\n" +
+    "filter      : " + getInput("filter").value + "\n" +
+    "freq        : " + getInput("freq").value + "\n" +
+    "vol         : " + getInput("volume").value + "\n" +
+    "bpm         : " + getInput("bpm").value + "\n" +
+    "fractalNoise: " + getInput("noiseSlider").value + "%" +
+    "\nMIDI IN    : " + (midiInEnabled ? "ON" : "OFF") +
+    "\nMIDI CHAN  : " + (midiChannel === -1 ? 'all' : (Number(midiChannel)+1));
+}
+function showInfoDisplay() {
+  infoDisplay.style.display = 'block';
+  infoDisplayActive = true;
+  updateInfoDisplay();
+}
+function hideInfoDisplay() {
+  infoDisplay.style.display = 'none';
+  infoDisplayActive = false;
+}
+function toggleInfoDisplay() {
+  if (infoDisplayActive) {
+    hideInfoDisplay();
+  } else {
+    showInfoDisplay();
+  }
+}
+toggleDisplayBtn.addEventListener('click', () => {
+  toggleInfoDisplay();
+  if (infoDisplayActive) updateInfoDisplay();
+});
+setInterval(() => { if(infoDisplayActive) updateInfoDisplay(); }, 250);
+
+// --- Visualizer Fractal Logic, using fractalNoise + color animation ---
+let canvas = document.getElementById("waveCanvas"), ctx = canvas.getContext("2d");
+let fractalNoise = 0.6; // 0.25 - 1.5, normalized
+function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+window.addEventListener('resize', resizeCanvas); resizeCanvas();
+const noiseSlider = document.getElementById('noiseSlider');
+function getFractalNoiseValue() { return Number(noiseSlider.value) / 100; }
+noiseSlider.addEventListener("input", () => {
+  fractalNoise = getFractalNoiseValue();
+  if (infoDisplayActive) updateInfoDisplay();
+});
+let colorAnimState = { t: 0 };
+
+// Utility for animated color stops
+function lerpColor(a, b, t) {
+  const ah = parseInt(a.slice(1), 16), bh = parseInt(b.slice(1), 16);
+  const ar = (ah >> 16) & 0xff, ag = (ah >> 8) & 0xff, ab = ah & 0xff;
+  const br = (bh >> 16) & 0xff, bg = (bh >> 8) & 0xff, bb = bh & 0xff;
+  return "#" + ((1 << 24) + (Math.round(ar + (br - ar) * t) << 16) + (Math.round(ag + (bg - ag) * t) << 8) + Math.round(ab + (bb - ab) * t)).toString(16).slice(1);
+}
+
+const presetVisuals = {
+  plants: {
+    color1: "#207d32",
+    color2: "#aefd6c",
+    colorAnim: (t) => lerpColor("#207d32", "#aefd6c", 0.5 + 0.5*Math.sin(t/3)),
+    colorAnim2: (t) => lerpColor("#84e05b", "#f5f79c", 0.5 + 0.5*Math.cos(t/5)),
+    fractal: function(ctx, data, t, color) {
+      let branches = 8, len = Math.max(120, canvas.height/3), angleSpread = Math.PI / 6 * fractalNoise;
+      ctx.save();
+      ctx.translate(canvas.width/2, canvas.height);
+      ctx.strokeStyle = lerpColor("#38ff55", "#aefd6c", 0.5 + 0.5*Math.sin(t/5));
+      ctx.shadowBlur = 32*fractalNoise; ctx.shadowColor = "#aefd6c";
+      function branch(level, l, a) {
+        if(level > 5) return;
+        ctx.save();
+        ctx.rotate(a + 0.1 * Math.sin(t/2 + level));
+        ctx.beginPath();
+        ctx.moveTo(0,0);
+        ctx.lineTo(0, -l);
+        ctx.stroke();
+        ctx.translate(0, -l);
+        for(let i=0; i<2; ++i) {
+          branch(level+1, l*0.7*fractalNoise, (i?-1:1)*angleSpread*(0.7+0.3*Math.sin(t*3+level)));
+        }
+        ctx.restore();
+      }
+      branch(0, len*(0.95+0.2*Math.sin(t*0.7)), 0);
+      ctx.restore();
+    }
+  },
+  mold: {
+    color1: "#6733a5",
+    color2: "#f6eaff",
+    colorAnim: (t) => lerpColor("#6733a5", "#f6eaff", 0.5 + 0.5*Math.sin(t*2)),
+    colorAnim2: (t) => lerpColor("#e0cafd", "#e8ffea", 0.5 + 0.5*Math.cos(t*1.3)),
+    fractal: function(ctx, data, t, color) {
+      let cx = canvas.width/2, cy = canvas.height/2, baseR = Math.min(cx,cy)*0.5*fractalNoise;
+      ctx.save();
+      ctx.globalAlpha = 0.20 + 0.12*Math.sin(t*2.4);
+      for(let blob=0; blob<Math.round(7*fractalNoise); ++blob) {
+        let R = baseR*(0.7+0.3*Math.sin(t+blob));
+        ctx.beginPath();
+        for(let a=0; a<=Math.PI*2; a+=Math.PI/(36*fractalNoise)) {
+          let r = R*(1+0.13*fractalNoise*Math.sin(blob*3+a*blob+t*blob+Math.cos(blob+t)));
+          let x = cx + r*Math.cos(a);
+          let y = cy + r*Math.sin(a);
+          if(a===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+        }
+        ctx.closePath();
+        ctx.strokeStyle = lerpColor("#e0cafd", "#f6eaff", 0.5 + 0.5*Math.sin(t*blob+blob));
+        ctx.shadowColor = "#fffbe0";
+        ctx.shadowBlur = 24*fractalNoise;
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+  },
+  bacteria: {
+    color1: "#ff3500",
+    color2: "#fff1a8",
+    colorAnim: (t) => lerpColor("#ff3500", "#fff1a8", 0.5 + 0.5*Math.sin(t*4)),
+    colorAnim2: (t) => lerpColor("#ff8800", "#ffe67a", 0.5 + 0.5*Math.cos(t*2.3)),
+    fractal: function(ctx, data, t, color) {
+      ctx.save();
+      let cells = Math.round(36*fractalNoise), radius = (36 + 22*Math.sin(t*1.7))*fractalNoise;
+      let cx = canvas.width/2, cy = canvas.height/2;
+      for(let i=0; i<cells; ++i) {
+        let a = i*2*Math.PI/cells + Math.sin(t+i*0.2)*0.2*fractalNoise;
+        let r = radius*(1+0.25*Math.sin(t*3+i));
+        let x = cx + r*Math.cos(a);
+        let y = cy + r*Math.sin(a);
+        ctx.beginPath();
+        ctx.arc(x, y, 8+6*fractalNoise*Math.abs(Math.sin(t+i)), 0, 2*Math.PI);
+        ctx.fillStyle = lerpColor("#ff3500", "#ffe67a", 0.5 + 0.5*Math.sin(t+i*0.6));
+        ctx.shadowColor = lerpColor("#ff8800", "#fff1a8", 0.5 + 0.5*Math.cos(t+2*i));
+        ctx.shadowBlur = 16*fractalNoise;
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+  },
+  mushrooms: {
+    color1: "#ffe969",
+    color2: "#b2983a",
+    colorAnim: (t) => lerpColor("#ffe969", "#b2983a", 0.5 + 0.5*Math.sin(t*1.9)),
+    colorAnim2: (t) => lerpColor("#fffbe0", "#b2983a", 0.5 + 0.5*Math.cos(t*2.7)),
+    fractal: function(ctx, data, t, color) {
+      ctx.save();
+      let n = Math.round(7*fractalNoise);
+      for(let i=0;i<n;++i) {
+        let x = (canvas.width/(n+1))*(i+1);
+        let baseY = canvas.height*0.86;
+        let stemLen = (40+24*Math.abs(Math.sin(t+i)))*fractalNoise;
+        let capR = (25+9*Math.cos(t*1.2+i))*fractalNoise;
+        let y = baseY - stemLen - capR;
+        ctx.beginPath();
+        ctx.moveTo(x, baseY);
+        ctx.lineTo(x, y+capR);
+        ctx.strokeStyle = lerpColor("#fffbe0", "#b2983a", 0.5 + 0.5*Math.sin(t*1.7+i));
+        ctx.lineWidth = 7*fractalNoise;
+        ctx.shadowColor = "#fffbe0"; ctx.shadowBlur = 4*fractalNoise;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(x, y, capR, Math.PI, 0, false);
+        ctx.closePath();
+        ctx.fillStyle = lerpColor("#ffe969", "#b2983a", 0.5 + 0.5*Math.sin(t*1.7+i));
+        ctx.shadowColor = "#ffe969"; ctx.shadowBlur = 20*fractalNoise;
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+  },
+  harmony: {
+    color1: "#00fff7",
+    color2: "#c6b8fd",
+    colorAnim: (t) => lerpColor("#00fff7", "#c6b8fd", 0.5 + 0.5*Math.sin(t/2)),
+    colorAnim2: (t) => lerpColor("#d9e9ff", "#ffb8fd", 0.5 + 0.5*Math.cos(t/2)),
+    fractal: function(ctx, data, t, color) {
+      ctx.save();
+      let cx = canvas.width/2, cy = canvas.height/2;
+      ctx.globalAlpha = 0.18;
+      for(let i=0;i<Math.round(5*fractalNoise);++i) {
+        let r = (70+35*i + 18*Math.sin(t+i))*fractalNoise;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, 2*Math.PI);
+        ctx.strokeStyle = lerpColor("#00fff7", "#c6b8fd", 0.5 + 0.5*Math.sin(t/2+i));
+        ctx.shadowColor = "#00fff7"; ctx.shadowBlur = (12+10*i)*fractalNoise;
+        ctx.lineWidth = (1.5+0.8*Math.sin(t+i))*fractalNoise;
+        ctx.stroke();
+      }
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 0.22;
+      ctx.beginPath();
+      for(let x=0;x<canvas.width;x+=Math.max(4,8*(1-fractalNoise))) {
+        let y = cy + 45*fractalNoise*Math.sin(x/54+t)*Math.cos(t+0.7*x/250);
+        if(x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      }
+      ctx.strokeStyle = lerpColor("#00fff7", "#c6b8fd", 0.5 + 0.5*Math.sin(t/2));
+      ctx.lineWidth = 2.2*fractalNoise;
+      ctx.shadowColor = "#00fff7";
+      ctx.shadowBlur = 12*fractalNoise;
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+};
+let lastPreset = "plants";
+function fractalVisualizer() {
+  requestAnimationFrame(fractalVisualizer);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  let preset = document.getElementById('preset')?.value || lastPreset;
+  lastPreset = preset;
+  let t = performance.now()/1000;
+  let data = window.dataArray || [];
+  colorAnimState.t = t;
+  // Animate gradient stops
+  let colors = presetVisuals[preset];
+  let grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+  grad.addColorStop(0, colors.colorAnim(t));
+  grad.addColorStop(1, colors.colorAnim2(t));
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  if (colors.fractal) colors.fractal(ctx, data, t, colors.colorAnim(t));
+}
+window.addEventListener('DOMContentLoaded', () => { fractalVisualizer(); resizeCanvas(); });
+
+// --- Synth, MIDI, and UI logic unique per preset ---
+let audioCtx, analyser, masterGain, delayReverbNode, bufferLength, dataArray;
+let bpm = 90, bpmTimer = null, stopped = true;
+function getInput(id) { return document.getElementById(id); }
+
+function getPresetSettings(val) {
+  // Unique scales, waveform, envelope, FX per preset!
+  return {
+    plants: {
+      scale: [174, 220, 285, 396, 528, 660], // pentatonic, gentle
+      waveform: 'triangle',
+      attack: 0.3, release: 2.0,
+      filterLFO: { speed: 0.1, depth: 800, base: 800 },
+      fx: { reverb: 0.55, echo: 0.4, pan: 0.0 }
+    },
+    mold: {
+      scale: [432, 639, 741, 852], // clustered, ambiguous
+      waveform: 'sawtooth',
+      attack: 0.02, release: 0.7,
+      filterLFO: { speed: 0.8, depth: 1900, base: 1500 },
+      fx: { reverb: 0.3, echo: 0.55, pan: () => Math.random()*2-1 }
+    },
+    bacteria: {
+      scale: [528, 554, 585, 728, 311], // tense, random
+      waveform: 'square',
+      attack: 0.01, release: 0.18,
+      filterLFO: { speed: 2.5, depth: 3500, base: 1100 },
+      fx: { reverb: 0.1, echo: 0.15, pan: () => Math.random()*2-1 }
+    },
+    mushrooms: {
+      scale: [417, 444, 528, 639, 392], // mellow, golden
+      waveform: 'sine',
+      attack: 0.09, release: 1.4,
+      filterLFO: { speed: 0.3, depth: 800, base: 1200 },
+      fx: { reverb: 0.43, echo: 0.27, pan: () => Math.sin(performance.now()/950) }
+    },
+    harmony: {
+      scale: [261, 329, 392, 466, 528, 639], // "major", wide
+      waveform: 'triangle',
+      attack: 0.24, release: 2.5,
+      filterLFO: { speed: 0.12, depth: 1300, base: 1800 },
+      fx: { reverb: 0.7, echo: 0.35, pan: 0 }
+    }
+  }[val] || {
+    scale: [220, 330, 440], waveform: 'triangle', attack: 0.2, release: 1.5,
+    filterLFO: { speed: 0.2, depth: 600, base: 900 }, fx: { reverb: 0.5, echo: 0.3, pan: 0 }
+  };
+}
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 2048;
+  bufferLength = analyser.frequencyBinCount;
+  dataArray = new Uint8Array(bufferLength);
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = parseFloat(getInput('volume').value) / 100;
+  delayReverbNode = audioCtx.createDelay();
+  const reverbFeedback = audioCtx.createGain();
+  delayReverbNode.delayTime.value = 0.4;
+  reverbFeedback.gain.value = 0.4;
+  delayReverbNode.connect(reverbFeedback);
+  reverbFeedback.connect(delayReverbNode);
+  delayReverbNode.connect(masterGain);
+  masterGain.connect(audioCtx.destination);
+  masterGain.connect(analyser);
+  window.analyser = analyser;
+  window.dataArray = dataArray;
+}
+function unlockAudioCtx() {
+  if (!audioCtx) return;
+  if (audioCtx.state === "suspended") audioCtx.resume();
+}
+function playTone(freq, presetName) {
+  if (!audioCtx) initAudio();
+  unlockAudioCtx();
+  presetName = presetName || getInput('preset').value;
+  const preset = getPresetSettings(presetName);
+  const now = audioCtx.currentTime;
+  // --- Filter LFO ---
+  const lfo = audioCtx.createOscillator();
+  lfo.type = "sine";
+  lfo.frequency.value = preset.filterLFO.speed;
+
+  const lfoGain = audioCtx.createGain();
+  lfoGain.gain.value = preset.filterLFO.depth;
+
+  // --- Main synth ---
+  const osc = audioCtx.createOscillator();
+  osc.type = preset.waveform;
+  osc.frequency.value = freq;
+  // detune for extra life
+  const osc2 = audioCtx.createOscillator();
+  osc2.type = preset.waveform;
+  osc2.frequency.value = freq * (1.001 + 0.002*Math.sin(now*3));
+  const gainNode = audioCtx.createGain();
+  gainNode.gain.setValueAtTime(0, now);
+  gainNode.gain.linearRampToValueAtTime(0.28, now + preset.attack);
+  gainNode.gain.linearRampToValueAtTime(0.0, now + preset.attack + preset.release);
+
+  // --- Filter ---
+  const filterNode = audioCtx.createBiquadFilter();
+  filterNode.type = "lowpass";
+  filterNode.frequency.value = preset.filterLFO.base;
+  lfo.connect(lfoGain).connect(filterNode.frequency);
+
+  // --- FX ---
+  const delayNode = audioCtx.createDelay();
+  delayNode.delayTime.value = parseFloat(getInput('delay').value);
+  const feedbackNode = audioCtx.createGain();
+  feedbackNode.gain.value = preset.fx.echo;
+  // pan per preset
+  const panNode = audioCtx.createStereoPanner();
+  panNode.pan.value = typeof preset.fx.pan === 'function' ? preset.fx.pan() : preset.fx.pan;
+  // reverb/delay
+  const reverbNode = audioCtx.createDelay();
+  reverbNode.delayTime.value = preset.fx.reverb;
+
+  osc.connect(gainNode); osc2.connect(gainNode);
+  gainNode.connect(panNode);
+  panNode.connect(filterNode);
+  filterNode.connect(delayNode);
+  delayNode.connect(feedbackNode);
+  feedbackNode.connect(delayNode);
+  delayNode.connect(reverbNode);
+  reverbNode.connect(masterGain);
+  gainNode.connect(analyser);
+
+  osc.start(now); osc.stop(now + preset.attack + preset.release + 0.08);
+  osc2.start(now); osc2.stop(now + preset.attack + preset.release + 0.08);
+  lfo.start(now); lfo.stop(now + preset.attack + preset.release + 0.08);
+  setTimeout(() => {
+    osc.disconnect(); osc2.disconnect(); lfo.disconnect();
+    gainNode.disconnect(); panNode.disconnect(); filterNode.disconnect();
+    delayNode.disconnect(); feedbackNode.disconnect(); reverbNode.disconnect();
+  }, (preset.attack + preset.release + 0.1) * 1000);
+}
+function scheduleNotes(scale, presetName) {
+  clearInterval(bpmTimer);
+  bpmTimer = setInterval(() => {
+    if (!stopped) {
+      const scaleArr = scale || getPresetSettings(getInput('preset').value).scale;
+      const freq = scaleArr[Math.floor(Math.random() * scaleArr.length)];
+      playTone(freq, presetName || getInput('preset').value);
+      sendMidiNote && sendMidiNote(freq);
+    }
+  }, 60000 / bpm);
+}
+function play() {
+  if (!audioCtx) initAudio();
+  unlockAudioCtx();
+  stopped = false;
+  clearInterval(bpmTimer);
+  const preset = getPresetSettings(getInput('preset').value);
+  scheduleNotes(preset.scale, getInput('preset').value);
+}
+function stop() { stopped = true; clearInterval(bpmTimer); }
+getInput('play').addEventListener('click', play);
+getInput('stop').addEventListener('click', stop);
+getInput('freq').addEventListener('input', e => {
+  if (!audioCtx) initAudio();
+  unlockAudioCtx();
+  playTone(parseFloat(e.target.value), getInput('preset').value);
+});
+getInput('bpm').addEventListener('input', e => {
+  bpm = parseInt(e.target.value);
+  if (!stopped) {
+    const preset = getPresetSettings(getInput('preset').value);
+    scheduleNotes(preset.scale, getInput('preset').value);
+  }
+});
+getInput('volume').addEventListener('input', e => {
+  if (!masterGain) return;
+  masterGain.gain.value = parseFloat(e.target.value) / 100;
+});
+getInput('preset').addEventListener('change', () => {
+  if (!stopped) {
+    const preset = getPresetSettings(getInput('preset').value);
+    scheduleNotes(preset.scale, getInput('preset').value);
+  }
+});
+
+// --- MIDI (unchanged from previous version, just for context) ---
+let midiChannel = 9;
+let midiAccess = null, midiOutput = null, midiInEnabled = true;
+function midiNoteToFreq(note) { return 440 * Math.pow(2, (note - 69) / 12);}
+const midiButtonMap = {
+  36: () => playScaleNote(0),  37: () => playScaleNote(1), 38: () => playScaleNote(2),
+  39: () => playScaleNote(3),  40: () => playScaleNote(4),
+  41: nextPreset,  42: prevPreset,
+  43: play, 44: stop,
+  45: () => incSlider('delay', +0.05),   46: () => incSlider('delay', -0.05),
+  47: () => incSlider('echo', +0.05),    48: () => incSlider('echo', -0.05),
+  49: () => incSlider('filter', +100),   50: () => incSlider('filter', -100)
+};
+function playScaleNote(index) {
+  if (!audioCtx) return;
+  const preset = getPresetSettings(getInput('preset').value);
+  const freq = preset.scale[index % preset.scale.length];
+  if (freq) playTone(freq, getInput('preset').value);
+}
+function nextPreset() {
+  const presetEl = getInput('preset');
+  const presetOrder = ['plants', 'mold', 'bacteria', 'mushrooms', 'harmony'];
+  let idx = presetOrder.indexOf(presetEl.value);
+  presetEl.value = presetOrder[(idx + 1) % presetOrder.length];
+  if (!stopped) {
+    const preset = getPresetSettings(presetEl.value);
+    scheduleNotes(preset.scale, presetEl.value);
+  }
+}
+function prevPreset() {
+  const presetEl = getInput('preset');
+  const presetOrder = ['plants', 'mold', 'bacteria', 'mushrooms', 'harmony'];
+  let idx = presetOrder.indexOf(presetEl.value);
+  presetEl.value = presetOrder[(idx - 1 + presetOrder.length) % presetOrder.length];
+  if (!stopped) {
+    const preset = getPresetSettings(presetEl.value);
+    scheduleNotes(preset.scale, presetEl.value);
+  }
+}
+function incSlider(id, delta) {
+  const el = getInput(id);
+  let min = parseFloat(el.min), max = parseFloat(el.max), step = parseFloat(el.step);
+  let value = parseFloat(el.value) + delta;
+  value = Math.round(value / step) * step;
+  value = Math.max(min, Math.min(max, value));
+  el.value = value;
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  if (id === 'volume' && masterGain) masterGain.gain.value = parseFloat(el.value) / 100;
+  if (id === 'bpm' && !stopped) {
+    bpm = Math.round(value);
+    const preset = getPresetSettings(getInput('preset').value);
+    scheduleNotes(preset.scale, getInput('preset').value);
+  }
+}
+function handleMidiMessage(e) {
+  const [status, note, velocity] = e.data;
+  const type = status & 0xf0;
+  const channel = status & 0x0f;
+  if (!midiInEnabled) return;
+  if (type === 0x90 && velocity > 0 && (midiChannel === -1 || channel === midiChannel) && midiButtonMap[note]) {
+    midiButtonMap[note]();
+  }
+}
+function setupMidi() {
+  if (!navigator.requestMIDIAccess) return;
+  navigator.requestMIDIAccess().then(midi => {
+    midiAccess = midi;
+    const outputs = Array.from(midiAccess.outputs.values());
+    if (outputs.length > 0) midiOutput = outputs[0];
+    function registerInputs() {
+      midiAccess.inputs.forEach(input => {
+        input.onmidimessage = handleMidiMessage;
+      });
+    }
+    registerInputs();
+    midiAccess.onstatechange = function(event) {
+      if (event.port.type === "input" && event.port.state === "connected") {
+        registerInputs();
+      }
+    };
+  }, err => { console.warn("No MIDI access", err); });
+}
+setupMidi();
+function sendMidiNote(freq) {
+  if (!midiOutput) return;
+  let midiNote = Math.round(69 + 12 * Math.log2(freq / 440));
+  let velocity = 100;
+  let channel = midiChannel === -1 ? 9 : midiChannel;
+  midiOutput.send([0x90 + channel, midiNote, velocity]);
+  setTimeout(() => { midiOutput.send([0x80 + channel, midiNote, 0]); }, 400);
+}
+getInput('toggleMidiIn').addEventListener('click', () => {
+  midiInEnabled = !midiInEnabled;
+  getInput('toggleMidiIn').textContent = "midi" + (midiInEnabled ? "" : " off");
+});
+const midiChannelSelect = getInput('midiChannelSelect');
+midiChannelSelect.value = midiChannel;
+midiChannelSelect.addEventListener('change', function() {
+  midiChannel = Number(this.value);
+});
+
+// --- Tray Open at start ---
+closeTray();
+</script>
+</body>
+</html>
