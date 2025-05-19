@@ -52,6 +52,7 @@
       color: #fff;
       text-decoration: underline;
       transition: color 0.2s;
+      cursor: pointer;
     }
     .proto-list a:hover {
       color: #7fffd4;
@@ -81,21 +82,68 @@
     </div>
     <h2 style="margin-top:32px;">Prototype List</h2>
     <ul class="proto-list">
-      <li><a href="https://neight1000.github.io/Grooves/DMT.html" target="_blank">DMT.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/README.md" target="_blank">README.md</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/all.html" target="_blank">all.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/center.html" target="_blank">center.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/delay.html" target="_blank">delay.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/design.html" target="_blank">design.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/dub-mode.html" target="_blank">dub-mode.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/index.html" target="_blank">index.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/midi.html" target="_blank">midi.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/midi2.html" target="_blank">midi2.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/midi3.html" target="_blank">midi3.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/midi4.html" target="_blank">midi4.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/midi5.html" target="_blank">midi5.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/plantasia.html" target="_blank">plantasia.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/readme.html" target="_blank">readme.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/v10.html" target="_blank">v10.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/v15.html" target="_blank">v15.html</a></li>
-      <li><a href="https://
+      <li><a href="https://neight1000.github.io/Grooves/DMT.html"   data-freq="222">DMT.html</a></li>
+      <li><a href="https://neight1000.github.io/Grooves/README.md"  data-freq="246">README.md</a></li>
+      <li><a href="https://neight1000.github.io/Grooves/all.html"   data-freq="261">all.html</a></li>
+      <li><a href="https://neight1000.github.io/Grooves/center.html"data-freq="293">center.html</a></li>
+      <li><a href="https://neight1000.github.io/Grooves/delay.html" data-freq="329">delay.html</a></li>
+      <li><a href="https://neight1000.github.io/Grooves/design.html"data-freq="349">design.html</a></li>
+      <li><a href="https://neight1000.github.io/Grooves/dub-mode.html" data-freq="370">dub-mode.html</a></li>
+      <li><a href="https://neight1000.github.io/Grooves/index.html" data-freq="392">index.html</a></li>
+      <li><a href="https://neight1000.github.io/Grooves/midi.html" data-freq="415">midi.html</a></li>
+      <li><a href="https://neight1000.github.io/Grooves/midi2.html" data-freq="440">midi2.html</a></li>
+      <li><a href="https://neight1000.github.io/Grooves/midi3.html" data-freq="466">midi3.html</a></li>
+      <li><a href="https://neight1000.github.io/Grooves/midi4.html" data-freq="493">midi4.html</a></li>
+      <li><a href="https://neight1000.github.io/Grooves/midi5.html" data-freq="523">midi5.html</a></li>
+      <li><a href="https://neight1000.github.io/Grooves/plantasia.html" data-freq="554">plantasia.html</a></li>
+      <li><a href="https://neight1000.github.io/Grooves/readme.html" data-freq="587">readme.html</a></li>
+      <li><a href="https://neight1000.github.io/Grooves/v10.html" data-freq="622">v10.html</a></li>
+      <li><a href="https://neight1000.github.io/Grooves/v15.html" data-freq="659">v15.html</a></li>
+      <li><a href="https://neight1000.github.io/Grooves/v17.html" data-freq="698">v17.html</a></li>
+      <li><a href="https://neight1000.github.io/Grooves/v20.html" data-freq="739">v20.html</a></li>
+      <li><a href="https://neight1000.github.io/Grooves/v21.html" data-freq="783">v21.html</a></li>
+      <li><a href="https://neight1000.github.io/Grooves/v22.html" data-freq="830">v22.html</a></li>
+      <li><a href="https://neight1000.github.io/Grooves/v23.html" data-freq="880">v23.html</a></li>
+      <li><a href="https://neight1000.github.io/Grooves/v40.html" data-freq="932">v40.html</a></li>
+      <li><a href="https://neight1000.github.io/Grooves/v7.html" data-freq="987">v7.html</a></li>
+      <li><a href="https://neight1000.github.io/Grooves/v8.html" data-freq="1046">v8.html</a></li>
+      <li><a href="https://neight1000.github.io/Grooves/v9.html" data-freq="1108">v9.html</a></li>
+    </ul>
+  </div>
+  <script>
+    let synthCtx, synthMaster;
+    function initSynth() {
+      if (!synthCtx) {
+        synthCtx = new (window.AudioContext || window.webkitAudioContext)();
+        synthMaster = synthCtx.createGain();
+        synthMaster.gain.value = 0.12;
+        synthMaster.connect(synthCtx.destination);
+      }
+    }
+    // Resume context on user gesture
+    window.addEventListener('pointerdown', initSynth, {once:true});
+
+    function playPing(freq=440) {
+      if (!synthCtx) return;
+      const now = synthCtx.currentTime;
+      const osc = synthCtx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.value = freq;
+      const gain = synthCtx.createGain();
+      gain.gain.setValueAtTime(0.01, now);
+      gain.gain.linearRampToValueAtTime(0.23, now + 0.02);
+      gain.gain.linearRampToValueAtTime(0, now + 0.23);
+      osc.connect(gain);
+      gain.connect(synthMaster);
+      osc.start(now);
+      osc.stop(now + 0.24);
+    }
+    document.querySelectorAll('.proto-list a').forEach(link => {
+      link.addEventListener('mouseenter', e => {
+        initSynth();
+        playPing(Number(link.dataset.freq) || 400);
+      });
+    });
+  </script>
+</body>
+</html>
