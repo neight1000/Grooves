@@ -6,7 +6,299 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.01, user-scalable=no" />
   <link href="https://fonts.googleapis.com/css?family=Roboto+Mono:400,700&display=swap&font-display=swap" rel="stylesheet">
   <style>
-    /* ...[CSS UNCHANGED – use your original CSS here]... */
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #000;
+      color: #fff;
+      font-family: 'Roboto Mono', monospace;
+      overflow: hidden;
+      height: 100%;
+      width: 100vw;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      overscroll-behavior: none;
+    }
+    body {
+      min-height: 100vh;
+      width: 100vw;
+    }
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 58vh;
+      max-height: 340px;
+      display: block;
+      z-index: 0;
+      touch-action: none;
+      background: #000;
+      transition: height 0.2s;
+    }
+    .ui {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100vw;
+      background: rgba(0, 0, 0, 0.98);
+      z-index: 10;
+      border-top: 2px solid #444;
+      box-shadow: 0 -3px 18px #000e;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: flex-end;
+      gap: 9px;
+      padding: 10px 0 10px 0;
+      overflow-x: auto;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+      min-height: 90px;
+      max-height: 38vh;
+    }
+    .ui::-webkit-scrollbar { display: none; }
+    .ui > div, .ui button {
+      flex: 1 1 88px;
+      min-width: 86px;
+      margin: 0 1px;
+    }
+    .ui label {
+      font-size: 13px;
+      display: block;
+      text-align: center;
+      margin-bottom: 2px;
+      letter-spacing: 0.7px;
+      font-weight: 600;
+    }
+    .ui input[type="range"], .ui select {
+      width: 94%;
+      height: 32px;
+      border-radius: 13px;
+      font-size: 15px;
+      background: #121212;
+      border: 1.2px solid #444;
+      appearance: none;
+      outline: none;
+      accent-color: #3af779;
+      touch-action: none;
+      padding: 0;
+      margin: 0 auto 1px auto;
+      display: block;
+    }
+    .ui select {
+      font-size: 16px;
+      padding: 5px 7px;
+      height: 39px;
+    }
+    .ui button {
+      font-size: 16px;
+      font-family: 'Roboto Mono', monospace;
+      font-weight: 700;
+      border-radius: 12px;
+      padding: 7px 9px;
+      border: 1.5px solid #fff;
+      background: #111;
+      color: #fff;
+      letter-spacing: 0.09em;
+      cursor: pointer;
+      min-width: 69px;
+      min-height: 39px;
+      box-shadow: 0 2px 8px #000b;
+      transition: background .18s, border .16s;
+      touch-action: manipulation;
+      margin: 0 1.5px;
+      margin-top: 6px;
+    }
+    .ui button:active {
+      background: #1d1d1d;
+      border: 2px solid #3af779;
+      color: #3af779;
+    }
+    .color-slider-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 82px;
+    }
+    .color-slider-label {
+      font-size: 12px;
+      color: #fff;
+      text-align: center;
+      margin-bottom: 3px;
+      letter-spacing: 1px;
+      font-family: monospace;
+    }
+    #infoDisplay {
+      position: absolute;
+      top: 16px;
+      left: 10px;
+      z-index: 5;
+      background: rgba(0, 0, 0, 0.70);
+      color: #fff;
+      font-size: 13px;
+      padding: 10px 13px 10px 13px;
+      border-radius: 7px;
+      border: 1.3px solid #222;
+      display: none;
+      white-space: pre;
+      letter-spacing: 0.5px;
+      max-width: 85vw;
+      word-break: break-word;
+    }
+    #midiLegend {
+      position: absolute;
+      top: 54px;
+      right: 3vw;
+      z-index: 15;
+      display: none;
+      flex-direction: row;
+      flex-wrap: wrap;
+      background: rgba(0,0,0,0.92);
+      padding: 8px 7px 8px 7px;
+      border-radius: 7px;
+      border: 1.3px solid #333;
+      gap: 7px 7px;
+      max-width: 93vw;
+      box-shadow: 0 2px 18px #000d;
+      align-items: flex-start;
+      pointer-events: none;
+      font-size: 12px;
+    }
+    .legend-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 0 2px 2px 2px;
+      padding: 4px 7px;
+      background: #191919;
+      border-radius: 4px;
+      border: 1.2px solid #333;
+      font-size: 10px;
+      color: #fff;
+      min-width: 44px;
+      text-align: center;
+      letter-spacing: 0.3px;
+      transition: border 0.2s, box-shadow 0.2s;
+      word-break: break-word;
+    }
+    .legend-label {
+      font-weight: bold;
+      font-size: 11px;
+      color: #3af779;
+    }
+    #toggleLegend {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 16;
+      background: #232323;
+      border: 1.2px solid #fff;
+      color: #fff;
+      font-size: 14px;
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      letter-spacing: 1.2px;
+      min-width: 68px;
+      min-height: 29px;
+      font-weight: 700;
+      box-shadow: 0 1px 7px #000c;
+    }
+    #toggleLegend:active {
+      background: #333;
+      color: #3af779;
+      border-color: #3af779;
+    }
+    /* MIDI Channel Selector Styling */
+    #touchUI select#midiChannelSelect {
+      width: 94%;
+      min-width: 56px;
+      max-width: 110px;
+      height: 32px;
+      font-size: 15px;
+      border-radius: 13px;
+      background: #121212;
+      border: 1.2px solid #444;
+      appearance: none;
+      outline: none;
+      accent-color: #3af779;
+      touch-action: none;
+      padding: 0;
+      margin: 0 auto 1px auto;
+      display: block;
+    }
+    @media (max-width: 700px) {
+      canvas {
+        height: 39vh;
+        max-height: 40vw;
+      }
+      .ui {
+        max-height: 54vh;
+        padding: 7px 0 10px 0;
+        gap: 7px;
+      }
+      .ui > div, .ui button {
+        min-width: 61px;
+        font-size: 13px;
+      }
+      .ui input[type="range"], .ui select {
+        font-size: 13px;
+        height: 27px;
+        min-width: 55px;
+      }
+      .ui label, .color-slider-label {
+        font-size: 11.5px;
+      }
+      #toggleLegend { font-size: 12px; min-width: 46px; }
+      #midiLegend { font-size: 9.5px; }
+      .legend-item { min-width: 34px; font-size: 8.5px; }
+      #infoDisplay { font-size: 10.5px; padding: 8px 8px; }
+      #touchUI select#midiChannelSelect {
+        font-size: 13px;
+        height: 27px;
+        min-width: 40px;
+        max-width: 90px;
+      }
+    }
+    @media (max-width: 500px) {
+      canvas {
+        height: 31vh;
+        max-height: 49vw;
+      }
+      .ui {
+        flex-direction: column;
+        flex-wrap: nowrap;
+        align-items: stretch;
+        gap: 5px;
+        padding: 6px 0 6px 0;
+        min-height: 47vw;
+        max-height: 61vh;
+      }
+      .ui > div, .ui button {
+        min-width: 86vw;
+        margin: 0 0 3px 0;
+        font-size: 13px;
+        flex: 0 0 auto;
+      }
+      .ui input[type="range"], .ui select {
+        width: 94vw;
+        min-width: 68vw;
+        font-size: 13px;
+        height: 28px;
+      }
+      #toggleLegend { font-size: 12px; min-width: 38vw; }
+      #midiLegend { font-size: 8px; }
+      .legend-item { min-width: 21vw; font-size: 7.5px; }
+      #touchUI select#midiChannelSelect {
+        width: 85vw;
+        min-width: 35vw;
+        font-size: 13px;
+        height: 28px;
+        max-width: 100vw;
+      }
+    }
   </style>
 </head>
 <body>
@@ -31,7 +323,7 @@
   <div><label for="volume">Volume</label><input type="range" id="volume" min="0" max="100" value="60" aria-label="Volume" tabindex="0" /></div>
   <div><label for="bpm">BPM</label><input type="range" id="bpm" min="40" max="180" value="90" aria-label="BPM" tabindex="0" /></div>
   <div>
-    <label for="midiChannelSelect">MIDI Channel</label>
+    <label for="midiChannelSelect">MIDI Ch</label>
     <select id="midiChannelSelect" aria-label="MIDI Channel" tabindex="0">
       <option value="-1">All</option>
       <option value="0">1 (Default)</option>
@@ -144,8 +436,8 @@ function sendMidiNote(freq) {
   if (!midiOutput) return;
   let midiNote = Math.round(69 + 12 * Math.log2(freq / 440));
   let velocity = 100;
-  // Send on selected channel
-  let channel = midiChannel === -1 ? 9 : midiChannel; // fallback to 10 if "All" is selected
+  // Send on selected channel, fallback to 10 if "All" is selected
+  let channel = midiChannel === -1 ? 9 : midiChannel;
   midiOutput.send([0x90 + channel, midiNote, velocity]);
   setTimeout(() => {
     midiOutput.send([0x80 + channel, midiNote, 0]);
@@ -390,7 +682,7 @@ function updateDisplay() {
     "VOLUME     : " + document.getElementById("volume").value + "\n" +
     "BPM        : " + document.getElementById("bpm").value +
     "\nMIDI IN    : " + (midiInEnabled ? "ON" : "OFF") +
-    "\nMIDI CHAN  : " + (midiChannel === -1 ? 'All' : (midiChannel + 1));
+    "\nMIDI CHAN  : " + (midiChannel === -1 ? 'All' : (Number(midiChannel) + 1));
 }
 function startInfoDisplayUpdater() {
   if (infoDisplayInterval) clearInterval(infoDisplayInterval);
