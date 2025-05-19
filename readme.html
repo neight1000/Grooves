@@ -38,6 +38,13 @@
       text-align: left;
     }
     h2 { font-size: 1.05em; }
+    h3 {
+      font-size: 1em;
+      font-weight: bold;
+      margin-bottom: 7px;
+      margin-top: 19px;
+      letter-spacing: 0.03em;
+    }
     .proto-list {
       margin: 26px 0 0 0;
       padding: 0;
@@ -83,6 +90,35 @@
       width: 100vw; height: 100vh;
       z-index: 1;
       display: block;
+    }
+    .section-effects {
+      margin-top: 40px;
+      margin-bottom: 24px;
+      background: rgba(12,12,12,0.93);
+      border-radius: 8px;
+      padding: 21px 18px 10px 18px;
+      border: 1.2px solid #333;
+      font-size: 1em;
+      box-shadow: 0 1.5px 14px #04040455;
+    }
+    .section-effects h2, .section-effects h3 {
+      margin-left: 0;
+      color: #7fffd4;
+      text-shadow: 0 1px 6px #111;
+    }
+    .section-effects ul {
+      margin-top: 5px;
+      margin-bottom: 8px;
+      padding-left: 21px;
+    }
+    .section-effects ul ul {
+      margin-top: 2px;
+      margin-bottom: 0;
+      padding-left: 18px;
+      font-size: 98%;
+    }
+    .section-effects li {
+      margin-bottom: 4px;
     }
   </style>
 </head>
@@ -137,57 +173,81 @@
       <li><a href="https://neight1000.github.io/Grooves/v8.html"    >v8.html<span class="arrow hide">-&gt;</span></a></li>
       <li><a href="https://neight1000.github.io/Grooves/v9.html"    >v9.html<span class="arrow hide">-&gt;</span></a></li>
     </ul>
-    <div>Plantasia App Effects (Audio & Visual)
-AUDIO EFFECTS
-Delay – Adjustable via slider; controls delay/echo time.
-Echo – Separate from delay; slider to control intensity/length.
-Reverb – Stereo reverb effect, controllable.
-Filter – Lowpass filter with LFO modulation (depth and rate adjustable).
-Volume – Master volume control.
-BPM / Tempo – Slider-based BPM control for melodic evolution and delay sync.
-Base Frequency – Slider to control the central frequency for all tones.
-Melodic Evolution – Notes/tones evolve over time, based on the Plant Pentatonic Scale or Camelot Wheel.
-Preset System – Selecting a preset loads distinct effect values, frequencies, and color mappings.
-Detuned Oscillators – 3+ detuned square wave oscillators per tone for analog/chorus effect.
-Stereo Panning – Tones pan left/right in stereo field.
-Analog Envelope – Soft attack and release for evolving tones.
-Tape-style Pitch Wobble (tested, reverted by request) – Optional analog-style pitch drift.
-Tape Delay (planned, not always active)—Slider control.
-Oscillations – Number of oscillator voices, replacing “feedback.”
-Plant Harmonic / Pentatonic Scale – All audio tuned to scientifically-backed plant frequencies.
 
-VISUAL EFFECTS
-Waveform Visualization
+    <section class="section-effects">
+      <h2>Plantasia App Effects (Audio &amp; Visual)</h2>
 
-Animated waveform representing current audio output.
-Sliders control vertical height and density.
-Gradient color was mapped to the Camelot Wheel/key/frequency (updated live per tone).
-Glow effect around the waveform.
-Echo/ghosting trail (“visual echo”).
-Beat-pulsed background glow.
-Frequency markers/labels along the waveform.
-Sinewave grid overlay (optional layer).
-Particles (Butterflies)
-Previously color-mapped, currently white only (by request).
-Emerge at waveform peaks only.
-The slider controls the quantity.
-Animated with random size (10–200%), float/flutter behavior like butterflies.
-Reduced density and more ambient, slower float (recent request).
-Current: All color stripped, pure white, fewer particles.
+      <h3>AUDIO EFFECTS</h3>
+      <ul>
+        <li><strong>Delay</strong> – Adjustable via slider; controls delay/echo time.</li>
+        <li><strong>Echo</strong> – Separate from delay; slider to control intensity/length.</li>
+        <li><strong>Reverb</strong> – Stereo reverb effect, controllable.</li>
+        <li><strong>Filter</strong> – Lowpass filter with LFO modulation (depth and rate adjustable).</li>
+        <li><strong>Volume</strong> – Master volume control.</li>
+        <li><strong>BPM / Tempo</strong> – Slider-based BPM control for melodic evolution and delay sync.</li>
+        <li><strong>Base Frequency</strong> – Slider to control the central frequency for all tones.</li>
+        <li><strong>Melodic Evolution</strong> – Notes/tones evolve over time, based on the Plant Pentatonic Scale or Camelot Wheel.</li>
+        <li><strong>Preset System</strong> – Selecting a preset loads distinct effect values, frequencies, and color mappings.</li>
+        <li><strong>Detuned Oscillators</strong> – 3+ detuned square wave oscillators per tone for analog/chorus effect.</li>
+        <li><strong>Stereo Panning</strong> – Tones pan left/right in stereo field.</li>
+        <li><strong>Analog Envelope</strong> – Soft attack and release for evolving tones.</li>
+        <li><strong>Tape-style Pitch Wobble</strong> (tested, reverted by request) – Optional analog-style pitch drift.</li>
+        <li><strong>Tape Delay</strong> (planned, not always active)—Slider control.</li>
+        <li><strong>Oscillations</strong> – Number of oscillator voices, replacing “feedback.”</li>
+        <li><strong>Plant Harmonic / Pentatonic Scale</strong> – All audio tuned to scientifically-backed plant frequencies.</li>
+      </ul>
 
-UI Visual Consistency
-All sliders and controls are visually consistent.
-Black and white UI, with particles only in white.
-Fullscreen toggle (added, then removed on request).
-All slider values and states are shown in toggleable on-screen text.
-Preset dropdown with real-time color feedback.
-Camelot Wheel Key Feedback
-Key/color display updates per tone live, matching the Camelot system.
-Gradient-Enhanced Waveform
-Each preset uses distinct waveform gradients.
-Gradients are more intense and evolving (recent change).
-
-</div>
+      <h3>VISUAL EFFECTS</h3>
+      <ul>
+        <li>
+          <strong>Waveform Visualization</strong>
+          <ul>
+            <li>Animated waveform representing current audio output.</li>
+            <li>Sliders control vertical height and density.</li>
+            <li>Gradient color was mapped to the Camelot Wheel/key/frequency (updated live per tone).</li>
+            <li>Glow effect around the waveform.</li>
+            <li>Echo/ghosting trail (“visual echo”).</li>
+            <li>Beat-pulsed background glow.</li>
+            <li>Frequency markers/labels along the waveform.</li>
+            <li>Sinewave grid overlay (optional layer).</li>
+          </ul>
+        </li>
+        <li>
+          <strong>Particles (Butterflies)</strong>
+          <ul>
+            <li>Previously color-mapped, currently white only (by request).</li>
+            <li>Emerge at waveform peaks only.</li>
+            <li>The slider controls the quantity.</li>
+            <li>Animated with random size (10–200%), float/flutter behavior like butterflies.</li>
+            <li>Reduced density and more ambient, slower float (recent request).</li>
+            <li><strong>Current:</strong> All color stripped, pure white, fewer particles.</li>
+          </ul>
+        </li>
+        <li>
+          <strong>UI Visual Consistency</strong>
+          <ul>
+            <li>All sliders and controls are visually consistent.</li>
+            <li>Black and white UI, with particles only in white.</li>
+            <li>Fullscreen toggle (added, then removed on request).</li>
+            <li>All slider values and states are shown in toggleable on-screen text.</li>
+            <li>Preset dropdown with real-time color feedback.</li>
+          </ul>
+        </li>
+        <li>
+          <strong>Camelot Wheel Key Feedback</strong>
+          <ul>
+            <li>Key/color display updates per tone live, matching the Camelot system.</li>
+          </ul>
+        </li>
+        <li>
+          <strong>Gradient-Enhanced Waveform</strong>
+          <ul>
+            <li>Each preset uses distinct waveform gradients.</li>
+            <li>Gradients are more intense and evolving (recent change).</li>
+          </ul>
+        </li>
+      </ul>
+    </section>
   </div>
   <script>
     // --- Plant synth tone on hover ---
@@ -220,7 +280,6 @@ Gradients are more intense and evolving (recent change).
       osc.start(now);
       osc.stop(now + 0.24);
     }
-
     // --- Magical Vine Animation ---
     const vineCanvas = document.getElementById('vine-canvas');
     let vineParticles = [];
@@ -230,21 +289,18 @@ Gradients are more intense and evolving (recent change).
     }
     window.addEventListener('resize', resizeVineCanvas);
     resizeVineCanvas();
-
     function spawnSymmetricalVine(x0, y0, text, font) {
       let ctx = vineCanvas.getContext('2d');
       ctx.save();
       ctx.font = font;
       let textWidth = ctx.measureText(text).width;
       ctx.restore();
-
       let L = Math.max(90, Math.min(textWidth, 210));
       let points = 54;
       let squiggleAmp = 9 + Math.random() * 4;
       let duration = 2400 + Math.random() * 800; // ms
       let dt = duration / points;
       let now = performance.now();
-
       // LEFT to CENTER
       for (let i = 0; i < points; i++) {
         let t = i / (points - 1);
@@ -280,7 +336,6 @@ Gradients are more intense and evolving (recent change).
         });
       }
     }
-
     function animateVines() {
       const ctx = vineCanvas.getContext('2d');
       ctx.clearRect(0,0,vineCanvas.width,vineCanvas.height);
@@ -320,7 +375,6 @@ Gradients are more intense and evolving (recent change).
       requestAnimationFrame(animateVines);
     }
     animateVines();
-
     // --- Link hover handlers for sound, arrow, vine effect ---
     document.querySelectorAll('.proto-list a').forEach((link, idx) => {
       const arrow = link.querySelector('.arrow');
