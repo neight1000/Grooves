@@ -165,6 +165,7 @@
           <option value="pelog">Pelog (Gamelan)</option>
           <option value="insen">In-Sen (Japanese)</option>
           <option value="bachPreludeC">Bach: Prelude in C</option>
+          <option value="planetRock">Planet Rock (Electro)</option>
         </select>
       </label>
       <label>Delay<input type="range" id="delay" min="0.01" max="2" step="0.01" value="1.2"/></label>
@@ -173,7 +174,7 @@
       <label>Filter<input type="range" id="filter" min="100" max="8000" step="10" value="1800"/></label>
       <label>Freq<input type="range" id="freq" min="20" max="500" step="1" value="200"/></label>
       <label>Vol<input type="range" id="volume" min="0" max="100" step="1" value="40"/></label>
-      <label>BPM<input type="range" id="bpm" min="10" max="60" step="1" value="30"/></label>
+      <label>BPM<input type="range" id="bpm" min="64" max="130" step="1" value="90"/></label>
       <label>Density<input type="range" id="density" min="1" max="10" step="1" value="3"/></label>
     </div>
     <div class="controls" id="extraSliders">
@@ -222,6 +223,11 @@
         melody: [261.63,293.66,329.63,349.23,392,392,349.23,329.63],
         color: "#FFFFFF"
       }
+  planetRock: {
+    scale:  [415.30, 493.88, 554.37, 659.25],
+    melody: [415.30, 415.30, 493.88, 554.37, 659.25, 554.37, 493.88, 415.30],
+    color:  "#00FFFF"
+  },
     };
     const worldScales = {
       raga: { scale: [261.63,293.66,329.63,369.99,392,440,493.88,523.25], color: "#FFFFFF" },
