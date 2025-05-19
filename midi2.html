@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Plantasia App v3 – Full Working Build with Data Display</title>
+  <title>Plantasia App v3 – Full Working Build with Data Display + MIDI IN</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     html, body {
@@ -85,20 +85,48 @@
   <button id="play">PLAY</button>
   <button id="stop">STOP</button>
   <button id="toggleDisplay">TOGGLE DATA</button>
+  <button id="toggleMidiIn">MIDI IN: ON</button>
 </div>
 <script>
 // MIDI SETUP
-let midiAccess = null, midiOutput = null;
-navigator.requestMIDIAccess && navigator.requestMIDIAccess().then(function(midi) {
-  midiAccess = midi;
-  const outputs = Array.from(midiAccess.outputs.values());
-  if (outputs.length > 0) midiOutput = outputs[0];
-});
+let midiAccess = null, midiOutput = null, midiInEnabled = true;
+function midiNoteToFreq(note) {
+  return 440 * Math.pow(2, (note - 69) / 12);
+}
+// MIDI LISTENING
+function handleMidiMessage(e) {
+  const [status, note, velocity] = e.data;
+  const type = status & 0xf0;
+  const channel = status & 0x0f;
+  if (midiInEnabled && type === 0x90 && velocity > 0 && channel === 10) {
+    if (audioCtx) playTone(midiNoteToFreq(note));
+  }
+}
+function setupMidi() {
+  if (!navigator.requestMIDIAccess) return;
+  navigator.requestMIDIAccess().then(function(midi) {
+    midiAccess = midi;
+    // MIDI OUT
+    const outputs = Array.from(midiAccess.outputs.values());
+    if (outputs.length > 0) midiOutput = outputs[0];
+    // MIDI IN
+    midiAccess.inputs.forEach(function(input) {
+      input.onmidimessage = handleMidiMessage;
+    });
+    midiAccess.onstatechange = function(event) {
+      if (event.port.type === "input" && event.port.state === "connected") {
+        midiAccess.inputs.forEach(function(input) {
+          input.onmidimessage = handleMidiMessage;
+        });
+      }
+    };
+  });
+}
+setupMidi();
 
 // MIDI NOTE SEND ON CHANNEL 11 (zero-based channel 10)
 function sendMidiNote(freq) {
   if (!midiOutput) return;
-  // Convert frequency to closest MIDI note number (A440 = 69)
   let midiNote = Math.round(69 + 12 * Math.log2(freq / 440));
   let channel = 10; // MIDI channel 11 (zero-based)
   let velocity = 100;
@@ -283,10 +311,20 @@ function updateDisplay() {
     "FILTER     : " + document.getElementById("filter").value + "\n" +
     "FREQUENCY  : " + document.getElementById("freq").value + "\n" +
     "VOLUME     : " + document.getElementById("volume").value + "\n" +
-    "BPM        : " + document.getElementById("bpm").value;
+    "BPM        : " + document.getElementById("bpm").value +
+    "\nMIDI IN    : " + (midiInEnabled ? "ON" : "OFF");
 }
 setInterval(updateDisplay, 250);
+
+// MIDI IN Toggle
+const midiBtn = document.getElementById('toggleMidiIn');
+midiBtn.addEventListener('click', () => {
+  midiInEnabled = !midiInEnabled;
+  midiBtn.textContent = "MIDI IN: " + (midiInEnabled ? "ON" : "OFF");
+});
+
 </script>
 </body>
 </html>
+
 
