@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Plantasia – Combined Visuals + MIDI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: black;
+      color: white;
+      font-family: monospace;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+    }
+    #waveCanvas {
+      position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 0;
+      display: block;
+      background: #000;
+    }
+    .ui {
+      position: absolute;
+      bottom: 0;
+      width: 100vw;
+      background: rgba(0, 0, 0, 0.92);
+      padding: 18px 0 10px 0;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: flex-end;
+      gap: 18px 16px;
+      z-index: 2;
+      border-radius: 28px 28px 0 0;
+      box-shadow: 0 -2px 32px #000c;
+    }
+    .ui label {
+      font-size: 12px;
+      display: block;
+      text-align: center;
+      margin-bottom: 2px;
+    }
+    .ui input[type="range"], .ui select {
+      width: 112px;
+    }
+    .ui button {
+      font-size: 16px;
+      padding: 7px 18px;
+      background: #1a1a1a;
+      border: 1px solid #fff;
+      color: #fff;
+      border-radius: 8px;
+      cursor: pointer;
+      min-width: 58px;
+      transition: background 0.18s, color 0.15s;
+    }
+    .ui button:active, .ui button.active {
+      background: #222;
+      color: #00ffa5;
+      border-color: #00ffa5;
+    }
+    #infoDisplay {
+      position: absolute;
+      top: 18px;
+      left: 16px;
+      z-index: 3;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      font-size: 13px;
+      padding: 14px 17px 14px 15px;
+      display: none;
+      border-radius: 9px;
+      white-space: pre;
+      letter-spacing: 0.4px;
+      border: 1.5px solid #222;
+      box-shadow: 0 2px 18px #000c;
+      max-width: 80vw;
+    }
+    @media (max-width:700px) {
+      .ui { flex-direction:column; align-items:stretch; max-width:99vw; min-width:90vw; border-radius: 20px 20px 0 0; }
+      .ui > div { margin:0 0 8px 0; }
+      .ui input[type="range"], .ui select { width: 80vw; }
+      .ui button { min-width: 90vw; }
+    }
+  </style>
+</head>
+<body>
+<canvas id="waveCanvas"></canvas>
+<div id="infoDisplay"></div>
+<div class="ui">
+  <div><label>Preset</label>
+    <select id="preset">
+      <option value="plants">Plants</option>
+      <option value="mold">Mold</option>
+      <option value="bacteria">Bacteria</option>
+      <option value="mushrooms">Mushrooms</option>
+      <option value="harmony">Lifeform Harmony</option>
+    </select>
+  </div>
+  <div><label>Delay</label><input type="range" id="delay" min="0.01" max="2.0" step="0.01" value="0.6" /></div>
+  <div><label>Echo</label><input type="range" id="echo" min="0" max="1.0" step="0.01" value="0.4" /></div>
+  <div><label>Filter</label><input type="range" id="filter" min="100" max="8000" step="10" value="1200" /></div>
+  <div><label>Frequency</label><input type="range" id="freq" min="50" max="1000" step="1" value="174" /></div>
+  <div><label>Volume</label><input type="range" id="volume" min="0" max="100" value="60" /></div>
+  <div><label>BPM</label><input type="range" id="bpm" min="40" max="180" value="90" /></div>
+  <div>
+    <label for="midiChannelSelect">Midi Ch</label>
+    <select id="midiChannelSelect">
+      <option value="-1">all</option>
+      <option value="0">1</option>
+      <option value="1">2</option>
+      <option value="2">3</option>
+      <option value="3">4</option>
+      <option value="4">5</option>
+      <option value="5">6</option>
+      <option value="6">7</option>
+      <option value="7">8</option>
+      <option value="8">9</option>
+      <option value="9">10</option>
+      <option value="10">11</option>
+      <option value="11">12</option>
+      <option value="12">13</option>
+      <option value="13">14</option>
+      <option value="14">15</option>
+      <option value="15">16</option>
+    </select>
+  </div>
+  <button id="play">PLAY</button>
+  <button id="stop">STOP</button>
+  <button id="toggleDisplay">DATA</button>
+  <button id="toggleMidiIn">midi</button>
+</div>
+<script>
+/* --- PRESET LOGIC --- */
+const presetSettings = {
+  plants:     { scale: [174, 285, 396, 417, 528], color: "#00FF7F", waveform: 'triangle' },
+  mold:       { scale: [432, 639, 741],           color: "#8A2BE2", waveform: 'sawtooth' },
+  bacteria:   { scale: [528, 554, 585, 728],      color: "#FF4500", waveform: 'square'   },
+  mushrooms:  { scale: [417, 444, 528, 639],      color: "#FFD700", waveform: 'sine'     },
+  harmony:    { scale: [432, 528, 639, 741, 852], color: "#00FFFF", waveform: 'triangle' }
+};
+function getPreset() { return document.getElementById("preset").value; }
+function getPresetParams() { return presetSettings[getPreset()]; }
+function getScaleFromPreset() { return getPresetParams().scale; }
+function getColorFromPreset() { return getPresetParams().color; }
+function getWaveformFromPreset() { return getPresetParams().waveform; }
+
+/* --- AUDIO SYNTH/MIDI --- */
+let audioCtx, analyser, masterGain, reverbNode, bufferLength, dataArray;
+let bpm = 90, bpmTimer = null, stopped = true;
+let trailFrames = [], currentWaveColor = "#00FF7F";
+let canvas = document.getElementById("waveCanvas"), ctx = canvas.getContext("2d");
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 2048;
+  bufferLength = analyser.frequencyBinCount;
+  dataArray = new Uint8Array(bufferLength);
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = parseFloat(volume.value) / 100;
+  reverbNode = audioCtx.createDelay();
+  const reverbFeedback = audioCtx.createGain();
+  reverbNode.delayTime.value = 0.4;
+  reverbFeedback.gain.value = 0.4;
+  reverbNode.connect(reverbFeedback);
+  reverbFeedback.connect(reverbNode);
+  reverbNode.connect(masterGain);
+  masterGain.connect(audioCtx.destination);
+  masterGain.connect(analyser);
+}
+function playTone(freq) {
+  if (!audioCtx) initAudio();
+  const now = audioCtx.currentTime;
+  const filterNode = audioCtx.createBiquadFilter();
+  filterNode.type = "lowpass";
+  filterNode.frequency.value = parseFloat(filter.value);
+  const delayNode = audioCtx.createDelay();
+  delayNode.delayTime.value = parseFloat(delay.value);
+  const feedbackNode = audioCtx.createGain();
+  feedbackNode.gain.value = parseFloat(echo.value);
+  const gainNode = audioCtx.createGain();
+  gainNode.gain.setValueAtTime(0, now);
+  gainNode.gain.linearRampToValueAtTime(0.3, now + 0.3);
+  gainNode.gain.linearRampToValueAtTime(0.0, now + 3.0);
+  const panNode = audioCtx.createStereoPanner();
+  panNode.pan.value = Math.random() * 2 - 1;
+  const detuneOffsets = [-0.5, 0, 0.5];
+  detuneOffsets.forEach(offset => {
+    const o = audioCtx.createOscillator();
+    o.type = getWaveformFromPreset();
+    o.frequency.value = freq * (1 + offset / 100);
+    o.connect(gainNode);
+    o.start(now);
+    o.stop(now + 3.0);
+  });
+  gainNode.connect(panNode);
+  panNode.connect(filterNode);
+  filterNode.connect(delayNode);
+  delayNode.connect(feedbackNode);
+  feedbackNode.connect(delayNode);
+  delayNode.connect(reverbNode);
+  gainNode.connect(analyser);
+}
+function scheduleNotes(scale) {
+  clearInterval(bpmTimer);
+  bpmTimer = setInterval(() => {
+    if (!stopped) {
+      const freq = scale[Math.floor(Math.random() * scale.length)];
+      playTone(freq);
+      sendMidiNote && sendMidiNote(freq);
+    }
+  }, 60000 / bpm);
+}
+document.getElementById('play').addEventListener('click', () => {
+  initAudio();
+  stopped = false;
+  const scale = getScaleFromPreset();
+  currentWaveColor = getColorFromPreset();
+  scheduleNotes(scale);
+});
+document.getElementById('stop').addEventListener('click', () => {
+  stopped = true;
+  clearInterval(bpmTimer);
+});
+document.getElementById('bpm').addEventListener('input', e => {
+  bpm = parseInt(e.target.value);
+  if (!stopped) scheduleNotes(getScaleFromPreset());
+});
+document.getElementById('preset').addEventListener('change', () => {
+  currentWaveColor = getColorFromPreset();
+  if (!stopped) scheduleNotes(getScaleFromPreset());
+});
+
+/* --- MIDI --- */
+let midiChannel = 9;
+let midiAccess = null, midiOutput = null, midiInEnabled = true;
+function midiNoteToFreq(note) { return 440 * Math.pow(2, (note - 69) / 12);}
+const midiButtonMap = {
+  36: () => playScaleNote(0),  37: () => playScaleNote(1), 38: () => playScaleNote(2),
+  39: () => playScaleNote(3),  40: () => playScaleNote(4),
+  41: nextPreset,  42: prevPreset,
+  43: () => document.getElementById('play').click(), 44: () => document.getElementById('stop').click(),
+  45: () => incSlider('delay', +0.05),   46: () => incSlider('delay', -0.05),
+  47: () => incSlider('echo', +0.05),    48: () => incSlider('echo', -0.05),
+  49: () => incSlider('filter', +100),   50: () => incSlider('filter', -100)
+};
+function playScaleNote(index) {
+  if (!audioCtx) initAudio();
+  const preset = getPresetParams();
+  const freq = preset.scale[index % preset.scale.length];
+  if (freq) playTone(freq);
+}
+function nextPreset() {
+  const presetEl = document.getElementById('preset');
+  const presetOrder = ['plants', 'mold', 'bacteria', 'mushrooms', 'harmony'];
+  let idx = presetOrder.indexOf(presetEl.value);
+  presetEl.value = presetOrder[(idx + 1) % presetOrder.length];
+  currentWaveColor = getColorFromPreset();
+  if (!stopped) scheduleNotes(getScaleFromPreset());
+}
+function prevPreset() {
+  const presetEl = document.getElementById('preset');
+  const presetOrder = ['plants', 'mold', 'bacteria', 'mushrooms', 'harmony'];
+  let idx = presetOrder.indexOf(presetEl.value);
+  presetEl.value = presetOrder[(idx - 1 + presetOrder.length) % presetOrder.length];
+  currentWaveColor = getColorFromPreset();
+  if (!stopped) scheduleNotes(getScaleFromPreset());
+}
+function incSlider(id, delta) {
+  const el = document.getElementById(id);
+  let min = parseFloat(el.min), max = parseFloat(el.max), step = parseFloat(el.step);
+  let value = parseFloat(el.value) + delta;
+  value = Math.round(value / step) * step;
+  value = Math.max(min, Math.min(max, value));
+  el.value = value;
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  if (id === 'volume' && masterGain) masterGain.gain.value = parseFloat(el.value) / 100;
+  if (id === 'bpm' && !stopped) {
+    bpm = Math.round(value);
+    scheduleNotes(getScaleFromPreset());
+  }
+}
+function handleMidiMessage(e) {
+  const [status, note, velocity] = e.data;
+  const type = status & 0xf0;
+  const channel = status & 0x0f;
+  if (!midiInEnabled) return;
+  if (type === 0x90 && velocity > 0 && (midiChannel === -1 || channel === midiChannel) && midiButtonMap[note]) {
+    midiButtonMap[note]();
+  }
+}
+function setupMidi() {
+  if (!navigator.requestMIDIAccess) return;
+  navigator.requestMIDIAccess().then(midi => {
+    midiAccess = midi;
+    const outputs = Array.from(midiAccess.outputs.values());
+    if (outputs.length > 0) midiOutput = outputs[0];
+    function registerInputs() {
+      midiAccess.inputs.forEach(input => { input.onmidimessage = handleMidiMessage; });
+    }
+    registerInputs();
+    midiAccess.onstatechange = function(event) {
+      if (event.port.type === "input" && event.port.state === "connected") registerInputs();
+    };
+  }, err => { console.warn("No MIDI access", err); });
+}
+setupMidi();
+function sendMidiNote(freq) {
+  if (!midiOutput) return;
+  let midiNote = Math.round(69 + 12 * Math.log2(freq / 440));
+  let velocity = 100;
+  let channel = midiChannel === -1 ? 9 : midiChannel;
+  midiOutput.send([0x90 + channel, midiNote, velocity]);
+  setTimeout(() => { midiOutput.send([0x80 + channel, midiNote, 0]); }, 400);
+}
+document.getElementById('toggleMidiIn').addEventListener('click', () => {
+  midiInEnabled = !midiInEnabled;
+  document.getElementById('toggleMidiIn').textContent = "midi" + (midiInEnabled ? "" : " off");
+});
+const midiChannelSelect = document.getElementById('midiChannelSelect');
+midiChannelSelect.value = midiChannel;
+midiChannelSelect.addEventListener('change', function() {
+  midiChannel = Number(this.value);
+});
+
+/* --- EQ + FRACTAL + PARTICLE VISUALS --- */
+let fractalNoise = 0.6; // Not exposed for now, but you can add a slider if desired
+function lerpColor(a, b, t) {
+  const ah = parseInt(a.slice(1), 16), bh = parseInt(b.slice(1), 16);
+  const ar = (ah >> 16) & 0xff, ag = (ah >> 8) & 0xff, ab = ah & 0xff;
+  const br = (bh >> 16) & 0xff, bg = (bh >> 8) & 0xff, bb = bh & 0xff;
+  return "#" + ((1 << 24) + (Math.round(ar + (br - ar) * t) << 16) + (Math.round(ag + (bg - ag) * t) << 8) + Math.round(ab + (bb - ab) * t)).toString(16).slice(1);
+}
+const presetVisuals = {
+  plants: {
+    color1: "#207d32", color2: "#aefd6c",
+    colorAnim: (t) => lerpColor("#207d32", "#aefd6c", 0.5 + 0.5*Math.sin(t/3)),
+    colorAnim2: (t) => lerpColor("#84e05b", "#f5f79c", 0.5 + 0.5*Math.cos(t/5)),
+    fractal: function(ctx, t) {
+      let branches = 8, len = Math.max(120, canvas.height/3), angleSpread = Math.PI / 6 * fractalNoise;
+      ctx.save();
+      ctx.translate(canvas.width/2, canvas.height);
+      ctx.strokeStyle = lerpColor("#38ff55", "#aefd6c", 0.5 + 0.5*Math.sin(t/5));
+      ctx.shadowBlur = 32*fractalNoise; ctx.shadowColor = "#aefd6c";
+      function branch(level, l, a) {
+        if(level > 5) return;
+        ctx.save();
+        ctx.rotate(a + 0.1 * Math.sin(t/2 + level));
+        ctx.beginPath();
+        ctx.moveTo(0,0);
+        ctx.lineTo(0, -l);
+        ctx.stroke();
+        ctx.translate(0, -l);
+        for(let i=0; i<2; ++i) branch(level+1, l*0.7*fractalNoise, (i?-1:1)*angleSpread*(0.7+0.3*Math.sin(t*3+level)));
+        ctx.restore();
+      }
+      branch(0, len*(0.95+0.2*Math.sin(t*0.7)), 0);
+      ctx.restore();
+    }
+  },
+  mold: {
+    color1: "#6733a5", color2: "#f6eaff",
+    colorAnim: (t) => lerpColor("#6733a5", "#f6eaff", 0.5 + 0.5*Math.sin(t*2)),
+    colorAnim2: (t) => lerpColor("#e0cafd", "#e8ffea", 0.5 + 0.5*Math.cos(t*1.3)),
+    fractal: function(ctx, t) {
+      let cx = canvas.width/2, cy = canvas.height/2, baseR = Math.min(cx,cy)*0.5*fractalNoise;
+      ctx.save();
+      ctx.globalAlpha = 0.20 + 0.12*Math.sin(t*2.4);
+      for(let blob=0; blob<Math.round(7*fractalNoise); ++blob) {
+        let R = baseR*(0.7+0.3*Math.sin(t+blob));
+        ctx.beginPath();
+        for(let a=0; a<=Math.PI*2; a+=Math.PI/(36*fractalNoise)) {
+          let r = R*(1+0.13*fractalNoise*Math.sin(blob*3+a*blob+t*blob+Math.cos(blob+t)));
+          let x = cx + r*Math.cos(a);
+          let y = cy + r*Math.sin(a);
+          if(a===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+        }
+        ctx.closePath();
+        ctx.strokeStyle = lerpColor("#e0cafd", "#f6eaff", 0.5 + 0.5*Math.sin(t*blob+blob));
+        ctx.shadowColor = "#fffbe0";
+        ctx.shadowBlur = 24*fractalNoise;
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+  },
+  bacteria: {
+    color1: "#ff3500", color2: "#fff1a8",
+    colorAnim: (t) => lerpColor("#ff3500", "#fff1a8", 0.5 + 0.5*Math.sin(t*4)),
+    colorAnim2: (t) => lerpColor("#ff8800", "#ffe67a", 0.5 + 0.5*Math.cos(t*2.3)),
+    fractal: function(ctx, t) {
+      ctx.save();
+      let cells = Math.round(36*fractalNoise), radius = (36 + 22*Math.sin(t*1.7))*fractalNoise;
+      let cx = canvas.width/2, cy = canvas.height/2;
+      for(let i=0; i<cells; ++i) {
+        let a = i*2*Math.PI/cells + Math.sin(t+i*0.2)*0.2*fractalNoise;
+        let r = radius*(1+0.25*Math.sin(t*3+i));
+        let x = cx + r*Math.cos(a);
+        let y = cy + r*Math.sin(a);
+        ctx.beginPath();
+        ctx.arc(x, y, 8+6*fractalNoise*Math.abs(Math.sin(t+i)), 0, 2*Math.PI);
+        ctx.fillStyle = lerpColor("#ff3500", "#ffe67a", 0.5 + 0.5*Math.sin(t+i*0.6));
+        ctx.shadowColor = lerpColor("#ff8800", "#fff1a8", 0.5 + 0.5*Math.cos(t+2*i));
+        ctx.shadowBlur = 16*fractalNoise;
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+  },
+  mushrooms: {
+    color1: "#ffe969", color2: "#b2983a",
+    colorAnim: (t) => lerpColor("#ffe969", "#b2983a", 0.5 + 0.5*Math.sin(t*1.9)),
+    colorAnim2: (t) => lerpColor("#fffbe0", "#b2983a", 0.5 + 0.5*Math.cos(t*2.7)),
+    fractal: function(ctx, t) {
+      ctx.save();
+      let n = Math.round(7*fractalNoise);
+      for(let i=0;i<n;++i) {
+        let x = (canvas.width/(n+1))*(i+1);
+        let baseY = canvas.height*0.86;
+        let stemLen = (40+24*Math.abs(Math.sin(t+i)))*fractalNoise;
+        let capR = (25+9*Math.cos(t*1.2+i))*fractalNoise;
+        let y = baseY - stemLen - capR;
+        ctx.beginPath();
+        ctx.moveTo(x, baseY);
+        ctx.lineTo(x, y+capR);
+        ctx.strokeStyle = lerpColor("#fffbe0", "#b2983a", 0.5 + 0.5*Math.sin(t*1.7+i));
+        ctx.lineWidth = 7*fractalNoise;
+        ctx.shadowColor = "#fffbe0"; ctx.shadowBlur = 4*fractalNoise;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(x, y, capR, Math.PI, 0, false);
+        ctx.closePath();
+        ctx.fillStyle = lerpColor("#ffe969", "#b2983a", 0.5 + 0.5*Math.sin(t*1.7+i));
+        ctx.shadowColor = "#ffe969"; ctx.shadowBlur = 20*fractalNoise;
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+  },
+  harmony: {
+    color1: "#00fff7", color2: "#c6b8fd",
+    colorAnim: (t) => lerpColor("#00fff7", "#c6b8fd", 0.5 + 0.5*Math.sin(t/2)),
+    colorAnim2: (t) => lerpColor("#d9e9ff", "#ffb8fd", 0.5 + 0.5*Math.cos(t/2)),
+    fractal: function(ctx, t) {
+      ctx.save();
+      let cx = canvas.width/2, cy = canvas.height/2;
+      ctx.globalAlpha = 0.18;
+      for(let i=0;i<Math.round(5*fractalNoise);++i) {
+        let r = (70+35*i + 18*Math.sin(t+i))*fractalNoise;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, 2*Math.PI);
+        ctx.strokeStyle = lerpColor("#00fff7", "#c6b8fd", 0.5 + 0.5*Math.sin(t/2+i));
+        ctx.shadowColor = "#00fff7"; ctx.shadowBlur = (12+10*i)*fractalNoise;
+        ctx.lineWidth = (1.5+0.8*Math.sin(t+i))*fractalNoise;
+        ctx.stroke();
+      }
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 0.22;
+      ctx.beginPath();
+      for(let x=0;x<canvas.width;x+=Math.max(4,8*(1-fractalNoise))) {
+        let y = cy + 45*fractalNoise*Math.sin(x/54+t)*Math.cos(t+0.7*x/250);
+        if(x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      }
+      ctx.strokeStyle = lerpColor("#00fff7", "#c6b8fd", 0.5 + 0.5*Math.sin(t/2));
+      ctx.lineWidth = 2.2*fractalNoise;
+      ctx.shadowColor = "#00fff7";
+      ctx.shadowBlur = 12*fractalNoise;
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+};
+let particles = [];
+function drawEQandParticles() {
+  requestAnimationFrame(drawEQandParticles);
+  if (!analyser) return;
+  analyser.getByteFrequencyData(dataArray);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  // Animated background gradient
+  let preset = getPreset();
+  let t = performance.now()/1000;
+  let v = presetVisuals[preset];
+  let grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+  grad.addColorStop(0, v.colorAnim(t));
+  grad.addColorStop(1, v.colorAnim2(t));
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // EQ bars
+  let barCount = 64;
+  let barW = canvas.width/barCount;
+  for (let i=0; i<barCount; i++) {
+    let val = dataArray[i];
+    let h = (val/255) * canvas.height * 0.25;
+    ctx.fillStyle = v.colorAnim((i+t/2)/barCount);
+    ctx.fillRect(i*barW, canvas.height-h-2, barW-2, h);
+    // Particle effect: spawn particles from bars above a threshold
+    if (val > 210 && Math.random()<0.3) {
+      particles.push({
+        x: i*barW + barW/2,
+        y: canvas.height-h-2,
+        vx: (Math.random()-0.5)*1.5,
+        vy: -1.5-Math.random()*2,
+        r: 3+Math.random()*2,
+        color: v.colorAnim((i+t/2)/barCount),
+        life: 0,
+        maxLife: 60+Math.random()*40
+      });
+    }
+  }
+  // Draw fractal overlay
+  if (v.fractal) v.fractal(ctx, t);
+
+  // Animate particles
+  for (let i=particles.length-1; i>=0; --i) {
+    let p = particles[i];
+    ctx.globalAlpha = 0.85 * (1-p.life/p.maxLife);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, 2*Math.PI);
+    ctx.fillStyle = p.color;
+    ctx.shadowColor = p.color;
+    ctx.shadowBlur = 10;
+    ctx.fill();
+    ctx.globalAlpha = 1.0;
+    ctx.shadowBlur = 0;
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.045; // gravity
+    p.life++;
+    if (p.life > p.maxLife) particles.splice(i,1);
+  }
+}
+window.addEventListener('DOMContentLoaded', () => { drawEQandParticles(); });
+
+/* --- DATA PANEL --- */
+const display = document.getElementById("infoDisplay");
+document.getElementById("toggleDisplay").addEventListener("click", () => {
+  display.style.display = display.style.display === "none" ? "block" : "none";
+});
+function updateDisplay() {
+  const p = getPresetParams();
+  display.textContent =
+    "PRESET     : " + getPreset() + "\n" +
+    "SCALE      : [" + p.scale.join(", ") + "]\n" +
+    "OSC/WAVE   : " + p.waveform + "\n" +
+    "FILTER     : " + document.getElementById("filter").value + "Hz\n" +
+    "DELAY      : " + document.getElementById("delay").value + "s\n" +
+    "ECHO       : " + document.getElementById("echo").value + "\n" +
+    "VOLUME     : " + document.getElementById("volume").value + "\n" +
+    "BPM        : " + document.getElementById("bpm").value +
+    "\nMIDI IN    : " + (midiInEnabled ? "ON" : "OFF") +
+    "\nMIDI CHAN  : " + (midiChannel === -1 ? 'all' : (Number(midiChannel)+1));
+}
+setInterval(updateDisplay, 250);
+
+window.addEventListener('resize', function() {
+  if (!canvas) return;
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+});
+</script>
+</body>
+</html>
