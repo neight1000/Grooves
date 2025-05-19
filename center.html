@@ -1,55 +1,51 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Plantasia App v52 – Concentric Triangles & Resume Fix</title>
+  <title>Plantasia App v53 – Fixed Playback</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap');
     :root { --bg: #000; --fg: #fff; --font: 'Roboto Mono', monospace; --accent: #00ff00; }
-    * { box-sizing: border-box; margin:0; padding:0; }
-    body { font-family: var(--font); background: var(--bg); color: var(--fg); overflow:hidden; }
-    h1 { text-align:center; margin:1rem 0; font-size:1.5rem; }
-    #uiPanel { position:absolute; top:1rem; right:1rem; display:flex; gap:0.5rem; z-index:3; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font); background: var(--bg); color: var(--fg); overflow: hidden; }
+    h1 { text-align: center; margin: 1rem 0; font-size: 1.5rem; }
+    #uiPanel { position: absolute; top: 1rem; right: 1rem; display: flex; gap: 0.5rem; z-index: 3; }
     button, select, input[type="range"] {
-      background:transparent; color:var(--fg); border:1px solid var(--fg);
-      padding:0.5rem 1rem; font-size:0.9rem; text-transform:uppercase; font-family:var(--font);
+      background: transparent; color: var(--fg); border: 1px solid var(--fg);
+      padding: 0.5rem 1rem; font-size: 0.9rem; text-transform: uppercase; font-family: var(--font);
     }
-    button:hover { background:var(--fg); color:var(--bg); cursor:pointer; }
+    button:hover { background: var(--fg); color: var(--bg); cursor: pointer; }
     input[type="range"] {
-      -webkit-appearance:none; width:150px; height:1px; background:var(--fg); margin:0.5rem 0;
+      -webkit-appearance: none; width: 150px; height: 1px; background: var(--fg); margin: 0.5rem 0;
     }
     input[type="range"]::-webkit-slider-runnable-track { width:100%; height:1px; background:var(--fg); }
     input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance:none; width:24px; height:24px; background:var(--accent);
       border-radius:50%; margin-top:-11px; cursor:pointer;
     }
-    input[type="range"]::-moz-range-track { width:100%; height:1px; background:var(--fg); }
-    input[type="range"]::-moz-range-thumb {
-      width:24px; height:24px; background:var(--accent); border:none; border-radius:50%; cursor:pointer;
-    }
-    label { font-size:0.75rem; text-transform:uppercase; display:flex; flex-direction:column; align-items:center; gap:0.25rem; }
+    label { font-size:0.75rem; text-transform: uppercase; display:flex; flex-direction:column; align-items:center; gap:0.25rem; }
     #controlsWrapper {
-      position:absolute; bottom:1rem; left:50%; transform:translateX(-50%);
-      display:none; flex-direction:row; gap:1rem; background:rgba(0,0,0,0.85); padding:0.5rem; z-index:3;
+      position: absolute; bottom: 1rem; left: 50%; transform: translateX(-50%);
+      display: none; background: rgba(0,0,0,0.85); padding: 0.5rem; border: 1px solid var(--fg); z-index:3;
     }
-    .controls { display:flex; flex-wrap:wrap; gap:0.5rem; }
-    #infoDisplay { position:absolute; top:1rem; left:1rem; background:rgba(0,0,0,0.6); padding:0.5rem; white-space:pre; display:none; z-index:3; }
+    .controls { display: flex; flex-wrap: wrap; gap: 0.5rem; }
     #visualizer { position:absolute; top:0; left:0; width:100vw; height:100vh; background:var(--bg); z-index:1; }
-    .footer { position:absolute; bottom:0.5rem; width:100%; text-align:center; font-size:0.75rem; color:#888; z-index:3; }
+    #infoDisplay { position:absolute; top:1rem; left:1rem; background:rgba(0,0,0,0.6); padding:0.5rem; white-space:pre; display:none; z-index:3; }
+    canvas { display: block; }
   </style>
 </head>
 <body>
   <h1>PLANTASIA APP</h1>
   <div id="uiPanel">
     <button id="toggleUI">Show Controls</button>
-    <button id="toggleDisplay">Show Data</button>
+    <button id="toggleData">Show Data</button>
     <button id="play">Play</button>
     <button id="stop">Stop</button>
   </div>
-  <div id="controlsWrapper">
-    <div class="controls" id="mainUI">
-      <label>Preset<select id="preset">
+  <div id="controlsWrapper" class="controls">
+    <label>Preset
+      <select id="preset">
         <option value="plants">Plants</option>
         <option value="mold">Mold</option>
         <option value="bacteria">Bacteria</option>
@@ -58,240 +54,155 @@
         <option value="euclid">Euclidean Rhythm</option>
         <option value="fib">Fibonacci Intervals</option>
         <option value="markov">Markov Chain</option>
-        <option value="raga">Raga (Indian)</option>
-        <option value="hijaz">Hijaz (Middle East)</option>
-        <option value="pelog">Pelog (Gamelan)</option>
-        <option value="insen">In-Sen (Japanese)</option>
-        <option value="bachPreludeC">Bach: Prelude in C</option>
-        <option value="planetRock">Planet Rock (Electro)</option>
-      </select></label>
-      <label>Delay<input type="range" id="delay" min="0.01" max="2" step="0.01" value="1.2"/></label>
-      <label>Echo<input type="range" id="echo" min="0" max="0.5" step="0.01" value="0.2"/></label>
-      <label>Reverb<input type="range" id="reverb" min="0" max="1" step="0.01" value="0.5"/></label>
-      <label>Filter<input type="range" id="filter" min="100" max="8000" step="10" value="1800"/></label>
-      <label>Freq<input type="range" id="freq" min="20" max="500" step="1" value="200"/></label>
-      <label>Vol<input type="range" id="volume" min="0" max="100" step="1" value="40"/></label>
-      <label>BPM<input type="range" id="bpm" min="64" max="130" step="1" value="90"/></label>
-      <label>Density<input type="range" id="density" min="1" max="10" step="1" value="3"/></label>
-    </div>
-    <div class="controls" id="extraSliders">
-      <label>Wet/Dry<input type="range" id="wetDry" min="0" max="1" step="0.01" value="0.6"/></label>
-      <label>Chorus Depth<input type="range" id="chorusDepth" min="0" max="20" step="1" value="3"/></label>
-      <label>Reverb Damp<input type="range" id="revDampFreq" min="500" max="5000" step="100" value="2000"/></label>
-    </div>
+        <option value="raga">Raga</option>
+        <option value="hijaz">Hijaz</option>
+        <option value="pelog">Pelog</option>
+        <option value="insen">In-Sen</option>
+        <option value="bachPreludeC">Bach Prelude</option>
+        <option value="planetRock">Planet Rock</option>
+      </select>
+    </label>
+    <label>Delay <input type="range" id="delay" min="0.01" max="2" step="0.01" value="1.2"/></label>
+    <label>Echo <input type="range" id="echo" min="0" max="0.5" step="0.01" value="0.2"/></label>
+    <label>Reverb <input type="range" id="reverb" min="0" max="1" step="0.01" value="0.5"/></label>
+    <label>Filter <input type="range" id="filter" min="100" max="8000" step="10" value="1800"/></label>
+    <label>Freq <input type="range" id="freq" min="20" max="500" step="1" value="200"/></label>
+    <label>Vol <input type="range" id="volume" min="0" max="100" step="1" value="40"/></label>
+    <label>BPM <input type="range" id="bpm" min="64" max="130" step="1" value="90"/></label>
+    <label>Density <input type="range" id="density" min="1" max="10" step="1" value="3"/></label>
   </div>
   <canvas id="visualizer"></canvas>
   <div id="infoDisplay"></div>
-  <div class="footer">© 2025 Nate</div>
   <script>
-    // Bjorklund's algorithm
-    function bjorklund(steps, pulses) {
-      let pattern = [], counts = [], remainders = [pulses], level = 0;
-      while (remainders[level] > 1) {
-        counts.push(Math.floor((steps - remainders[level]) / remainders[level]));
-        remainders.push((steps - remainders[level]) % remainders[level]);
-        level++;
-      }
-      counts.push(steps - remainders[level] * (counts[level - 1] || 0));
-      function build(l) {
-        if (l === -1) return [0];
-        if (l === -2) return [1];
-        let res = [], seq0 = build(l - 1), seq1 = build(l - 2);
-        for (let i = 0; i < counts[l]; i++) res = res.concat(seq0);
-        if (remainders[l] !== 0) res = res.concat(seq1);
-        return res;
-      }
-      pattern = build(level);
-      while (pattern[0] !== 1) pattern.push(pattern.shift());
-      return pattern;
-    }
-
-    // Preset definitions
-    const presetSettings = {
-      plants:   { scale: [174,285,396,417,528], color: "#00FF7F" },
-      mold:     { scale: [432,639,741], color: "#8A2BE2" },
-      bacteria: { scale: [528,554,585,728], color: "#FF4500" },
-      mushrooms:{ scale: [417,444,528,639], color: "#FFD700" },
-      harmony:  { scale: [432,528,639,741,852], color: "#00FFFF" }
+    // Setup
+    let audioCtx, analyser, masterGain, bufferLength, dataArray, bpmTimer, stopped=true;
+    let trail = []; const MAX_LAYERS = 6;
+    const canvas = document.getElementById('visualizer');
+    const ctx = canvas.getContext('2d');
+    const ui = {
+      play: document.getElementById('play'),
+      stop: document.getElementById('stop'),
+      toggleUI: document.getElementById('toggleUI'),
+      toggleData: document.getElementById('toggleData'),
+      controls: document.getElementById('controlsWrapper'),
+      info: document.getElementById('infoDisplay')
     };
-    const classicalMelodies = {
-      bachPreludeC: {
-        scale:  [261.63,293.66,329.63,349.23,392,440,493.88,523.25],
-        melody: [261.63,293.66,329.63,349.23,392,392,349.23,329.63],
-        color: "#FFFFFF"
-      },
-      planetRock: {
-        scale:  [415.30,493.88,554.37,659.25],
-        melody: [415.30,415.30,493.88,554.37,659.25,554.37,493.88,415.30],
-        color: "#00FFFF"
-      }
+    const controls = {
+      preset: document.getElementById('preset'),
+      delay: document.getElementById('delay'),
+      echo: document.getElementById('echo'),
+      reverb: document.getElementById('reverb'),
+      filter: document.getElementById('filter'),
+      freq: document.getElementById('freq'),
+      volume: document.getElementById('volume'),
+      bpm: document.getElementById('bpm'),
+      density: document.getElementById('density')
     };
-    const worldScales = {
-      raga: { scale: [261.63,293.66,329.63,369.99,392,440,493.88,523.25], color: "#FFFFFF" },
-      hijaz:{ scale: [293.66,311.13,369.99,392,440,466.16,554.37,587.33], color: "#FFFFFF" },
-      pelog:{ scale: [261.63,277.18,329.63,369.99,415.30,466.16], color: "#FFFFFF" },
-      insen:{ scale: [261.63,277.18,349.23,392,466.16], color: "#FFFFFF" }
-    };
-    const melodyIndices = {};
 
-    // DOM refs
-    const preset = document.getElementById('preset'),
-          delayCtrl = document.getElementById('delay'),
-          echoCtrl = document.getElementById('echo'),
-          reverbCtrl = document.getElementById('reverb'),
-          filterCtrl = document.getElementById('filter'),
-          freqCtrl = document.getElementById('freq'),
-          volumeCtrl = document.getElementById('volume'),
-          bpmCtrl = document.getElementById('bpm'), densityCtrl = document.getElementById('density'),
-          wetDryCtrl = document.getElementById('wetDry'),
-          chorusDepthCtrl = document.getElementById('chorusDepth'),
-          revDampFreqCtrl = document.getElementById('revDampFreq'),
-          playBtn = document.getElementById('play'),
-          stopBtn = document.getElementById('stop'),
-          toggleUI = document.getElementById('toggleUI'),
-          toggleDisplay = document.getElementById('toggleDisplay'),
-          controlsWrapper = document.getElementById('controlsWrapper'),
-          infoDisplay = document.getElementById('infoDisplay'),
-          canvas = document.getElementById('visualizer'),
-          ctx = canvas.getContext('2d');
-
-    let audioCtx, analyser, masterGain, chorusLFO, chorusGain;
-    let bufferLength, dataArray, bpmTimer, stopped = true;
-    let trailFrames = [], euclidPattern = [], euclidIndex = 0, markovIndex = 0;
-
-    function getScale() {
-      if (classicalMelodies[preset.value]) return classicalMelodies[preset.value].scale;
-      if (worldScales[preset.value]) return worldScales[preset.value].scale;
-      if (preset.value === 'fib') {
-        let base = parseFloat(freqCtrl.value), a = 1, b = 1, fib = [];
-        for (let i = 0; i < 8; i++) { fib.push(base * (b / a)); [a, b] = [b, a + b]; }
-        return fib;
-      }
-      return presetSettings[preset.value]?.scale || [174,220,261];
-    }
-    function getColor(){
-      if(classicalMelodies[preset.value]) return classicalMelodies[preset.value].color;
-      if(worldScales[preset.value]) return worldScales[preset.value].color;
-      return presetSettings[preset.value]?.color || "#FFFFFF";
-    }
-
-    function initPatterns(){
-      if(preset.value==='euclid'){ euclidPattern=bjorklund(16, Math.ceil(densityCtrl.value)); euclidIndex=0; }
-      if(preset.value==='markov') markovIndex=0;
-      if(classicalMelodies[preset.value]) melodyIndices[preset.value] = 0;
-    }
-
-    function initAudio(){
-      if(audioCtx) return;
-      canvas.width = innerWidth; canvas.height = innerHeight;
-      window.addEventListener('resize', ()=>{ canvas.width = innerWidth; canvas.height = innerHeight; });
+    function initAudio() {
+      if (audioCtx) return;
       audioCtx = new (window.AudioContext||window.webkitAudioContext)();
-      analyser = audioCtx.createAnalyser(); analyser.fftSize = 2048;
-      bufferLength = analyser.frequencyBinCount; dataArray = new Uint8Array(bufferLength);
-      masterGain = audioCtx.createGain(); masterGain.connect(audioCtx.destination);
-      chorusLFO = audioCtx.createOscillator(); chorusLFO.type='sine'; chorusLFO.frequency.value=0.1;
-      chorusGain = audioCtx.createGain(); chorusGain.gain=parseFloat(chorusDepthCtrl.value);
-      chorusLFO.connect(chorusGain); chorusLFO.start();
-      initPatterns(); animate();
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 2048;
+      bufferLength = analyser.frequencyBinCount;
+      dataArray = new Uint8Array(bufferLength);
+      masterGain = audioCtx.createGain();
+      masterGain.gain.value = parseFloat(controls.volume.value)/100;
+      masterGain.connect(audioCtx.destination);
+      // Pre-fill trail
+      for (let i=0; i<MAX_LAYERS; i++) trail.push(new Uint8Array(bufferLength));
+      resizeCanvas();
+      window.addEventListener('resize', resizeCanvas);
     }
 
-    async function handlePlay(){
-      initAudio();
-      if(audioCtx.state==='suspended'){
-        await audioCtx.resume();
-      }
-      stopped = false;
-      scheduleNotes();
+    function resizeCanvas(){
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
     }
 
-    playBtn.onclick = handlePlay;
-    stopBtn.onclick = () => { stopped = true; clearInterval(bpmTimer); };
-
-    function playTone(){
+    function playTone() {
       const now = audioCtx.currentTime;
-      masterGain.gain.value = parseFloat(wetDryCtrl.value);
-      const filterNode = audioCtx.createBiquadFilter(); filterNode.type='lowpass';
-      filterNode.frequency.value = parseFloat(filterCtrl.value);
-      const delayNode = audioCtx.createDelay(); delayNode.delayTime = parseFloat(delayCtrl.value);
-      const echoGain = audioCtx.createGain(); echoGain.gain = parseFloat(echoCtrl.value);
-      delayNode.connect(echoGain).connect(masterGain);
-      const reverbNode = audioCtx.createDelay(); reverbNode.delayTime = 1.0;
-      const reverbGain = audioCtx.createGain(); reverbGain.gain = parseFloat(reverbCtrl.value);
-      filterNode.connect(reverbNode).connect(reverbGain).connect(masterGain);
-
-      let scale = getScale(), freq;
-      switch(preset.value){
-        case 'euclid':
-          if(euclidPattern[euclidIndex]) freq = scale[Math.floor(Math.random()*scale.length)];
-          euclidIndex = (euclidIndex+1)%euclidPattern.length;
-          break;
-        case 'fib':
-          freq = scale[Math.floor(Math.random()*scale.length)];
-          break;
-        case 'markov':
-          let nb = [markovIndex];
-          if(markovIndex>0) nb.push(markovIndex-1);
-          if(markovIndex<scale.length-1) nb.push(markovIndex+1);
-          markovIndex = nb[Math.floor(Math.random()*nb.length)];
-          freq = scale[markovIndex];
-          break;
-        case 'bachPreludeC':
-        case 'planetRock':
-          let idx = melodyIndices[preset.value]||0;
-          freq = classicalMelodies[preset.value].melody[idx];
-          melodyIndices[preset.value] = (idx+1)%classicalMelodies[preset.value].melody.length;
-          break;
-        default:
-          freq = scale[Math.floor(Math.random()*scale.length)];
-      }
-      if(!freq) return;
-      const osc = audioCtx.createOscillator(); osc.type='square';
-      osc.frequency.setValueAtTime(freq,now);
-      chorusGain.connect(osc.detune);
-      const env = audioCtx.createGain(); env.gain.setValueAtTime(0,now);
-      env.gain.linearRampToValueAtTime(0.2,now+0.3); env.gain.linearRampToValueAtTime(0,now+3);
-      const pan = audioCtx.createStereoPanner(); pan.pan.value = Math.random()*2-1;
-      osc.connect(env).connect(pan).connect(filterNode); env.connect(analyser);
-      osc.start(now); osc.stop(now+3);
-      filterNode.connect(delayNode);
+      const osc = audioCtx.createOscillator();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(parseFloat(controls.freq.value), now);
+      const gainNode = audioCtx.createGain();
+      gainNode.gain.setValueAtTime(0, now);
+      gainNode.gain.linearRampToValueAtTime(0.3, now+0.1);
+      gainNode.gain.linearRampToValueAtTime(0, now+2);
+      osc.connect(gainNode).connect(masterGain);
+      osc.start(now); osc.stop(now+2);
     }
 
-    function scheduleNotes(){
-      clearInterval(bpmTimer); initPatterns();
-      const interval = 60000/parseInt(bpmCtrl.value);
-      bpmTimer = setInterval(()=>{ if(!stopped) playTone(); }, interval);
+    function schedule() {
+      clearInterval(bpmTimer);
+      const interval = 60000/parseInt(controls.bpm.value,10);
+      bpmTimer = setInterval(()=>{
+        if (!stopped) playTone();
+      }, interval);
     }
 
-    function animate(){
+    function animate() {
       requestAnimationFrame(animate);
+      if (!analyser) return;
       analyser.getByteTimeDomainData(dataArray);
-      ctx.fillStyle='rgba(0,0,0,0.02)'; ctx.fillRect(0,0,canvas.width,canvas.height);
-      // compute RMS
-      let sum=0; for(let i=0;i<bufferLength;i++){ let v=(dataArray[i]-128)/128; sum+=v*v; }
-      let rms=Math.sqrt(sum/bufferLength);
-      // concentric triangles
-      const maxSize=Math.min(canvas.width,canvas.height)*0.4;
-      if(trailFrames.length>6) trailFrames.shift(); trailFrames.push([...dataArray]);
-      const layers=trailFrames.length, baseColor=getColor();
-      for(let t=0;t<layers;t++){
-        let alpha=(t+1)/layers*0.5, scale=1+(rms*(layers-t)/layers)*0.5;
-        ctx.save(); ctx.translate(canvas.width/2,canvas.height/2); ctx.scale(scale,scale);
+      trail.shift();
+      trail.push(dataArray.slice());
+      ctx.fillStyle = 'rgba(0,0,0,0.1)';
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+
+      const maxSize = Math.min(canvas.width, canvas.height) * 0.3;
+      for (let i=0; i<trail.length; i++) {
+        const layer = trail[i];
+        const alpha = (i+1)/trail.length * 0.5;
+        const size = maxSize * ((i+1)/trail.length);
+        ctx.save();
+        ctx.translate(canvas.width/2, canvas.height/2);
+        // Draw triangle
+        const h = size * Math.sqrt(3)/2;
         ctx.beginPath();
-        const h=maxSize*Math.sqrt(3)/2;
-        ctx.moveTo(0,-h); ctx.lineTo(-maxSize/2,h/3); ctx.lineTo(maxSize/2,h/3); ctx.closePath();
-        ctx.strokeStyle=baseColor; ctx.lineWidth=2; ctx.globalAlpha=alpha; ctx.stroke(); ctx.restore();
+        ctx.moveTo(0, -h);
+        ctx.lineTo(-size/2, h/3);
+        ctx.lineTo(size/2, h/3);
+        ctx.closePath();
+        ctx.strokeStyle = 'rgba(0,255,0,'+alpha+')';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
       }
       // preset title
-      ctx.font="12pt 'Roboto Mono'"; ctx.fillStyle="#fff"; ctx.textAlign="center";
-      ctx.fillText(preset.options[preset.selectedIndex].text,canvas.width/2,30);
+      ctx.font = '12pt Roboto Mono';
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'center';
+      ctx.fillText(controls.preset.options[controls.preset.selectedIndex].text, canvas.width/2, 40);
     }
 
-    toggleUI.onclick=()=>{ let vis=controlsWrapper.style.display!=='flex'; controlsWrapper.style.display=vis?'flex':'none'; toggleUI.textContent=vis?'Hide Controls':'Show Controls'; };
-    toggleDisplay.onclick=()=>{ let vis=infoDisplay.style.display!=='block'; infoDisplay.style.display=vis?'block':'none'; toggleDisplay.textContent=vis?'Hide Data':'Show Data'; };
-    setInterval(()=>{ infoDisplay.textContent = `PRESET: ${preset.value}\nDELAY: ${delayCtrl.value}\nECHO: ${echoCtrl.value}\nREVERB: ${reverbCtrl.value}\nFILTER: ${filterCtrl.value}\nFREQ: ${freqCtrl.value}\nVOL: ${volumeCtrl.value}\nBPM: ${bpmCtrl.value}\nDENSITY: ${densityCtrl.value}`; },250);
+    // Event bindings
+    ui.play.addEventListener('click', async ()=>{
+      initAudio();
+      if (audioCtx.state === 'suspended') await audioCtx.resume();
+      stopped = false;
+      schedule();
+    });
+    ui.stop.addEventListener('click', ()=>{
+      stopped = true;
+      clearInterval(bpmTimer);
+    });
+    ui.toggleUI.addEventListener('click', ()=>{
+      const vis = ui.controls.style.display !== 'block';
+      ui.controls.style.display = vis ? 'block':'none';
+      ui.toggleUI.textContent = vis?'Hide Controls':'Show Controls';
+    });
+    ui.toggleData.addEventListener('click', ()=>{
+      const vis = ui.info.style.display !== 'block';
+      ui.info.style.display = vis?'block':'none';
+      ui.toggleData.textContent = vis?'Hide Data':'Show Data';
+    });
+    // Display values
+    setInterval(() => {
+      ui.info.textContent =
+      `PRESET: ${controls.preset.value}\nDELAY: ${controls.delay.value}\nECHO: ${controls.echo.value}\nREVERB: ${controls.reverb.value}\nFILTER: ${controls.filter.value}\nFREQ: ${controls.freq.value}\nVOL: ${controls.volume.value}\nBPM: ${controls.bpm.value}\nDENSITY: ${controls.density.value}`;
+    }, 250);
 
-    // initialize trailFrames
-    for(let i=0;i<6;i++) trailFrames.push(new Uint8Array(2048));
     animate();
   </script>
 </body>
