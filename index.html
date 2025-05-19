@@ -53,7 +53,6 @@
 </head>
 <body>
 <canvas id="waveCanvas"></canvas>
-
 <div class="ui">
   <div><label>Preset</label>
     <select id="preset">
@@ -73,3 +72,221 @@
   <button id="stop">STOP</button>
   <button id="fullscreen">FULLSCREEN</button>
 </div>
+<script>
+let audioCtx, analyser, masterGain, delayNode, echoNode, filterNode, bufferLength, dataArray;
+let stopped = true, bpm = 90, bpmTimer = null, scale = [], waveformColor = "#55ff99";
+let canvas, ctx;
+let particles = [];
+let particleCount = 9;
+const trailFrames = [];
+
+const presetSettings = {
+  greenhouse: {
+    scale: [174, 220, 285, 396, 528],
+    delay: 0.8,
+    echo: 0.6,
+    filter: 1000,
+    freq: 180,
+    volume: 60,
+    particles: 9,
+    bpm: 90,
+    color: "#55ff99"
+  },
+  deep: {
+    scale: [110, 174, 261, 370, 495],
+    delay: 1.2,
+    echo: 0.9,
+    filter: 650,
+    freq: 120,
+    volume: 52,
+    particles: 18,
+    bpm: 66,
+    color: "#5599ff"
+  },
+  bright: {
+    scale: [220, 285, 370, 528, 660],
+    delay: 0.38,
+    echo: 0.2,
+    filter: 1800,
+    freq: 330,
+    volume: 77,
+    particles: 13,
+    bpm: 110,
+    color: "#ffe066"
+  }
+};
+
+function applyPreset(p) {
+  const set = presetSettings[p];
+  document.getElementById("delay").value = set.delay;
+  document.getElementById("echo").value = set.echo;
+  document.getElementById("filter").value = set.filter;
+  document.getElementById("freq").value = set.freq;
+  document.getElementById("volume").value = set.volume;
+  document.getElementById("particles").value = set.particles;
+  document.getElementById("bpm").value = set.bpm;
+  scale = set.scale;
+  waveformColor = set.color;
+  particleCount = set.particles;
+  bpm = set.bpm;
+}
+
+function initAudio() {
+  if (audioCtx) return;
+  canvas = document.getElementById("waveCanvas");
+  ctx = canvas.getContext("2d");
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 2048;
+  bufferLength = analyser.frequencyBinCount;
+  dataArray = new Uint8Array(bufferLength);
+
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = parseFloat(volume.value) / 100;
+
+  delayNode = audioCtx.createDelay();
+  delayNode.delayTime.value = parseFloat(delay.value);
+
+  echoNode = audioCtx.createGain();
+  echoNode.gain.value = parseFloat(echo.value);
+
+  filterNode = audioCtx.createBiquadFilter();
+  filterNode.type = "lowpass";
+  filterNode.frequency.value = parseFloat(filter.value);
+
+  delayNode.connect(echoNode);
+  echoNode.connect(delayNode);
+  delayNode.connect(masterGain);
+
+  filterNode.connect(delayNode);
+  masterGain.connect(audioCtx.destination);
+  masterGain.connect(analyser);
+  animate();
+}
+
+function playTone(freq) {
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  osc.type = "square";
+  osc.frequency.value = freq;
+  const env = audioCtx.createGain();
+  env.gain.setValueAtTime(0, now);
+  env.gain.linearRampToValueAtTime(0.3, now + 0.15);
+  env.gain.linearRampToValueAtTime(0, now + 2.6);
+
+  osc.connect(env);
+  env.connect(filterNode);
+  osc.start(now);
+  osc.stop(now + 2.6);
+}
+
+function scheduleNotes() {
+  clearInterval(bpmTimer);
+  bpmTimer = setInterval(() => {
+    if (!stopped) {
+      let f = scale[Math.floor(Math.random() * scale.length)];
+      playTone(f);
+      addParticle(f);
+    }
+  }, 60000 / bpm);
+}
+
+function animate() {
+  if (!ctx || !analyser) return;
+  requestAnimationFrame(animate);
+  analyser.getByteTimeDomainData(dataArray);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Draw waveform
+  ctx.save();
+  ctx.globalAlpha = 0.86;
+  ctx.lineWidth = 2.2;
+  ctx.strokeStyle = waveformColor;
+  ctx.beginPath();
+  let slice = canvas.width / dataArray.length;
+  for (let i = 0; i < dataArray.length; i++) {
+    let v = (dataArray[i] - 128) / 128.0;
+    let y = (v * canvas.height / 2.0 * 0.7) + canvas.height / 2;
+    if (i === 0) ctx.moveTo(0, y);
+    else ctx.lineTo(i * slice, y);
+  }
+  ctx.stroke();
+  ctx.restore();
+
+  // Draw particles
+  for (let i = particles.length - 1; i >= 0; i--) {
+    let pt = particles[i];
+    ctx.save();
+    ctx.globalAlpha = pt.alpha;
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, pt.r, 0, 2 * Math.PI, false);
+    ctx.fillStyle = pt.color;
+    ctx.shadowBlur = 16;
+    ctx.shadowColor = pt.color;
+    ctx.fill();
+    ctx.restore();
+    pt.x += pt.vx;
+    pt.y += pt.vy;
+    pt.alpha -= 0.008;
+    pt.r *= 0.995;
+    if (pt.alpha < 0.02 || pt.r < 2) particles.splice(i, 1);
+  }
+}
+
+function addParticle(f) {
+  if (particles.length > particleCount * 2) particles.shift();
+  let angle = Math.random() * 2 * Math.PI;
+  let r = 12 + Math.random() * 22;
+  let color = waveformColor;
+  let x = canvas.width / 2 + Math.cos(angle) * (40 + Math.random() * 100);
+  let y = canvas.height / 2 + Math.sin(angle) * (30 + Math.random() * 80);
+  particles.push({
+    x, y,
+    vx: Math.cos(angle) * (1.4 + Math.random()),
+    vy: Math.sin(angle) * (1.2 + Math.random() * 0.7),
+    r, color, alpha: 0.42 + Math.random() * 0.3
+  });
+}
+
+// UI Events
+document.getElementById("play").onclick = function() {
+  initAudio();
+  stopped = false;
+  scheduleNotes();
+};
+document.getElementById("stop").onclick = function() {
+  stopped = true;
+  clearInterval(bpmTimer);
+};
+document.getElementById("fullscreen").onclick = function() {
+  const elem = document.documentElement;
+  if (!document.fullscreenElement) elem.requestFullscreen();
+  else document.exitFullscreen();
+};
+
+const delay = document.getElementById("delay");
+const echo = document.getElementById("echo");
+const filter = document.getElementById("filter");
+const freq = document.getElementById("freq");
+const volume = document.getElementById("volume");
+const particlesSlider = document.getElementById("particles");
+const bpmSlider = document.getElementById("bpm");
+const preset = document.getElementById("preset");
+
+delay.oninput = () => { if(delayNode) delayNode.delayTime.value = parseFloat(delay.value); };
+echo.oninput = () => { if(echoNode) echoNode.gain.value = parseFloat(echo.value); };
+filter.oninput = () => { if(filterNode) filterNode.frequency.value = parseFloat(filter.value); };
+volume.oninput = () => { if(masterGain) masterGain.gain.value = parseFloat(volume.value) / 100; };
+particlesSlider.oninput = () => { particleCount = parseInt(particlesSlider.value); };
+bpmSlider.oninput = () => { bpm = parseInt(bpmSlider.value); if(!stopped) scheduleNotes(); };
+
+preset.onchange = function() {
+  applyPreset(preset.value);
+  if(!stopped) scheduleNotes();
+};
+applyPreset("greenhouse");
+</script>
+</body>
+</html>
