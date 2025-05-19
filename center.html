@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Plantasia App v64 – Top Nav + Toggle Panel</title>
+  <title>Plantasia App v65 – Top Nav & Toggle UI</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     html, body {
@@ -11,40 +11,56 @@
       font-family: monospace; overflow: hidden;
     }
     canvas {
-      position: absolute; top: 0; left: 0;
-      width: 100vw; height: 100vh; z-index: 0;
+      position: absolute;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      z-index: 0;
     }
     .nav {
-      position: absolute; top: 0; width: 100%;
+      position: absolute;
+      top: 0; width: 100%;
       background: rgba(0, 0, 0, 0.85);
       display: flex; justify-content: center;
       padding: 10px; gap: 10px; z-index: 3;
     }
     .nav button {
-      font-size: 12px; padding: 4px 8px;
-      background: transparent; border: 1px solid white;
-      color: white; cursor: pointer;
+      font-size: 12px;
+      padding: 4px 8px;
+      background: transparent;
+      border: 1px solid white;
+      color: white;
+      cursor: pointer;
     }
     .ui {
-      position: absolute; bottom: 0; width: 100%;
+      position: absolute;
+      bottom: 0; width: 100%;
       background: rgba(0, 0, 0, 0.85);
       padding: 10px;
-      display: flex; flex-wrap: wrap;
-      justify-content: center; gap: 10px;
+      display: none;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
       z-index: 2;
     }
     .ui label {
-      font-size: 10px; display: block; text-align: center;
+      font-size: 10px;
+      display: block;
+      text-align: center;
     }
-    .ui input[type="range"], .ui select {
+    .ui input[type="range"],
+    .ui select {
       width: 90px;
     }
     #infoDisplay {
-      position: absolute; top: 50px; left: 10px;
+      position: absolute;
+      top: 50px; left: 10px;
+      z-index: 4;
       background: rgba(0, 0, 0, 0.6);
-      color: white; font-size: 12px;
-      padding: 10px; display: none;
-      white-space: pre; z-index: 4;
+      color: white;
+      font-size: 12px;
+      padding: 10px;
+      display: none;
+      white-space: pre;
     }
   </style>
 </head>
@@ -228,46 +244,47 @@ function animate() {
   });
 }
 
-play.addEventListener("click", () => {
+document.getElementById("play").addEventListener("click", () => {
   initAudio();
   stopped = false;
-  bpm = parseInt(bpm.value);
-  const scale = getScaleFromPreset(preset.value);
-  currentWaveColor = getColorFromPreset(preset.value);
+  bpm = parseInt(document.getElementById("bpm").value);
+  const scale = getScaleFromPreset(document.getElementById("preset").value);
+  currentWaveColor = getColorFromPreset(document.getElementById("preset").value);
   scheduleNotes(scale);
 });
 
-stop.addEventListener("click", () => {
+document.getElementById("stop").addEventListener("click", () => {
   stopped = true;
   clearInterval(bpmTimer);
 });
 
-bpm.addEventListener("input", () => {
-  bpm = parseInt(bpm.value);
-  if (!stopped) scheduleNotes(getScaleFromPreset(preset.value));
+document.getElementById("bpm").addEventListener("input", () => {
+  bpm = parseInt(document.getElementById("bpm").value);
+  if (!stopped) scheduleNotes(getScaleFromPreset(document.getElementById("preset").value));
 });
 
-preset.addEventListener("change", () => {
-  currentWaveColor = getColorFromPreset(preset.value);
-  if (!stopped) scheduleNotes(getScaleFromPreset(preset.value));
+document.getElementById("preset").addEventListener("change", () => {
+  currentWaveColor = getColorFromPreset(document.getElementById("preset").value);
+  if (!stopped) scheduleNotes(getScaleFromPreset(document.getElementById("preset").value));
 });
 
-reverb.addEventListener("input", () => {
-  if (reverbFeedback) reverbFeedback.gain.value = parseFloat(reverb.value);
+document.getElementById("reverb").addEventListener("input", () => {
+  if (reverbFeedback) reverbFeedback.gain.value = parseFloat(document.getElementById("reverb").value);
 });
 
-toggleDisplay.addEventListener("click", () => {
+document.getElementById("toggleDisplay").addEventListener("click", () => {
   const info = document.getElementById("infoDisplay");
   info.style.display = info.style.display === "none" ? "block" : "none";
 });
 
-toggleUI.addEventListener("click", () => {
+document.getElementById("toggleUI").addEventListener("click", () => {
   const panel = document.getElementById("controlPanel");
   panel.style.display = panel.style.display === "none" ? "flex" : "none";
 });
 
 setInterval(() => {
-  document.getElementById("infoDisplay").textContent =
+  const info = document.getElementById("infoDisplay");
+  info.textContent =
     `PRESET: ${preset.value}
 DELAY: ${delay.value}
 ECHO: ${echo.value}
