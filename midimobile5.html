@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Plantasia Minimal – Touch & MIDI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.01, user-scalable=no" />
+  <link href="https://fonts.googleapis.com/css?family=Roboto:400,700&display=swap" rel="stylesheet">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #000;
+      color: #fff;
+      font-family: 'Roboto', monospace;
+      overflow: hidden;
+      height: 100%;
+      width: 100vw;
+      user-select: none;
+      overscroll-behavior: none;
+    }
+    body {
+      min-height: 100vh;
+      width: 100vw;
+    }
+    #waveCanvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      background: #000;
+      z-index: 1;
+    }
+    .tray-skrim {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0,0,0,0.9);
+      z-index: 100;
+      display: none;
+      transition: background 0.2s;
+    }
+    .tray {
+      position: fixed;
+      bottom: 0; left: 0;
+      width: 100vw;
+      background: transparent;
+      z-index: 101;
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      pointer-events: none;
+    }
+    .tray.open {
+      pointer-events: auto;
+    }
+    .ui {
+      background: rgba(0,0,0,0.90);
+      border-radius: 18px 18px 0 0;
+      box-shadow: 0 -1px 18px #000c;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 4px;
+      padding: 8px 4px 4px 4px;
+      pointer-events: auto;
+      min-width: 225px;
+      min-height: 54px;
+      max-width: 98vw;
+      margin: 0 auto;
+      border-top: 1px solid #222;
+      transition: transform 0.2s cubic-bezier(.87,0,.13,1);
+      font-family: 'Roboto', monospace;
+    }
+    .ui.closed {
+      transform: translateY(100%);
+      pointer-events: none;
+    }
+    .ui.open {
+      transform: translateY(0%);
+      pointer-events: auto;
+    }
+    .ui label, .ui select, .ui input, .ui button, .ui span {
+      font-family: 'Roboto', monospace;
+      font-size: 10px;
+      text-transform: lowercase;
+      color: #fff;
+      letter-spacing: 0.04em;
+    }
+    .ui label {
+      margin-bottom: 1px;
+      font-weight: 400;
+      text-align: center;
+      display: block;
+    }
+    .ui input[type="range"], .ui select {
+      width: 100%;
+      height: 22px;
+      font-size: 10px;
+      border-radius: 7px;
+      background: #111;
+      border: 1px solid #222;
+      appearance: none;
+      outline: none;
+      accent-color: #00ffe0;
+      margin: 0 0 2px 0;
+      padding: 0;
+      display: block;
+    }
+    .ui select {
+      font-size: 10px;
+      padding: 2px 4px;
+      min-width: 48px;
+      max-width: 90px;
+      height: 22px;
+      background: #111;
+      border: 1px solid #222;
+      border-radius: 7px;
+    }
+    .ui button {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      border: none;
+      background: #171717;
+      color: #fff;
+      font-size: 10px;
+      font-family: 'Roboto', monospace;
+      letter-spacing: 0.09em;
+      font-weight: 400;
+      margin: 0 1px;
+      padding: 0;
+      box-shadow: 0 1px 7px #000c;
+      cursor: pointer;
+      transition: background .16s, border .13s, color .13s;
+      text-transform: lowercase;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .ui button:active, .ui button.active {
+      background: #222;
+      color: #0ffea0;
+      border: 1.5px solid #0ffea0;
+    }
+    .ui > div {
+      flex: 1 1 30px;
+      min-width: 32px;
+      max-width: 80px;
+      margin: 2px 2px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+    }
+    .ui .color-slider-group {
+      min-width: 34px;
+      max-width: 80px;
+      gap: 0;
+    }
+    .tray-toggle-btn {
+      position: fixed;
+      right: 14px;
+      bottom: 18px;
+      z-index: 102;
+      background: #111;
+      color: #fff;
+      border: 1.5px solid #00ffe0;
+      border-radius: 8px;
+      width: 30px;
+      height: 30px;
+      font-size: 18px;
+      cursor: pointer;
+      box-shadow: 0 1px 8px #000b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.14s, color 0.14s, border 0.14s;
+    }
+    .tray-toggle-btn.open {
+      background: #232323;
+      color: #0ffea0;
+      border-color: #0ffea0;
+    }
+    /* Hide tray toggle if tray open */
+    .tray.open ~ .tray-toggle-btn {
+      display: none;
+    }
+    .ui input[type="range"]::-webkit-slider-thumb {
+      width: 15px; height: 15px; border-radius: 50%; background: #00ffe0; border: none;
+    }
+    .ui input[type="range"]:focus {
+      outline: 1px solid #0ffea0;
+    }
+    #infoDisplay, #midiLegend, #toggleLegend { display: none; } /* Hide advanced overlays for minimal UI */
+    @media (max-width: 700px) {
+      .ui { max-width: 99vw; }
+      .ui > div, .color-slider-group { min-width: 27vw; max-width: 95vw; }
+      .ui input[type="range"], .ui select { min-width: 35vw; font-size: 10px; }
+      .ui button { min-width: 28px; min-height: 28px; font-size: 10px; }
+    }
+    @media (max-width: 500px) {
+      .ui { flex-direction: column; align-items: stretch; }
+      .ui > div, .color-slider-group { min-width: 70vw; margin: 0 0 2px 0; }
+      .ui input[type="range"], .ui select { min-width: 63vw; }
+      .ui button { min-width: 27vw; }
+    }
+  </style>
+</head>
+<body>
+<canvas id="waveCanvas"></canvas>
+<div class="tray-skrim" id="traySkrim"></div>
+<div class="tray closed" id="tray">
+  <form class="ui closed" id="touchUI" autocomplete="off" onsubmit="return false;">
+    <div><label for="preset">preset</label>
+      <select id="preset" aria-label="preset" tabindex="0">
+        <option value="plants">plants</option>
+        <option value="mold">mold</option>
+        <option value="bacteria">bacteria</option>
+        <option value="mushrooms">mushrooms</option>
+        <option value="harmony">harmony</option>
+      </select>
+    </div>
+    <div><label for="delay">delay</label><input type="range" id="delay" min="0.01" max="2.0" step="0.01" value="0.6" aria-label="delay" tabindex="0" /></div>
+    <div><label for="echo">echo</label><input type="range" id="echo" min="0" max="1.0" step="0.01" value="0.4" aria-label="echo" tabindex="0" /></div>
+    <div><label for="filter">filter</label><input type="range" id="filter" min="100" max="8000" step="10" value="1200" aria-label="filter" tabindex="0" /></div>
+    <div><label for="freq">freq</label><input type="range" id="freq" min="50" max="1000" step="1" value="174" aria-label="frequency" tabindex="0" /></div>
+    <div><label for="volume">vol</label><input type="range" id="volume" min="0" max="100" value="60" aria-label="volume" tabindex="0" /></div>
+    <div><label for="bpm">bpm</label><input type="range" id="bpm" min="40" max="180" value="90" aria-label="bpm" tabindex="0" /></div>
+    <div>
+      <label for="midiChannelSelect">ch</label>
+      <select id="midiChannelSelect" aria-label="midi channel" tabindex="0">
+        <option value="-1">all</option>
+        <option value="0">1</option>
+        <option value="1">2</option>
+        <option value="2">3</option>
+        <option value="3">4</option>
+        <option value="4">5</option>
+        <option value="5">6</option>
+        <option value="6">7</option>
+        <option value="7">8</option>
+        <option value="8">9</option>
+        <option value="9">10</option>
+        <option value="10">11</option>
+        <option value="11">12</option>
+        <option value="12">13</option>
+        <option value="13">14</option>
+        <option value="14">15</option>
+        <option value="15">16</option>
+      </select>
+    </div>
+    <div class="color-slider-group">
+      <span class="color-slider-label">color</span>
+      <input type="range" id="colorSlider" min="0" max="359" value="180" aria-label="color" tabindex="0" />
+    </div>
+    <button id="play" aria-label="play" tabindex="0" title="play">&#9654;</button>
+    <button id="stop" aria-label="stop" tabindex="0" title="stop">&#9632;</button>
+    <button id="toggleDisplay" aria-label="data" tabindex="0" title="data">&#8505;</button>
+    <button id="toggleMidiIn" aria-label="midi" tabindex="0" title="midi">midi</button>
+    <button id="closeTray" aria-label="close tray" type="button" title="close" style="width:32px;height:32px;">&#215;</button>
+  </form>
+</div>
+<button class="tray-toggle-btn" id="openTrayBtn" aria-label="open tray" title="open" tabindex="0">&#9776;</button>
+<script>
+/* --- Tray open/close logic --- */
+const tray = document.getElementById('tray');
+const traySkrim = document.getElementById('traySkrim');
+const touchUI = document.getElementById('touchUI');
+const openTrayBtn = document.getElementById('openTrayBtn');
+const closeTrayBtn = document.getElementById('closeTray');
+
+function openTray() {
+  tray.classList.remove('closed');
+  tray.classList.add('open');
+  touchUI.classList.remove('closed');
+  touchUI.classList.add('open');
+  traySkrim.style.display = 'block';
+  openTrayBtn.style.display = 'none';
+}
+function closeTray() {
+  tray.classList.remove('open');
+  tray.classList.add('closed');
+  touchUI.classList.remove('open');
+  touchUI.classList.add('closed');
+  traySkrim.style.display = 'none';
+  openTrayBtn.style.display = '';
+}
+openTrayBtn.addEventListener('click', openTray);
+traySkrim.addEventListener('click', closeTray);
+closeTrayBtn.addEventListener('click', closeTray);
+
+/* --- Minimal UI logic, MIDI, synth, and visualizer --- */
+/* ...[The rest of your original JS logic, unchanged, fits here. 
+     Only show/hide the tray with openTray() / closeTray() and 
+     use the minimal UI as above. The canvas is now fullscreen.]... */
+
+/* --- Visualizer: Fullscreen, strong contrasting gradient, glowing contrast band --- */
+let secondaryColorHue = 180;
+let currentWaveColor = "#00ffe0";
+function hueToRgb(h) {
+  let rgb = [];
+  for (let i = 0; i < 3; i++) {
+    let k = (5 - i * 2 + h / 60) % 6;
+    rgb[i] = 255 * (1 - Math.max(0, Math.min(1, Math.abs(k) - 1)));
+  }
+  return `rgb(${rgb.map(v => Math.round(v)).join(',')})`;
+}
+let canvas = document.getElementById("waveCanvas"), ctx = canvas.getContext("2d");
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeCanvas); resizeCanvas();
+let trailFrames = [];
+function animate() {
+  requestAnimationFrame(animate);
+  if (!window.analyser) return;
+  window.analyser.getByteTimeDomainData(window.dataArray);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Strong contrast gradient: blue to yellow (glow band), then to dark violet
+  let grad = ctx.createLinearGradient(0, 0, canvas.width, 0);
+  grad.addColorStop(0, "#00ffe0");
+  grad.addColorStop(0.4, "#00ffe0");
+  grad.addColorStop(0.5, "#fff700");
+  grad.addColorStop(0.6, "#00ffe0");
+  grad.addColorStop(1, "#2d006e");
+  let glowBandStart = 0.42, glowBandEnd = 0.58;
+
+  // Draw waveform with glow only on the contrast band
+  if (trailFrames.length > 12) trailFrames.shift();
+  trailFrames.push([...window.dataArray]);
+  for (let t = 0; t < trailFrames.length; t++) {
+    let data = trailFrames[t];
+    let slice = canvas.width / data.length;
+    ctx.beginPath();
+    let x = 0;
+    for (let i = 0; i < data.length; i++) {
+      let v = (data[i] - 128) / 128.0;
+      let y = (v * canvas.height / 2.0 * 0.9) + canvas.height / 2;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+      x += slice;
+    }
+    let frac = t / trailFrames.length;
+    ctx.strokeStyle = grad;
+    ctx.globalAlpha = 0.10 + frac * 0.20;
+    // Only glow in contrast band:
+    let g = ctx.createLinearGradient(0, 0, canvas.width, 0);
+    g.addColorStop(glowBandStart, "#00ffe0");
+    g.addColorStop(0.5, "#fff700");
+    g.addColorStop(glowBandEnd, "#00ffe0");
+    ctx.shadowBlur = (frac > 0.7) ? 40 : 0;
+    ctx.shadowColor = (frac > 0.7) ? "#fff700" : "transparent";
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1.0;
+  }
+}
+window.addEventListener('DOMContentLoaded', animate);
+window.addEventListener('DOMContentLoaded', resizeCanvas);
+
+/* --- Continue rest of synth, MIDI, and UI logic from your previous implementation here --- */
+/* --- Make sure to call closeTray() at startup so UI is initially hidden --- */
+closeTray();
+// Add your previous synth/MIDI logic below, adapting querySelectors for the minimal UI.
+</script>
+</body>
+</html>
