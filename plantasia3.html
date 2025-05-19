@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Plantasia App — Modular Effects Panel</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: black;
+      color: white;
+      font-family: monospace;
+      height: 100vh;
+      overflow: hidden;
+    }
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 60vh;
+      display: block;
+      z-index: 1;
+    }
+    .ui {
+      position: absolute;
+      bottom: 0;
+      width: 100vw;
+      padding: 18px 0 8px 0;
+      background: rgba(0,0,0,0.95);
+      z-index: 2;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 24px;
+      justify-content: center;
+      border-top: 1.5px solid #444;
+    }
+    .ui select, .ui button {
+      font-family: monospace;
+      background: #000;
+      color: #fff;
+      border: 1px solid #fff;
+      font-size: 1.1rem;
+      border-radius: 6px;
+      padding: 4px 12px;
+    }
+    .ui button {
+      cursor: pointer;
+      transition: background .1s;
+    }
+    .ui button:hover {
+      background: #111;
+    }
+    .key-label {
+      margin-left: 16px;
+      font-weight: bold;
+      font-size: 1.05rem;
+      letter-spacing: 2px;
+      color: #eee;
+      text-shadow: 0 0 6px #222, 0 0 2px #333;
+    }
+    .effects-panel {
+      position: absolute;
+      left: 0;
+      bottom: 72px;
+      width: 100vw;
+      z-index: 10;
+      display: flex;
+      justify-content: center;
+      gap: 38px;
+      background: rgba(0,0,0,0.90);
+      padding: 10px 0 6px 0;
+      border-top: 1px solid #222;
+      border-bottom: 1px solid #222;
+    }
+    .effect-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      min-width: 88px;
+      color: #fff;
+    }
+    .effect-block label {
+      font-size: 1rem;
+      margin-bottom: 3px;
+    }
+    .effect-block input[type="range"] {
+      width: 76px;
+    }
+    .effect-block input[type="checkbox"] {
+      margin-right: 4px;
+      accent-color: #fff;
+    }
+    .effect-block .slider-value {
+      font-size: 0.97rem;
+      color: #b7f0a7;
+    }
+  </style>
+</head>
+<body>
+<canvas id="wave"></canvas>
+<div class="effects-panel" id="effectsPanel">
+  <!-- Effect toggles and sliders are injected here -->
+</div>
+<div class="ui">
+  <button id="play">Play</button>
+  <button id="stop" disabled>Stop</button>
+  <select id="preset"></select>
+  <span class="key-label" id="keyLabel">—</span>
+</div>
+<script>
+/* ==== MODULAR EFFECTS ==== */
+class VolumeEffect {
+  constructor(ctx) {
+    this.gainNode = ctx.createGain();
+    this.active = false;
+    this.setAmount(0.32);
+  }
+  get input() { return this.gainNode; }
+  get output() { return this.gainNode; }
+  connect(node) { this.gainNode.connect(node); }
+  disconnect() { try { this.gainNode.disconnect(); } catch(e){} }
+  setAmount(val) { this.gainNode.gain.value = val; }
+  activate() { this.active = true; }
+  deactivate() { this.active = false; this.setAmount(1.0); }
+}
+class FilterEffect {
+  constructor(ctx) {
+    this.filterNode = ctx.createBiquadFilter();
+    this.filterNode.type = "lowpass";
+    this.active = false;
+    this.setAmount(1800);
+  }
+  get input() { return this.filterNode; }
+  get output() { return this.filterNode; }
+  connect(node) { this.filterNode.connect(node); }
+  disconnect() { try { this.filterNode.disconnect(); } catch(e){} }
+  setAmount(val) { this.filterNode.frequency.value = val; }
+  activate() { this.active = true; }
+  deactivate() { this.active = false; this.setAmount(24000); }
+}
+class DelayEffect {
+  constructor(ctx) {
+    this.delayNode = ctx.createDelay();
+    this.feedback = ctx.createGain();
+    this.outputNode = ctx.createGain();
+    // Defaults:
+    this.delayNode.delayTime.value = 0.24;
+    this.feedback.gain.value = 0.18;
+    this.active = false;
+    // Routing
+    this.delayNode.connect(this.feedback);
+    this.feedback.connect(this.delayNode);
+    this.delayNode.connect(this.outputNode);
+    this.inputNode = ctx.createGain();
+    this.inputNode.connect(this.delayNode);
+    this.inputNode.connect(this.outputNode);
+  }
+  get input() { return this.inputNode; }
+  get output() { return this.outputNode; }
+  connect(node) { this.outputNode.connect(node); }
+  disconnect() { try { this.outputNode.disconnect(); } catch(e){} }
+  setAmount(val) {
+    // val is 0..1, map to delayTime (0-0.65s) & feedback (0-0.65)
+    this.delayNode.delayTime.value = 0.05 + val * 0.6;
+    this.feedback.gain.value = val * 0.65;
+  }
+  activate() { this.active = true; }
+  deactivate() { this.active = false; }
+}
+class EchoEffect {
+  constructor(ctx) {
+    this.delayNode = ctx.createDelay();
+    this.feedback = ctx.createGain();
+    this.outputNode = ctx.createGain();
+    this.delayNode.delayTime.value = 0.10;
+    this.feedback.gain.value = 0.11;
+    this.active = false;
+    // Routing
+    this.delayNode.connect(this.feedback);
+    this.feedback.connect(this.delayNode);
+    this.delayNode.connect(this.outputNode);
+    this.inputNode = ctx.createGain();
+    this.inputNode.connect(this.delayNode);
+    this.inputNode.connect(this.outputNode);
+  }
+  get input() { return this.inputNode; }
+  get output() { return this.outputNode; }
+  connect(node) { this.outputNode.connect(node); }
+  disconnect() { try { this.outputNode.disconnect(); } catch(e){} }
+  setAmount(val) {
+    // val is 0..1, map to delayTime (0.05-0.25s) & feedback (0-0.35)
+    this.delayNode.delayTime.value = 0.05 + val * 0.2;
+    this.feedback.gain.value = val * 0.35;
+  }
+  activate() { this.active = true; }
+  deactivate() { this.active = false; }
+}
+
+// ==== PLANTASIA APP CORE ====
+const presetData = [
+  {
+    name: "Classic Plant",
+    base: 220,
+    scale: [0, 2, 4, 7, 9],
+    key: "A minor",
+    color: "#41FF7B"
+  },
+  {
+    name: "Mold",
+    base: 260,
+    scale: [0, 3, 5, 8, 10],
+    key
