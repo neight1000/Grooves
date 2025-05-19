@@ -1,92 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Plantasia App v3 – Full Working Build with Data Display + MIDI IN Mapping</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      background: black;
-      color: white;
-      font-family: monospace;
-      overflow: hidden;
-    }
-    canvas {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      z-index: 0;
-    }
-    .ui {
-      position: absolute;
-      bottom: 0;
-      width: 100%;
-      background: rgba(0, 0, 0, 0.85);
-      padding: 10px;
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 10px;
-      z-index: 2;
-    }
-    .ui label {
-      font-size: 10px;
-      display: block;
-      text-align: center;
-    }
-    .ui input[type="range"], .ui select {
-      width: 90px;
-    }
-    .ui button {
-      font-size: 12px;
-      padding: 4px 8px;
-      background: transparent;
-      border: 1px solid white;
-      color: white;
-      cursor: pointer;
-    }
-    #infoDisplay {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      z-index: 3;
-      background: rgba(0, 0, 0, 0.6);
-      color: white;
-      font-size: 12px;
-      padding: 10px;
-      display: none;
-      white-space: pre;
-    }
-  </style>
-</head>
-<body>
-<canvas id="waveCanvas"></canvas>
-<div id="infoDisplay"></div>
-<div class="ui">
-  <div><label>Preset</label>
-    <select id="preset">
-      <option value="plants">Plants</option>
-      <option value="mold">Mold</option>
-      <option value="bacteria">Bacteria</option>
-      <option value="mushrooms">Mushrooms</option>
-      <option value="harmony">Lifeform Harmony</option>
-    </select>
-  </div>
-  <div><label>Delay</label><input type="range" id="delay" min="0.01" max="2.0" step="0.01" value="0.6" /></div>
-  <div><label>Echo</label><input type="range" id="echo" min="0" max="1.0" step="0.01" value="0.4" /></div>
-  <div><label>Filter</label><input type="range" id="filter" min="100" max="8000" step="10" value="1200" /></div>
-  <div><label>Frequency</label><input type="range" id="freq" min="50" max="1000" step="1" value="174" /></div>
-  <div><label>Volume</label><input type="range" id="volume" min="0" max="100" value="60" /></div>
-  <div><label>BPM</label><input type="range" id="bpm" min="40" max="180" value="90" /></div>
-  <button id="play">PLAY</button>
-  <button id="stop">STOP</button>
-  <button id="toggleDisplay">TOGGLE DATA</button>
-  <button id="toggleMidiIn">MIDI IN: ON</button>
-</div>
 <script>
 // MIDI SETUP
 let midiAccess = null, midiOutput = null, midiInEnabled = true;
@@ -94,46 +5,38 @@ function midiNoteToFreq(note) {
   return 440 * Math.pow(2, (note - 69) / 12);
 }
 
-// Map CC to parameter
-const midiCCMap = {
-  1: { el: "delay",    min: 0.01, max: 2.0 },
-  2: { el: "echo",     min: 0,    max: 1.0 },
-  3: { el: "filter",   min: 100,  max: 8000 },
-  4: { el: "freq",     min: 50,   max: 1000 },
-  5: { el: "volume",   min: 0,    max: 100 },
-  6: { el: "bpm",      min: 40,   max: 180 }
+const midiButtonMap = {
+  // Map NOTE numbers (e.g. 36-51 for most pad controllers) to actions
+  36: () => playScaleNote(0), // Button 1: first scale note
+  37: () => playScaleNote(1), // Button 2
+  38: () => playScaleNote(2), // Button 3
+  39: () => playScaleNote(3), // Button 4
+  40: () => playScaleNote(4), // Button 5
+  41: nextPreset,             // Button 6: next preset
+  42: prevPreset,             // Button 7: previous preset
+  43: startPlayback,          // Button 8: Play
+  44: stopPlayback,           // Button 9: Stop
+  45: () => changeRange('delay', +0.05),   // Button 10: increase delay
+  46: () => changeRange('delay', -0.05),   // Button 11: decrease delay
+  47: () => changeRange('echo', +0.05),    // Button 12: increase echo
+  48: () => changeRange('echo', -0.05),    // Button 13: decrease echo
+  49: () => changeRange('filter', +100),   // Button 14: increase filter
+  50: () => changeRange('filter', -100),   // Button 15: decrease filter
+  51: toggleDataDisplay                    // Button 16: toggle data display
 };
-// MIDI LISTENING
+
 function handleMidiMessage(e) {
   const [status, d1, d2] = e.data;
   const type = status & 0xf0;
   const channel = status & 0x0f;
   if (!midiInEnabled) return;
 
-  // Note On, Channel 11 (zero-based 10)
+  // Note On, Channel 11 (zero-based 10), velocity > 0
   if (type === 0x90 && d2 > 0 && channel === 10) {
-    if (audioCtx) playTone(midiNoteToFreq(d1));
-  }
-  // CC, Channel 11
-  if (type === 0xB0 && channel === 10) {
-    const cc = d1;
-    if (midiCCMap[cc]) {
-      const { el, min, max } = midiCCMap[cc];
-      // Scale CC (0-127) to param
-      const val = min + (max - min) * (d2 / 127);
-      document.getElementById(el).value = (el === "filter" || el === "freq" || el === "bpm") ? Math.round(val) : val.toFixed(2);
-      // If changing bpm, re-schedule notes
-      if (el === "bpm" && !stopped) {
-        bpm = Math.round(val);
-        scheduleNotes(getScaleFromPreset(document.getElementById("preset").value));
-      }
-      // Update gain for volume immediately
-      if (el === "volume" && masterGain) {
-        masterGain.gain.value = parseFloat(document.getElementById("volume").value) / 100;
-      }
-    }
+    if (midiButtonMap[d1]) midiButtonMap[d1]();
   }
 }
+
 function setupMidi() {
   if (!navigator.requestMIDIAccess) return;
   navigator.requestMIDIAccess().then(function(midi) {
@@ -156,7 +59,6 @@ function setupMidi() {
 }
 setupMidi();
 
-// MIDI NOTE SEND ON CHANNEL 11 (zero-based channel 10)
 function sendMidiNote(freq) {
   if (!midiOutput) return;
   let midiNote = Math.round(69 + 12 * Math.log2(freq / 440));
@@ -168,12 +70,13 @@ function sendMidiNote(freq) {
   }, 400);
 }
 
-// Core Setup
+// Plantasia Core
 let audioCtx, analyser, masterGain, reverbNode, bufferLength, dataArray;
 let bpm = 90, bpmTimer = null, stopped = true;
 let trailFrames = [], currentWaveColor = "#00FF7F";
 let canvas, ctx;
 
+const presetOrder = ['plants', 'mold', 'bacteria', 'mushrooms', 'harmony'];
 const presetSettings = {
   plants:     { scale: [174, 285, 396, 417, 528], color: "#00FF7F" },
   mold:       { scale: [432, 639, 741],           color: "#8A2BE2" },
@@ -189,6 +92,49 @@ function getColorFromPreset(val) {
   return presetSettings[val]?.color || "#FFFFFF";
 }
 
+// MIDI Button Action Functions
+function playScaleNote(index) {
+  if (!audioCtx) return;
+  const scale = getScaleFromPreset(document.getElementById('preset').value);
+  const freq = scale[index % scale.length];
+  if (freq) playTone(freq);
+}
+function nextPreset() {
+  const presetEl = document.getElementById('preset');
+  let idx = presetOrder.indexOf(presetEl.value);
+  presetEl.value = presetOrder[(idx + 1) % presetOrder.length];
+  currentWaveColor = getColorFromPreset(presetEl.value);
+  if (!stopped) scheduleNotes(getScaleFromPreset(presetEl.value));
+}
+function prevPreset() {
+  const presetEl = document.getElementById('preset');
+  let idx = presetOrder.indexOf(presetEl.value);
+  presetEl.value = presetOrder[(idx - 1 + presetOrder.length) % presetOrder.length];
+  currentWaveColor = getColorFromPreset(presetEl.value);
+  if (!stopped) scheduleNotes(getScaleFromPreset(presetEl.value));
+}
+function startPlayback() {
+  document.getElementById('play').click();
+}
+function stopPlayback() {
+  document.getElementById('stop').click();
+}
+function changeRange(id, delta) {
+  const el = document.getElementById(id);
+  let value = parseFloat(el.value) + delta;
+  if (id === 'delay') value = Math.min(Math.max(value, 0.01), 2.0);
+  if (id === 'echo') value = Math.min(Math.max(value, 0), 1.0);
+  if (id === 'filter') value = Math.min(Math.max(value, 100), 8000);
+  el.value = value.toFixed(id === 'filter' ? 0 : 2);
+  if (id === 'filter' && !stopped) scheduleNotes(getScaleFromPreset(document.getElementById('preset').value));
+  if (id === 'delay' && !stopped) scheduleNotes(getScaleFromPreset(document.getElementById('preset').value));
+  if (id === 'echo' && !stopped) scheduleNotes(getScaleFromPreset(document.getElementById('preset').value));
+}
+function toggleDataDisplay() {
+  document.getElementById('toggleDisplay').click();
+}
+
+// Audio functions (as before)
 function initAudio() {
   if (audioCtx) return;
   canvas = document.getElementById("waveCanvas");
@@ -355,5 +301,3 @@ midiBtn.addEventListener('click', () => {
   midiBtn.textContent = "MIDI IN: " + (midiInEnabled ? "ON" : "OFF");
 });
 </script>
-</body>
-</html>
