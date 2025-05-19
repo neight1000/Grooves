@@ -26,6 +26,8 @@
       max-width: 450px;
       margin: auto;
       line-height: 1.7;
+      position: relative;
+      z-index: 2;
     }
     h1, h2 {
       font-weight: bold;
@@ -43,10 +45,14 @@
       text-align: left;
       font-size: 9pt;
       line-height: 1.5;
+      position: relative;
+      z-index: 2;
     }
     .proto-list li {
       margin-bottom: 4px;
       letter-spacing: 0.02em;
+      position: relative;
+      z-index: 2;
     }
     .proto-list a {
       color: #fff;
@@ -54,6 +60,7 @@
       transition: color 0.2s;
       cursor: pointer;
       position: relative;
+      z-index: 2;
     }
     .proto-list a:hover {
       color: #7fffd4;
@@ -69,9 +76,19 @@
     .proto-list .arrow.hide {
       opacity: 0;
     }
+    /* Canvas overlay for particles */
+    #vine-canvas {
+      pointer-events: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      z-index: 1;
+      display: block;
+    }
   </style>
 </head>
 <body>
+  <canvas id="vine-canvas"></canvas>
   <div class="center">
     <h1>Grooves Prototype Suite</h1>
     <h2>Description</h2>
@@ -123,11 +140,10 @@
     </ul>
   </div>
   <script>
-    // "plants" scale tones
+    // --- Plant synth tone on hover ---
     const plantTones = [174, 285, 396, 417, 528];
     let hoverIndex = 0;
     let synthCtx, synthMaster;
-
     function initSynth() {
       if (!synthCtx) {
         synthCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -137,7 +153,6 @@
       }
     }
     window.addEventListener('pointerdown', initSynth, {once:true});
-
     function playPlantTone(i) {
       if (!synthCtx) return;
       const now = synthCtx.currentTime;
@@ -145,36 +160,112 @@
       const osc = synthCtx.createOscillator();
       osc.type = 'triangle';
       osc.frequency.value = freq;
-
       const gain = synthCtx.createGain();
       gain.gain.setValueAtTime(0.0, now);
       gain.gain.linearRampToValueAtTime(0.16, now + 0.03);
       gain.gain.linearRampToValueAtTime(0.13, now + 0.09);
       gain.gain.linearRampToValueAtTime(0.0, now + 0.23);
-
       osc.connect(gain);
       gain.connect(synthMaster);
-
       osc.start(now);
       osc.stop(now + 0.24);
     }
 
-    // Tone + arrow effect on link hover
+    // --- Vine Particle Animation ---
+    const vineCanvas = document.getElementById('vine-canvas');
+    let vineParticles = [];
+    function resizeVineCanvas() {
+      vineCanvas.width = window.innerWidth;
+      vineCanvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeVineCanvas);
+    resizeVineCanvas();
+
+    function spawnVineParticles(startX, startY, len) {
+      // Generate 18-28 vine "nodes" per hover
+      let nodes = 18 + Math.floor(Math.random() * 10);
+      for (let i = 0; i < nodes; i++) {
+        let progress = (i / nodes);
+        let theta = (-Math.PI/7) + progress * (Math.PI/4) + (Math.random() - 0.5) * 0.11;
+        let speed = 0.45 + progress * 1.45;
+        let r = 2.2 + Math.random() * 2.2;
+        vineParticles.push({
+          x: startX, y: startY,
+          vx: Math.cos(theta) * speed,
+          vy: Math.sin(theta) * speed * (0.76 + Math.random() * 0.08),
+          r: r,
+          alpha: 0.26 + 0.38 * (1 - progress),
+          grow: 0,
+          color: '#60f88d',
+          branch: (Math.random() < 0.23)
+        });
+      }
+    }
+
+    function animateVines() {
+      const ctx = vineCanvas.getContext('2d');
+      ctx.clearRect(0,0,vineCanvas.width,vineCanvas.height);
+      for (let i = vineParticles.length - 1; i >= 0; i--) {
+        let p = vineParticles[i];
+        // Draw particle
+        ctx.save();
+        ctx.globalAlpha = p.alpha;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, 2 * Math.PI, false);
+        ctx.fillStyle = p.color;
+        ctx.shadowBlur = 6 + 10 * (p.alpha);
+        ctx.shadowColor = '#80ffb4';
+        ctx.fill();
+        ctx.restore();
+        // Grow/move particle
+        p.x += p.vx * (0.91 + Math.random() * 0.03);
+        p.y += p.vy * (0.92 + Math.random() * 0.03);
+        if (p.branch && Math.random() < 0.04) {
+          // Spawn a small offshoot
+          vineParticles.push({
+            x: p.x, y: p.y,
+            vx: -p.vy * (0.16 + Math.random() * 0.22),
+            vy: p.vx * (0.13 + Math.random() * 0.15),
+            r: 1.5 + Math.random() * 1.5,
+            alpha: p.alpha * 0.6,
+            grow: 0,
+            color: '#1ef168',
+            branch: false
+          });
+        }
+        p.alpha *= 0.978;
+        p.r *= 0.997;
+        if (p.alpha < 0.09 || p.r < 0.7) vineParticles.splice(i, 1);
+      }
+      requestAnimationFrame(animateVines);
+    }
+    animateVines();
+
+    // --- Link hover handlers for sound, arrow, vine effect ---
     document.querySelectorAll('.proto-list a').forEach((link, idx) => {
       const arrow = link.querySelector('.arrow');
       link.addEventListener('mouseenter', e => {
         initSynth();
         playPlantTone(hoverIndex++);
         if (arrow) arrow.classList.remove('hide');
+        // Find link position on screen for vine effect
+        const rect = link.getBoundingClientRect();
+        let startX = rect.left + 12;
+        let startY = rect.top + rect.height / 2 + window.scrollY;
+        spawnVineParticles(startX, startY, rect.width);
       });
       link.addEventListener('mouseleave', e => {
         if (arrow) arrow.classList.add('hide');
       });
-      // In case of keyboard focus
       link.addEventListener('focus', e => {
         initSynth();
         playPlantTone(hoverIndex++);
         if (arrow) arrow.classList.remove('hide');
+        // Keyboard navigation
+        const rect = link.getBoundingClientRect();
+        let startX = rect.left + 12;
+        let startY = rect.top + rect.height / 2 + window.scrollY;
+        spawnVineParticles(startX, startY, rect.width);
       });
       link.addEventListener('blur', e => {
         if (arrow) arrow.classList.add('hide');
