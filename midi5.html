@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Plantasia App v3 – MIDI Button Control (Clean Legend & Sliders)</title>
+  <title>Plantasia App v3 – MIDI Button Highlight</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     html, body {
@@ -94,6 +94,7 @@
       min-width: 55px;
       text-align: center;
       letter-spacing: 0.5px;
+      transition: border 0.2s, box-shadow 0.2s;
     }
     .legend-label {
       font-weight: bold;
@@ -112,7 +113,6 @@
       padding: 4px 8px;
       cursor: pointer;
     }
-    /* Slider label for color */
     .color-slider-group {
       display: flex;
       flex-direction: column;
@@ -126,9 +126,6 @@
       letter-spacing: 1px;
       font-family: monospace;
     }
-    .legend-item {
-  transition: border 0.2s, box-shadow 0.2s;
-}
   </style>
 </head>
 <body>
@@ -226,68 +223,6 @@ function handleMidiMessage(e) {
   if (type === 0x90 && velocity > 0 && channel === 10 && midiButtonMap[note]) {
     midiButtonMap[note]();
     highlightLegendByNote(note);
-  }
-}
-
-function setupMidi() {
-  if (!navigator.requestMIDIAccess) return;
-  navigator.requestMIDIAccess().then(midi => {
-    midiAccess = midi;
-    const outputs = Array.from(midiAccess.outputs.values());
-    if (outputs.length > 0) midiOutput = outputs[0];
-    midiAccess.inputs.forEach(input => { input.onmidimessage = handleMidiMessage; });
-    midiAccess.onstatechange = function(event) {
-      if (event.port.type === "input" && event.port.state === "connected") {
-        midiAccess.inputs.forEach(input => { input.onmidimessage = handleMidiMessage; });
-      }
-    };
-  });
-}
-setupMidi();
-
-// Legend rendering and toggle
-const midiLegend = document.getElementById("midiLegend");
-const toggleLegendBtn = document.getElementById("toggleLegend");
-let legendVisible = false;
-toggleLegendBtn.addEventListener("click", () => {
-  legendVisible = !legendVisible;
-  midiLegend.style.display = legendVisible ? "flex" : "none";
-  toggleLegendBtn.textContent = legendVisible ? "HIDE MIDI CONTROLS" : "MIDI CONTROLS";
-});
-function renderLegend() {
-  midiLegend.innerHTML = "";
-  midiLegendData.forEach(item => {
-    const d = document.createElement("div");
-    d.className = "legend-item";
-    d.innerHTML =
-      `<span class="legend-label">B${item.btn}</span>` +
-      `<span>n${item.n}</span>` +
-      `<span>${item.action}</span>`;
-    midiLegend.appendChild(d);
-  });
-}
-renderLegend();
-</script>
-
-
-const midiButtonMap = {
-  36: () => playScaleNote(0),  37: () => playScaleNote(1), 38: () => playScaleNote(2),
-  39: () => playScaleNote(3),  40: () => playScaleNote(4),
-  41: nextPreset,  42: prevPreset,
-  43: play, 44: stop,
-  45: () => incSlider('delay', +0.05),   46: () => incSlider('delay', -0.05),
-  47: () => incSlider('echo', +0.05),    48: () => incSlider('echo', -0.05),
-  49: () => incSlider('filter', +100),   50: () => incSlider('filter', -100),
-  51: () => document.getElementById('toggleDisplay').click()
-};
-
-function handleMidiMessage(e) {
-  const [status, note, velocity] = e.data;
-  const type = status & 0xf0;
-  const channel = status & 0x0f;
-  if (!midiInEnabled) return;
-  if (type === 0x90 && velocity > 0 && channel === 10 && midiButtonMap[note]) {
-    midiButtonMap[note]();
   }
 }
 
