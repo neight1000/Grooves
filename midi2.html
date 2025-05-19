@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Plantasia App v3 – MIDI Button Mapping with Slider Sync</title>
+  <title>Plantasia App v3 – MIDI Button Control Final Build</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     html, body {
@@ -88,58 +88,54 @@
   <button id="toggleMidiIn">MIDI IN: ON</button>
 </div>
 <script>
-// MIDI SETUP
 let midiAccess = null, midiOutput = null, midiInEnabled = true;
+
 function midiNoteToFreq(note) {
   return 440 * Math.pow(2, (note - 69) / 12);
 }
 
+// Map 16 MIDI buttons (notes 36–51) to actions
 const midiButtonMap = {
-  // Map NOTE numbers (36-51) to actions
-  36: () => playScaleNote(0), // Button 1: first scale note
-  37: () => playScaleNote(1), // Button 2
-  38: () => playScaleNote(2), // Button 3
-  39: () => playScaleNote(3), // Button 4
-  40: () => playScaleNote(4), // Button 5
-  41: nextPreset,             // Button 6: next preset
-  42: prevPreset,             // Button 7: previous preset
-  43: startPlayback,          // Button 8: Play
-  44: stopPlayback,           // Button 9: Stop
-  45: () => incSlider('delay', +0.05),   // Button 10: increase delay
-  46: () => incSlider('delay', -0.05),   // Button 11: decrease delay
-  47: () => incSlider('echo', +0.05),    // Button 12: increase echo
-  48: () => incSlider('echo', -0.05),    // Button 13: decrease echo
-  49: () => incSlider('filter', +100),   // Button 14: increase filter
-  50: () => incSlider('filter', -100),   // Button 15: decrease filter
-  51: toggleDataDisplay                  // Button 16: toggle data display
+  36: () => playScaleNote(0),  // Button 1: play 1st scale note
+  37: () => playScaleNote(1),  // Button 2: play 2nd scale note
+  38: () => playScaleNote(2),  // Button 3: play 3rd scale note
+  39: () => playScaleNote(3),  // Button 4: play 4th scale note
+  40: () => playScaleNote(4),  // Button 5: play 5th scale note
+  41: nextPreset,              // Button 6: next preset
+  42: prevPreset,              // Button 7: previous preset
+  43: () => document.getElementById('play').click(), // Button 8: PLAY
+  44: () => document.getElementById('stop').click(), // Button 9: STOP
+  45: () => incSlider('delay', +0.05),   // Button 10: delay up
+  46: () => incSlider('delay', -0.05),   // Button 11: delay down
+  47: () => incSlider('echo', +0.05),    // Button 12: echo up
+  48: () => incSlider('echo', -0.05),    // Button 13: echo down
+  49: () => incSlider('filter', +100),   // Button 14: filter up
+  50: () => incSlider('filter', -100),   // Button 15: filter down
+  51: () => document.getElementById('toggleDisplay').click() // Button 16: toggle data display
 };
 
 function handleMidiMessage(e) {
-  const [status, d1, d2] = e.data;
+  const [status, note, velocity] = e.data;
   const type = status & 0xf0;
   const channel = status & 0x0f;
   if (!midiInEnabled) return;
-  if (type === 0x90 && d2 > 0 && channel === 10) {
-    if (midiButtonMap[d1]) midiButtonMap[d1]();
+  if (type === 0x90 && velocity > 0 && channel === 10 && midiButtonMap[note]) {
+    midiButtonMap[note]();
   }
 }
 
 function setupMidi() {
   if (!navigator.requestMIDIAccess) return;
-  navigator.requestMIDIAccess().then(function(midi) {
+  navigator.requestMIDIAccess().then(midi => {
     midiAccess = midi;
     // MIDI OUT
     const outputs = Array.from(midiAccess.outputs.values());
     if (outputs.length > 0) midiOutput = outputs[0];
     // MIDI IN
-    midiAccess.inputs.forEach(function(input) {
-      input.onmidimessage = handleMidiMessage;
-    });
+    midiAccess.inputs.forEach(input => { input.onmidimessage = handleMidiMessage; });
     midiAccess.onstatechange = function(event) {
       if (event.port.type === "input" && event.port.state === "connected") {
-        midiAccess.inputs.forEach(function(input) {
-          input.onmidimessage = handleMidiMessage;
-        });
+        midiAccess.inputs.forEach(input => { input.onmidimessage = handleMidiMessage; });
       }
     };
   });
@@ -157,7 +153,6 @@ function sendMidiNote(freq) {
   }, 400);
 }
 
-// Plantasia Core
 let audioCtx, analyser, masterGain, reverbNode, bufferLength, dataArray;
 let bpm = 90, bpmTimer = null, stopped = true;
 let trailFrames = [], currentWaveColor = "#00FF7F";
@@ -178,8 +173,6 @@ function getScaleFromPreset(val) {
 function getColorFromPreset(val) {
   return presetSettings[val]?.color || "#FFFFFF";
 }
-
-// MIDI Button Action Functions
 function playScaleNote(index) {
   if (!audioCtx) return;
   const scale = getScaleFromPreset(document.getElementById('preset').value);
@@ -200,23 +193,14 @@ function prevPreset() {
   currentWaveColor = getColorFromPreset(presetEl.value);
   if (!stopped) scheduleNotes(getScaleFromPreset(presetEl.value));
 }
-function startPlayback() {
-  document.getElementById('play').click();
-}
-function stopPlayback() {
-  document.getElementById('stop').click();
-}
-
-// Utility: increment/decrement and update slider, clamp to min/max
+// Increment slider value and reflect in UI and audio
 function incSlider(id, delta) {
   const el = document.getElementById(id);
   let min = parseFloat(el.min), max = parseFloat(el.max), step = parseFloat(el.step);
   let value = parseFloat(el.value) + delta;
-  // Snap to step
   value = Math.round(value / step) * step;
   value = Math.max(min, Math.min(max, value));
   el.value = value;
-  // Fire input event to sync UI and audio if needed
   el.dispatchEvent(new Event('input', { bubbles: true }));
   if (id === 'volume' && masterGain) masterGain.gain.value = parseFloat(el.value) / 100;
   if (id === 'bpm' && !stopped) {
@@ -225,15 +209,11 @@ function incSlider(id, delta) {
   }
 }
 
-function toggleDataDisplay() {
-  document.getElementById('toggleDisplay').click();
-}
-
-// Audio functions (as before)
 function initAudio() {
   if (audioCtx) return;
   canvas = document.getElementById("waveCanvas");
   ctx = canvas.getContext("2d");
+  if (!canvas || !ctx) return;
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
 
@@ -244,4 +224,61 @@ function initAudio() {
   dataArray = new Uint8Array(bufferLength);
 
   masterGain = audioCtx.createGain();
-  masterGain.g
+  masterGain.gain.value = parseFloat(volume.value) / 100;
+
+  reverbNode = audioCtx.createDelay();
+  const reverbFeedback = audioCtx.createGain();
+  reverbNode.delayTime.value = 0.4;
+  reverbFeedback.gain.value = 0.4;
+  reverbNode.connect(reverbFeedback);
+  reverbFeedback.connect(reverbNode);
+  reverbNode.connect(masterGain);
+  masterGain.connect(audioCtx.destination);
+  animate();
+}
+function playTone(freq) {
+  const now = audioCtx.currentTime;
+  const filterNode = audioCtx.createBiquadFilter();
+  filterNode.type = "lowpass";
+  filterNode.frequency.value = parseFloat(filter.value);
+
+  const delayNode = audioCtx.createDelay();
+  delayNode.delayTime.value = parseFloat(delay.value);
+  const feedbackNode = audioCtx.createGain();
+  feedbackNode.gain.value = parseFloat(echo.value);
+
+  const gainNode = audioCtx.createGain();
+  gainNode.gain.setValueAtTime(0, now);
+  gainNode.gain.linearRampToValueAtTime(0.3, now + 0.3);
+  gainNode.gain.linearRampToValueAtTime(0.0, now + 3.0);
+
+  const panNode = audioCtx.createStereoPanner();
+  panNode.pan.value = Math.random() * 2 - 1;
+
+  const detuneOffsets = [-0.5, 0, 0.5];
+  detuneOffsets.forEach(offset => {
+    const o = audioCtx.createOscillator();
+    o.type = "square";
+    o.frequency.value = freq * (1 + offset / 100);
+    o.connect(gainNode);
+    o.start(now);
+    o.stop(now + 3.0);
+  });
+
+  gainNode.connect(panNode);
+  panNode.connect(filterNode);
+  filterNode.connect(delayNode);
+  delayNode.connect(feedbackNode);
+  feedbackNode.connect(delayNode);
+  delayNode.connect(reverbNode);
+  gainNode.connect(analyser);
+}
+function scheduleNotes(scale) {
+  clearInterval(bpmTimer);
+  bpmTimer = setInterval(() => {
+    if (!stopped) {
+      const freq = scale[Math.floor(Math.random() * scale.length)];
+      playTone(freq);
+      sendMidiNote(freq);
+    }
+  },
