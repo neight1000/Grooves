@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Plantasia App v3 – Full Working Build with Data Display + MIDI IN</title>
+  <title>Plantasia App v3 – Full Working Build with Data Display + MIDI IN Mapping</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     html, body {
@@ -93,13 +93,45 @@ let midiAccess = null, midiOutput = null, midiInEnabled = true;
 function midiNoteToFreq(note) {
   return 440 * Math.pow(2, (note - 69) / 12);
 }
+
+// Map CC to parameter
+const midiCCMap = {
+  1: { el: "delay",    min: 0.01, max: 2.0 },
+  2: { el: "echo",     min: 0,    max: 1.0 },
+  3: { el: "filter",   min: 100,  max: 8000 },
+  4: { el: "freq",     min: 50,   max: 1000 },
+  5: { el: "volume",   min: 0,    max: 100 },
+  6: { el: "bpm",      min: 40,   max: 180 }
+};
 // MIDI LISTENING
 function handleMidiMessage(e) {
-  const [status, note, velocity] = e.data;
+  const [status, d1, d2] = e.data;
   const type = status & 0xf0;
   const channel = status & 0x0f;
-  if (midiInEnabled && type === 0x90 && velocity > 0 && channel === 10) {
-    if (audioCtx) playTone(midiNoteToFreq(note));
+  if (!midiInEnabled) return;
+
+  // Note On, Channel 11 (zero-based 10)
+  if (type === 0x90 && d2 > 0 && channel === 10) {
+    if (audioCtx) playTone(midiNoteToFreq(d1));
+  }
+  // CC, Channel 11
+  if (type === 0xB0 && channel === 10) {
+    const cc = d1;
+    if (midiCCMap[cc]) {
+      const { el, min, max } = midiCCMap[cc];
+      // Scale CC (0-127) to param
+      const val = min + (max - min) * (d2 / 127);
+      document.getElementById(el).value = (el === "filter" || el === "freq" || el === "bpm") ? Math.round(val) : val.toFixed(2);
+      // If changing bpm, re-schedule notes
+      if (el === "bpm" && !stopped) {
+        bpm = Math.round(val);
+        scheduleNotes(getScaleFromPreset(document.getElementById("preset").value));
+      }
+      // Update gain for volume immediately
+      if (el === "volume" && masterGain) {
+        masterGain.gain.value = parseFloat(document.getElementById("volume").value) / 100;
+      }
+    }
   }
 }
 function setupMidi() {
@@ -322,9 +354,6 @@ midiBtn.addEventListener('click', () => {
   midiInEnabled = !midiInEnabled;
   midiBtn.textContent = "MIDI IN: " + (midiInEnabled ? "ON" : "OFF");
 });
-
 </script>
 </body>
 </html>
-
-
