@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Modern Plantasia App v44</title>
+  <title>Modern Plantasia App v46</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap');
     :root {
@@ -12,131 +12,45 @@
       --font: 'Roboto Mono', monospace;
       --accent: #00ff00;
     }
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-    body {
-      font-family: var(--font);
-      background: var(--bg);
-      color: var(--fg);
-      overflow: hidden;
-    }
-    h1 {
-      text-align: center;
-      margin: 1rem 0;
-      font-size: 1.5rem;
-    }
-    #uiPanel {
-      position: absolute;
-      top: 1rem;
-      right: 1rem;
-      display: flex;
-      gap: 0.5rem;
-      z-index: 3;
-    }
+    * { box-sizing: border-box; margin:0; padding:0; }
+    body { font-family: var(--font); background: var(--bg); color: var(--fg); overflow:hidden; }
+    h1 { text-align:center; margin:1rem 0; font-size:1.5rem; }
+    #uiPanel { position:absolute; top:1rem; right:1rem; display:flex; gap:0.5rem; z-index:3; }
     button, select, input[type="range"] {
-      background: transparent;
-      color: var(--fg);
-      border: 1px solid var(--fg);
-      padding: 0.5rem 1rem;
-      font-size: 0.9rem;
-      text-transform: uppercase;
-      font-family: var(--font);
+      background:transparent; color:var(--fg); border:1px solid var(--fg);
+      padding:0.5rem 1rem; font-size:0.9rem; text-transform:uppercase; font-family:var(--font);
     }
-    button:hover {
-      background: var(--fg);
-      color: var(--bg);
-      cursor: pointer;
-    }
-    /* Slider styling */
+    button:hover { background:var(--fg); color:var(--bg); cursor:pointer; }
     input[type="range"] {
-      -webkit-appearance: none;
-      width: 150px;
-      height: 1px;
-      background: var(--fg);
-      margin: 0.5rem 0;
+      -webkit-appearance:none; width:150px; height:1px; background:var(--fg); margin:0.5rem 0;
     }
-    input[type="range"]::-webkit-slider-runnable-track {
-      width: 100%;
-      height: 1px;
-      background: var(--fg);
-    }
+    input[type="range"]::-webkit-slider-runnable-track { width:100%; height:1px; background:var(--fg); }
     input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 24px;
-      height: 24px;
-      background: var(--accent);
-      border-radius: 50%;
-      margin-top: -11px;
-      cursor: pointer;
+      -webkit-appearance:none; width:24px; height:24px; background:var(--accent);
+      border-radius:50%; margin-top:-11px; cursor:pointer;
     }
-    input[type="range"]::-moz-range-track {
-      width: 100%;
-      height: 1px;
-      background: var(--fg);
-    }
+    input[type="range"]::-moz-range-track { width:100%; height:1px; background:var(--fg); }
     input[type="range"]::-moz-range-thumb {
-      width: 24px;
-      height: 24px;
-      background: var(--accent);
-      border: none;
-      border-radius: 50%;
-      cursor: pointer;
+      width:24px; height:24px; background:var(--accent); border:none; border-radius:50%; cursor:pointer;
     }
     label {
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.25rem;
+      font-size:0.75rem; text-transform:uppercase;
+      display:flex; flex-direction:column; align-items:center; gap:0.25rem;
     }
     #controlsWrapper {
-      position: absolute;
-      bottom: 1rem;
-      left: 50%;
-      transform: translateX(-50%);
-      display: none;
-      flex-direction: row;
-      gap: 1rem;
-      background: rgba(0, 0, 0, 0.85);
-      padding: 0.5rem;
-      z-index: 3;
+      position:absolute; bottom:1rem; left:50%; transform:translateX(-50%);
+      display:none; flex-direction:row; gap:1rem; background:rgba(0,0,0,0.85); padding:0.5rem; z-index:3;
     }
-    .controls {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-    }
+    .controls { display:flex; flex-wrap:wrap; gap:0.5rem; }
     #infoDisplay {
-      position: absolute;
-      top: 1rem;
-      left: 1rem;
-      background: rgba(0, 0, 0, 0.6);
-      padding: 0.5rem;
-      white-space: pre;
-      display: none;
-      z-index: 3;
+      position:absolute; top:1rem; left:1rem; background:rgba(0,0,0,0.6);
+      padding:0.5rem; white-space:pre; display:none; z-index:3;
     }
     #visualizer {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: var(--bg);
-      z-index: 1;
+      position:absolute; top:0; left:0; width:100vw; height:100vh; background:var(--bg); z-index:1;
     }
     .footer {
-      position: absolute;
-      bottom: 0.5rem;
-      width: 100%;
-      text-align: center;
-      font-size: 0.75rem;
-      color: #888;
-      z-index: 3;
+      position:absolute; bottom:0.5rem; width:100%; text-align:center; font-size:0.75rem; color:#888; z-index:3;
     }
   </style>
 </head>
@@ -222,12 +136,12 @@
         scale:  [261.63,293.66,329.63,349.23,392,440,493.88,523.25],
         melody: [261.63,293.66,329.63,349.23,392,392,349.23,329.63],
         color: "#FFFFFF"
+      },
+      planetRock: {
+        scale:  [415.30,493.88,554.37,659.25],
+        melody: [415.30,415.30,493.88,554.37,659.25,554.37,493.88,415.30],
+        color: "#00FFFF"
       }
-  planetRock: {
-    scale:  [415.30, 493.88, 554.37, 659.25],
-    melody: [415.30, 415.30, 493.88, 554.37, 659.25, 554.37, 493.88, 415.30],
-    color:  "#00FFFF"
-  },
     };
     const worldScales = {
       raga: { scale: [261.63,293.66,329.63,369.99,392,440,493.88,523.25], color: "#FFFFFF" },
@@ -236,230 +150,176 @@
       insen: { scale: [261.63,277.18,349.23,392,466.16], color: "#FFFFFF" }
     };
 
+    // Melody index map
+    const melodyIndices = {};
+
     // DOM references
-    const preset = document.getElementById('preset'),
-          delayCtrl = document.getElementById('delay'),
-          echoCtrl = document.getElementById('echo'),
-          reverbCtrl = document.getElementById('reverb'),
-          filterCtrl = document.getElementById('filter'),
-          freqCtrl = document.getElementById('freq'),
-          volumeCtrl = document.getElementById('volume'),
-          bpmCtrl = document.getElementById('bpm'),
-          densityCtrl = document.getElementById('density'),
-          wetDryCtrl = document.getElementById('wetDry'),
-          chorusDepthCtrl = document.getElementById('chorusDepth'),
-          revDampFreqCtrl = document.getElementById('revDampFreq'),
-          playBtn = document.getElementById('play'),
-          stopBtn = document.getElementById('stop'),
-          toggleUI = document.getElementById('toggleUI'),
-          toggleDisplay = document.getElementById('toggleDisplay'),
-          controlsWrapper = document.getElementById('controlsWrapper'),
-          infoDisplay = document.getElementById('infoDisplay'),
-          canvas = document.getElementById('visualizer'),
-          ctx = canvas.getContext('2d');
+    const preset=document.getElementById('preset'),
+          delayCtrl=document.getElementById('delay'),
+          echoCtrl=document.getElementById('echo'),
+          reverbCtrl=document.getElementById('reverb'),
+          filterCtrl=document.getElementById('filter'),
+          freqCtrl=document.getElementById('freq'),
+          volumeCtrl=document.getElementById('volume'),
+          bpmCtrl=document.getElementById('bpm'),
+          densityCtrl=document.getElementById('density'),
+          wetDryCtrl=document.getElementById('wetDry'),
+          chorusDepthCtrl=document.getElementById('chorusDepth'),
+          revDampFreqCtrl=document.getElementById('revDampFreq'),
+          playBtn=document.getElementById('play'),
+          stopBtn=document.getElementById('stop'),
+          toggleUI=document.getElementById('toggleUI'),
+          toggleDisplay=document.getElementById('toggleDisplay'),
+          controlsWrapper=document.getElementById('controlsWrapper'),
+          infoDisplay=document.getElementById('infoDisplay'),
+          canvas=document.getElementById('visualizer'),
+          ctx=canvas.getContext('2d');
 
     let audioCtx, analyser, masterGain, chorusLFO, chorusGain;
-    let bufferLength, dataArray, bpmTimer, stopped = true;
-    let trailFrames = [], euclidPattern = [], euclidIndex = 0, markovIndex = 0;
+    let bufferLength, dataArray, bpmTimer, stopped=true;
+    let trailFrames=[], euclidPattern=[], euclidIndex=0, markovIndex=0;
 
-    function getScale() {
-      if (classicalMelodies[preset.value]) return classicalMelodies[preset.value].scale;
-      if (worldScales[preset.value]) return worldScales[preset.value].scale;
-      if (preset.value === 'fib') {
-        let base = parseFloat(freqCtrl.value), a = 1, b = 1, fib = [];
-        for (let i = 0; i < 8; i++) { fib.push(base * (b / a)); [a, b] = [b, a + b]; }
+    function getScale(){
+      if(classicalMelodies[preset.value]) return classicalMelodies[preset.value].scale;
+      if(worldScales[preset.value]) return worldScales[preset.value].scale;
+      if(preset.value==='fib'){
+        let base=parseFloat(freqCtrl.value),a=1,b=1,fib=[];
+        for(let i=0;i<8;i++){fib.push(base*(b/a));[a,b]=[b,a+b];}
         return fib;
       }
-      return presetSettings[preset.value]?.scale || [174, 220, 261];
+      return presetSettings[preset.value]?.scale||[174,220,261];
+    }
+    function getColor(){
+      if(classicalMelodies[preset.value]) return classicalMelodies[preset.value].color;
+      if(worldScales[preset.value]) return worldScales[preset.value].color;
+      return presetSettings[preset.value]?.color||"#FFFFFF";
     }
 
-    function getColor() {
-      if (classicalMelodies[preset.value]) return classicalMelodies[preset.value].color;
-      if (worldScales[preset.value]) return worldScales[preset.value].color;
-      return presetSettings[preset.value]?.color || "#FFFFFF";
+    function initPatterns(){
+      if(preset.value==='euclid'){euclidPattern=bjorklund(16,Math.ceil(densityCtrl.value));euclidIndex=0;}
+      if(preset.value==='markov') markovIndex=0;
+      // reset melody index for classical presets
+      if(classicalMelodies[preset.value]) melodyIndices[preset.value]=0;
     }
 
-    function initPatterns() {
-      if (preset.value === 'euclid') {
-        euclidPattern = bjorklund(16, Math.ceil(densityCtrl.value));
-        euclidIndex = 0;
-      }
-      if (preset.value === 'markov') markovIndex = 0;
+    function initAudio(){
+      if(audioCtx) return;
+      canvas.width=innerWidth;canvas.height=innerHeight;
+      window.addEventListener('resize',()=>{canvas.width=innerWidth;canvas.height=innerHeight;});
+      audioCtx=new (window.AudioContext||window.webkitAudioContext)();audioCtx.resume();
+      analyser=audioCtx.createAnalyser();analyser.fftSize=2048;
+      bufferLength=analyser.frequencyBinCount;dataArray=new Uint8Array(bufferLength);
+      masterGain=audioCtx.createGain();masterGain.connect(audioCtx.destination);
+      chorusLFO=audioCtx.createOscillator();chorusLFO.type='sine';chorusLFO.frequency.value=0.1;
+      chorusGain=audioCtx.createGain();chorusGain.gain=parseFloat(chorusDepthCtrl.value);
+      chorusLFO.connect(chorusGain);chorusLFO.start();
+      initPatterns();animate();
     }
 
-    function initAudio() {
-      if (audioCtx) return;
-      canvas.width = innerWidth;
-      canvas.height = innerHeight;
-      window.addEventListener('resize', () => {
-        canvas.width = innerWidth;
-        canvas.height = innerHeight;
-      });
-
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      audioCtx.resume();
-
-      analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 2048;
-      bufferLength = analyser.frequencyBinCount;
-      dataArray = new Uint8Array(bufferLength);
-
-      masterGain = audioCtx.createGain();
-      masterGain.connect(audioCtx.destination);
-
-      chorusLFO = audioCtx.createOscillator();
-      chorusLFO.type = 'sine';
-      chorusLFO.frequency.value = 0.1;
-      chorusGain = audioCtx.createGain();
-      chorusGain.gain.value = parseFloat(chorusDepthCtrl.value);
-      chorusLFO.connect(chorusGain);
-      chorusLFO.start();
-
-      initPatterns();
-      animate();
-    }
-
-    function playTone() {
-      const now = audioCtx.currentTime;
-      masterGain.gain.value = parseFloat(wetDryCtrl.value);
-
-      const filterNode = audioCtx.createBiquadFilter();
-      filterNode.type = 'lowpass';
-      filterNode.frequency.value = parseFloat(filterCtrl.value);
-
-      const delayNode = audioCtx.createDelay();
-      delayNode.delayTime = parseFloat(delayCtrl.value);
-      const echoGain = audioCtx.createGain();
-      echoGain.gain.value = parseFloat(echoCtrl.value);
+    function playTone(){
+      const now=audioCtx.currentTime;
+      masterGain.gain.value=parseFloat(wetDryCtrl.value);
+      const filterNode=audioCtx.createBiquadFilter();filterNode.type='lowpass';
+      filterNode.frequency.value=parseFloat(filterCtrl.value);
+      const delayNode=audioCtx.createDelay();delayNode.delayTime=parseFloat(delayCtrl.value);
+      const echoGain=audioCtx.createGain();echoGain.gain=parseFloat(echoCtrl.value);
       delayNode.connect(echoGain).connect(masterGain);
-
-      const reverbNode = audioCtx.createDelay();
-      reverbNode.delayTime = 1.0;
-      const reverbGain = audioCtx.createGain();
-      reverbGain.gain.value = parseFloat(reverbCtrl.value);
+      const reverbNode=audioCtx.createDelay();reverbNode.delayTime=1.0;
+      const reverbGain=audioCtx.createGain();reverbGain.gain=parseFloat(reverbCtrl.value);
       filterNode.connect(reverbNode).connect(reverbGain).connect(masterGain);
 
-      let scale = getScale(), freq;
-      switch (preset.value) {
+      let scale=getScale(),freq;
+      switch(preset.value){
         case 'euclid':
-          if (euclidPattern[euclidIndex]) {
-            freq = scale[Math.floor(Math.random() * scale.length)];
-          }
-          euclidIndex = (euclidIndex + 1) % euclidPattern.length;
-          break;
+          if(euclidPattern[euclidIndex]) freq=scale[Math.floor(Math.random()*scale.length)];
+          euclidIndex=(euclidIndex+1)%euclidPattern.length;break;
         case 'fib':
-          freq = scale[Math.floor(Math.random() * scale.length)];
-          break;
+          freq=scale[Math.floor(Math.random()*scale.length)];break;
         case 'markov':
-          let neighbors = [markovIndex];
-          if (markovIndex > 0) neighbors.push(markovIndex - 1);
-          if (markovIndex < scale.length - 1) neighbors.push(markovIndex + 1);
-          markovIndex = neighbors[Math.floor(Math.random() * neighbors.length)];
-          freq = scale[markovIndex];
-          break;
+          let nb=[markovIndex];
+          if(markovIndex>0) nb.push(markovIndex-1);
+          if(markovIndex<scale.length-1) nb.push(markovIndex+1);
+          markovIndex=nb[Math.floor(Math.random()*nb.length)];
+          freq=scale[markovIndex];break;
         case 'bachPreludeC':
-          freq = classicalMelodies.bachPreludeC.melody.shift();
-          classicalMelodies.bachPreludeC.melody.push(freq);
+        case 'planetRock':
+          const idx=melodyIndices[preset.value] || 0;
+          const melodyArr=classicalMelodies[preset.value].melody;
+          freq=melodyArr[idx];
+          melodyIndices[preset.value]=(idx+1)%melodyArr.length;
           break;
         default:
-          freq = scale[Math.floor(Math.random() * scale.length)];
+          freq=scale[Math.floor(Math.random()*scale.length)];
       }
-      if (!freq) return;
-
-      const osc = audioCtx.createOscillator();
-      osc.type = 'square';
-      osc.frequency.setValueAtTime(freq, now);
+      if(!freq) return;
+      const osc=audioCtx.createOscillator();osc.type='square';osc.frequency.setValueAtTime(freq,now);
       chorusGain.connect(osc.detune);
-
-      const env = audioCtx.createGain();
-      env.gain.setValueAtTime(0, now);
-      env.gain.linearRampToValueAtTime(0.2, now + 0.3);
-      env.gain.linearRampToValueAtTime(0, now + 3);
-
-      const pan = audioCtx.createStereoPanner();
-      pan.pan.value = (Math.random() * 2 - 1);
-
-      osc.connect(env).connect(pan).connect(filterNode);
-      env.connect(analyser);
-
-      osc.start(now);
-      osc.stop(now + 3);
-
+      const env=audioCtx.createGain();env.gain.setValueAtTime(0,now);
+      env.gain.linearRampToValueAtTime(0.2,now+0.3);env.gain.linearRampToValueAtTime(0,now+3);
+      const pan=audioCtx.createStereoPanner();pan.pan.value=(Math.random()*2-1);
+      osc.connect(env).connect(pan).connect(filterNode);env.connect(analyser);
+      osc.start(now);osc.stop(now+3);
       filterNode.connect(delayNode);
     }
 
-    function scheduleNotes() {
-      clearInterval(bpmTimer);
-      initPatterns();
-      const interval = 60000 / parseInt(bpmCtrl.value);
-      bpmTimer = setInterval(() => {
-        if (!stopped) playTone();
-      }, interval);
+    function scheduleNotes(){
+      clearInterval(bpmTimer);initPatterns();
+      const interval=60000/parseInt(bpmCtrl.value);
+      bpmTimer=setInterval(()=>{if(!stopped) playTone();},interval);
     }
 
-    function animate() {
+    function animate(){
       requestAnimationFrame(animate);
       analyser.getByteTimeDomainData(dataArray);
-      ctx.fillStyle = 'rgba(0,0,0,0.02)';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      if (trailFrames.length > 6) trailFrames.shift();
-      trailFrames.push([...dataArray]);
-
-      const grad = ctx.createLinearGradient(0, 0, canvas.width, 0);
-      grad.addColorStop(0, getColor());
-      grad.addColorStop(1, getColor());
-
-      ctx.lineJoin = 'round';
-      ctx.lineCap = 'round';
-      ctx.strokeStyle = grad;
-      ctx.shadowBlur = 8;
-      ctx.shadowColor = getColor();
-
-      const amp = 0.85;
-      const step = Math.max(1, Math.floor(bufferLength / (parseFloat(densityCtrl.value) * 30)));
-      trailFrames.forEach((data, t) => {
-        ctx.beginPath();
-        let x = 0;
-        for (let i = 0; i < data.length; i += step) {
-          const y = (data[i] - 128) / 128 * (canvas.height / 2 * 0.9 * amp) + canvas.height / 2;
-          i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-          x += canvas.width / (bufferLength / step);
+      ctx.fillStyle='rgba(0,0,0,0.02)';ctx.fillRect(0,0,canvas.width,canvas.height);
+      if(trailFrames.length>6) trailFrames.shift();trailFrames.push([...dataArray]);
+      const grad=ctx.createLinearGradient(0,0,canvas.width,0);grad.addColorStop(0,getColor());grad.addColorStop(1,getColor());
+      ctx.lineJoin='round';ctx.lineCap='round';ctx.strokeStyle=grad;ctx.shadowBlur=8;ctx.shadowColor=getColor();
+      const amp=0.85;
+      const step=Math.max(1,Math.floor(bufferLength/(parseFloat(densityCtrl.value)*30)));
+      trailFrames.forEach((data,t)=>{ctx.beginPath();let x=0;
+        for(let i=0;i<data.length;i+=step){
+          const y=(data[i]-128)/128*(canvas.height/2*0.9*amp)+canvas.height/2;
+          i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+          x+=canvas.width/(bufferLength/step);
         }
-        ctx.globalAlpha = 0.05 + (t / trailFrames.length) * 0.1;
-        ctx.stroke();
+        ctx.globalAlpha=0.05+(t/trailFrames.length)*0.1;ctx.stroke();
       });
-      ctx.globalAlpha = 1;
-      ctx.shadowBlur = 0;
+      ctx.globalAlpha=1;ctx.shadowBlur=0;
     }
 
     // Event handlers
-    toggleUI.onclick = () => {
-      const vis = controlsWrapper.style.display !== 'flex';
-      controlsWrapper.style.display = vis ? 'flex' : 'none';
-      toggleUI.textContent = vis ? 'Hide Controls' : 'Show Controls';
+    toggleUI.onclick=()=>{
+      const vis=controlsWrapper.style.display!=='flex';
+      controlsWrapper.style.display=vis?'flex':'none';
+      toggleUI.textContent=vis?'Hide Controls':'Show Controls';
     };
-    toggleDisplay.onclick = () => {
-      const vis = infoDisplay.style.display !== 'block';
-      infoDisplay.style.display = vis ? 'block' : 'none';
-      toggleDisplay.textContent = vis ? 'Hide Data' : 'Show Data';
+    toggleDisplay.onclick=()=>{
+      const vis=infoDisplay.style.display!=='block';
+      infoDisplay.style.display=vis?'block':'none';
+      toggleDisplay.textContent=vis?'Hide Data':'Show Data';
     };
-    playBtn.onclick = () => {
-      initAudio();
-      stopped = false;
-      scheduleNotes();
+    playBtn.onclick=()=>{
+      initAudio();stopped=false;scheduleNotes();
     };
-    stopBtn.onclick = () => {
-      stopped = true;
-      clearInterval(bpmTimer);
+    stopBtn.onclick=()=>{
+      stopped=true;clearInterval(bpmTimer);
     };
-    bpmCtrl.oninput = scheduleNotes;
-    chorusDepthCtrl.oninput = () => { chorusGain.gain = parseFloat(chorusDepthCtrl.value); };
+    bpmCtrl.oninput=scheduleNotes;
+    chorusDepthCtrl.oninput=()=>{chorusGain.gain=parseFloat(chorusDepthCtrl.value);};
 
-    setInterval(() => {
-      infoDisplay.textContent =
-        `PRESET: ${preset.value}\nDELAY: ${delayCtrl.value}\nECHO: ${echoCtrl.value}\nREVERB: ${reverbCtrl.value}\nFILTER: ${filterCtrl.value}\nFREQ: ${freqCtrl.value}\nVOL: ${volumeCtrl.value}\nBPM: ${bpmCtrl.value}\nDENSITY: ${densityCtrl.value}`;
-    }, 250);
+    setInterval(()=>{
+      infoDisplay.textContent=
+        `PRESET: ${preset.value}
+DELAY: ${delayCtrl.value}
+ECHO: ${echoCtrl.value}
+REVERB: ${reverbCtrl.value}
+FILTER: ${filterCtrl.value}
+FREQ: ${freqCtrl.value}
+VOL: ${volumeCtrl.value}
+BPM: ${bpmCtrl.value}
+DENSITY: ${densityCtrl.value}`;
+    },250);
   </script>
 </body>
 </html>
