@@ -1,0 +1,172 @@
+// EFFECTS MODULES
+
+A. Delay Effect Module
+// DelayEffect.js
+class DelayEffect {
+  constructor(audioCtx) {
+    this.input = audioCtx.createGain();
+    this.delay = audioCtx.createDelay();
+    this.feedback = audioCtx.createGain();
+    this.output = audioCtx.createGain();
+
+    // default values
+    this.delay.delayTime.value = 0.35;
+    this.feedback.gain.value = 0.35;
+
+    this.input.connect(this.delay);
+    this.delay.connect(this.feedback);
+    this.feedback.connect(this.delay);
+    this.delay.connect(this.output);
+  }
+
+  connect(audioNode) {
+    this.output.connect(audioNode);
+  }
+  disconnect() {
+    this.output.disconnect();
+  }
+  setDelayTime(seconds) {
+    this.delay.delayTime.value = seconds;
+  }
+  setFeedback(amount) {
+    this.feedback.gain.value = amount;
+  }
+}
+
+B. Echo Effect Module (Simple Feedback Delay)
+// EchoEffect.js
+class EchoEffect {
+  constructor(audioCtx) {
+    this.input = audioCtx.createGain();
+    this.delay = audioCtx.createDelay();
+    this.feedback = audioCtx.createGain();
+    this.output = audioCtx.createGain();
+
+    this.delay.delayTime.value = 0.18; // shorter than DelayEffect
+    this.feedback.gain.value = 0.2;
+
+    this.input.connect(this.delay);
+    this.delay.connect(this.feedback);
+    this.feedback.connect(this.delay);
+    this.delay.connect(this.output);
+  }
+  connect(audioNode) {
+    this.output.connect(audioNode);
+  }
+  disconnect() {
+    this.output.disconnect();
+  }
+  setEchoTime(seconds) {
+    this.delay.delayTime.value = seconds;
+  }
+  setFeedback(amount) {
+    this.feedback.gain.value = amount;
+  }
+}
+
+C. Filter Effect Module
+// FilterEffect.js
+class FilterEffect {
+  constructor(audioCtx) {
+    this.input = audioCtx.createGain();
+    this.filter = audioCtx.createBiquadFilter();
+    this.output = audioCtx.createGain();
+
+    this.filter.type = "lowpass";
+    this.filter.frequency.value = 1800; // default
+    this.input.connect(this.filter);
+    this.filter.connect(this.output);
+  }
+  connect(audioNode) {
+    this.output.connect(audioNode);
+  }
+  disconnect() {
+    this.output.disconnect();
+  }
+  setCutoff(freq) {
+    this.filter.frequency.value = freq;
+  }
+}
+
+//D. Frequency Control Module
+//This is not a traditional “effect,” but to match your list, here’s an interface for live-tuning oscillator base frequency.
+
+// FrequencyModule.js
+class FrequencyModule {
+  constructor(oscillator) {
+    this.osc = oscillator;
+  }
+  setFrequency(freq) {
+    this.osc.frequency.value = freq;
+  }
+}
+
+//E. Volume Effect Module
+// VolumeEffect.js
+class VolumeEffect {
+  constructor(audioCtx) {
+    this.input = audioCtx.createGain();
+    this.output = audioCtx.createGain();
+    this.input.connect(this.output);
+  }
+  connect(audioNode) {
+    this.output.connect(audioNode);
+  }
+  disconnect() {
+    this.output.disconnect();
+  }
+  setVolume(level) {
+    this.output.gain.value = level;
+  }
+}
+
+//F. BPM Module
+Used for clock/timer sync in melodic patterning and delay sync.
+
+// BPMModule.js
+class BPMModule {
+  constructor() {
+    this.bpm = 80;
+    this.listeners = [];
+  }
+  setBPM(bpm) {
+    this.bpm = bpm;
+    this.listeners.forEach(cb => cb(this.bpm));
+  }
+  onChange(cb) {
+    this.listeners.push(cb);
+  }
+}
+
+//3. EFFECT CHAIN SYSTEM: SWAP/ADD/REMOVE EFFECTS
+A simple way to “mix and match” effects: keep an array of modules, and let users add/remove by pushing/popping them in the chain. Example code:
+
+// main.js
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+const oscillator = audioCtx.createOscillator();
+oscillator.type = "square";
+oscillator.frequency.value = 440; // base freq
+
+const volume = new VolumeEffect(audioCtx);
+const delay = new DelayEffect(audioCtx);
+const filter = new FilterEffect(audioCtx);
+
+const effectsChain = [volume, delay, filter]; // Example order
+
+// Chain connection function
+function connectChain(source, chain, destination) {
+  let node = source;
+  chain.forEach(effect => {
+    node.connect(effect.input);
+    node = effect.output;
+  });
+  node.connect(destination);
+}
+
+// To swap effects, just reorder `effectsChain` or add/remove modules.
+
+oscillator.start();
+connectChain(oscillator, effectsChain, audioCtx.destination);
+
+// To remove an effect, take it out of `effectsChain` and re-call connectChain.
