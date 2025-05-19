@@ -67,16 +67,15 @@
 <canvas id="wave"></canvas>
 <div class="ui">
   <button id="play">Play</button>
-  <button id="stop">Stop</button>
+  <button id="stop" disabled>Stop</button>
   <select id="preset"></select>
   <span class="key-label" id="keyLabel">—</span>
 </div>
 <script>
-/* ==== PLANTASIA APP v4 STRIPPED (NO EFFECTS) ==== */
+/* ==== PLANTASIA APP — STRIPPED (NO EFFECTS, UI WORKING) ==== */
 
 // --- Constants ---
-const sampleRate = 44100;
-const plantPentatonic = [0, 2, 4, 7, 9]; // (intervals: root, major 2nd, major 3rd, 5th, 6th)
+const plantPentatonic = [0, 2, 4, 7, 9]; // intervals: root, major 2nd, major 3rd, 5th, 6th
 const presetData = [
   {
     name: "Classic Plant",
@@ -118,7 +117,7 @@ const presetData = [
 let currentPreset = 0;
 
 // --- Audio Engine ---
-let ctx, masterGain, isPlaying = false, melodyInterval;
+let ctx = null, masterGain = null, isPlaying = false, melodyInterval = null;
 let voices = [];
 const attack = 0.38, release = 1.8, noteLen = 1.65; // envelope (seconds)
 
@@ -142,7 +141,7 @@ function playNote(freq, pan = 0) {
     env.linearRampToValueAtTime(0, now + attack + release);
 
     let panner = ctx.createStereoPanner();
-    panner.pan.value = (i === 0 ? -pan : (i === 2 ? pan : 0)); // center/left/right
+    panner.pan.value = (i === 0 ? -pan : (i === 2 ? pan : 0)); // left, center, right
 
     osc.connect(gain).connect(panner).connect(masterGain);
 
@@ -152,9 +151,9 @@ function playNote(freq, pan = 0) {
     voice.push({ osc, gain, panner });
     osc.onended = () => {
       voice.forEach(v => {
-        v.osc.disconnect();
-        v.gain.disconnect();
-        v.panner.disconnect();
+        try { v.osc.disconnect(); } catch(e){}
+        try { v.gain.disconnect(); } catch(e){}
+        try { v.panner.disconnect(); } catch(e){}
       });
     };
   }
@@ -178,18 +177,26 @@ function nextMelodyNote() {
 // --- Play/Stop ---
 function startMelody() {
   if (isPlaying) return;
-  ctx = new (window.AudioContext || window.webkitAudioContext)();
+  if (!ctx) {
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+  }
   masterGain = ctx.createGain();
   masterGain.gain.value = 0.32;
   masterGain.connect(ctx.destination);
   isPlaying = true;
-  // Start melodic loop (fixed interval, e.g. 1.7s)
+  document.getElementById('play').disabled = true;
+  document.getElementById('stop').disabled = false;
+  // Start melodic loop
   melodyInterval = setInterval(nextMelodyNote, noteLen * 1000);
   nextMelodyNote(); // Play first note immediately
 }
+
 function stopMelody() {
   isPlaying = false;
+  document.getElementById('play').disabled = false;
+  document.getElementById('stop').disabled = true;
   if (melodyInterval) clearInterval(melodyInterval);
+  melodyInterval = null;
   if (voices.length) voices.forEach(voice =>
     voice.forEach(v => {
       try { v.osc.stop(); } catch(e){}
@@ -197,11 +204,20 @@ function stopMelody() {
     })
   );
   voices = [];
-  if (masterGain) masterGain.disconnect();
+  if (masterGain) {
+    try { masterGain.disconnect(); } catch(e){}
+  }
 }
 
 // --- UI Handlers ---
-document.getElementById('play').onclick = startMelody;
+document.getElementById('play').onclick = function() {
+  if (!ctx) {
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  // Required for Chrome autoplay policy
+  ctx.resume && ctx.resume();
+  startMelody();
+};
 document.getElementById('stop').onclick = stopMelody;
 
 // --- Preset Select ---
@@ -212,12 +228,14 @@ presetData.forEach((p, i) => {
   opt.innerText = p.name;
   presetSel.appendChild(opt);
 });
+presetSel.value = 0;
 presetSel.onchange = (e) => {
-  currentPreset = parseInt(e.target.value);
+  currentPreset = parseInt(e.target.value, 10);
   const p = presetData[currentPreset];
   scaleNotes = getScaleNotes(p.base, p.scale);
   document.getElementById('keyLabel').innerText = p.key;
   updateWaveColor(0);
+  prevIdx = -1; // Reset so pattern shuffles anew
 };
 document.getElementById('keyLabel').innerText = presetData[0].key;
 
