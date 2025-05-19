@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Plantasia App v59 – Fixed UI + Continuous Triangle</title>
+  <title>Plantasia App v60 – All Presets Restored</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap');
     :root { --bg: #000; --fg: #fff; --font: 'Roboto Mono', monospace; --accent: #00ff00; }
@@ -40,15 +40,23 @@
     <button id="stop">Stop</button>
   </div>
   <div id="controlsWrapper" class="controls">
-    <label>Preset
-      <select id="preset">
-        <option value="plants">Plants</option>
-        <option value="mold">Mold</option>
-        <option value="bacteria">Bacteria</option>
-        <option value="mushrooms">Mushrooms</option>
-        <option value="harmony">Lifeform Harmony</option>
-      </select>
-    </label>
+    <label>Preset<select id="preset">
+      <option value="plants">Plants</option>
+      <option value="mold">Mold</option>
+      <option value="bacteria">Bacteria</option>
+      <option value="mushrooms">Mushrooms</option>
+      <option value="harmony">Lifeform Harmony</option>
+      <option value="dmt">DMT (Slow & Drowny)</option>
+      <option value="planetRock">Planet Rock</option>
+      <option value="bachPreludeC">Bach Prelude</option>
+      <option value="euclid">Euclidean Rhythm</option>
+      <option value="fib">Fibonacci Intervals</option>
+      <option value="markov">Markov Chain</option>
+      <option value="raga">Raga (Indian)</option>
+      <option value="hijaz">Hijaz (Middle East)</option>
+      <option value="pelog">Pelog (Gamelan)</option>
+      <option value="insen">In-Sen (Japanese)</option>
+    </select></label>
     <label>Freq <input type="range" id="freq" min="20" max="500" step="1" value="220"/></label>
     <label>Vol <input type="range" id="volume" min="0" max="100" step="1" value="40"/></label>
     <label>Density <input type="range" id="density" min="1" max="10" step="1" value="3"/></label>
@@ -58,8 +66,8 @@
   <div class="footer">© 2025 Nate | Category: <span id="categoryLabel">Plants</span></div>
   <script>
     let audioCtx, analyser, dataTime, masterGain, bufferLen, osc, env;
-    let canvas = document.getElementById("visualizer");
-    let ctx = canvas.getContext("2d");
+    const canvas = document.getElementById("visualizer");
+    const ctx = canvas.getContext("2d");
 
     const ctrls = {
       preset: document.getElementById("preset"),
@@ -107,6 +115,7 @@
       env.gain.linearRampToValueAtTime(1, now + 0.5);
 
       osc.connect(env).connect(analyser).connect(masterGain);
+      masterGain.gain.value = parseFloat(ctrls.volume.value) / 100;
       osc.start();
     }
 
@@ -149,7 +158,7 @@
         if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
       });
       ctx.closePath();
-      ctx.strokeStyle = ctrls.preset.value === "plants" ? "#00FF7F" : "#FFFFFF";
+      ctx.strokeStyle = "#00FF7F";
       ctx.lineWidth = 4;
       ctx.stroke();
 
@@ -184,6 +193,10 @@
     ctrls.preset.addEventListener("change", () => {
       ui.category.textContent = ctrls.preset.options[ctrls.preset.selectedIndex].text;
     });
+
+    setInterval(() => {
+      ui.info.textContent = `PRESET: ${ctrls.preset.value}\nFREQ: ${ctrls.freq.value}\nVOL: ${ctrls.volume.value}\nDENSITY: ${ctrls.density.value}`;
+    }, 250);
 
     animate();
   </script>
