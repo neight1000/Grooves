@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Plantasia App — Modular Effects Panel</title>
+  <title>Plantasia App — Modular Effects (Working Controls)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     html, body {
@@ -50,7 +50,11 @@
       cursor: pointer;
       transition: background .1s;
     }
-    .ui button:hover {
+    .ui button:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+    .ui button:hover:enabled {
       background: #111;
     }
     .key-label {
@@ -102,9 +106,7 @@
 </head>
 <body>
 <canvas id="wave"></canvas>
-<div class="effects-panel" id="effectsPanel">
-  <!-- Effect toggles and sliders are injected here -->
-</div>
+<div class="effects-panel" id="effectsPanel"></div>
 <div class="ui">
   <button id="play">Play</button>
   <button id="stop" disabled>Stop</button>
@@ -116,7 +118,6 @@
 class VolumeEffect {
   constructor(ctx) {
     this.gainNode = ctx.createGain();
-    this.active = false;
     this.setAmount(0.32);
   }
   get input() { return this.gainNode; }
@@ -124,14 +125,11 @@ class VolumeEffect {
   connect(node) { this.gainNode.connect(node); }
   disconnect() { try { this.gainNode.disconnect(); } catch(e){} }
   setAmount(val) { this.gainNode.gain.value = val; }
-  activate() { this.active = true; }
-  deactivate() { this.active = false; this.setAmount(1.0); }
 }
 class FilterEffect {
   constructor(ctx) {
     this.filterNode = ctx.createBiquadFilter();
     this.filterNode.type = "lowpass";
-    this.active = false;
     this.setAmount(1800);
   }
   get input() { return this.filterNode; }
@@ -139,18 +137,14 @@ class FilterEffect {
   connect(node) { this.filterNode.connect(node); }
   disconnect() { try { this.filterNode.disconnect(); } catch(e){} }
   setAmount(val) { this.filterNode.frequency.value = val; }
-  activate() { this.active = true; }
-  deactivate() { this.active = false; this.setAmount(24000); }
 }
 class DelayEffect {
   constructor(ctx) {
     this.delayNode = ctx.createDelay();
     this.feedback = ctx.createGain();
     this.outputNode = ctx.createGain();
-    // Defaults:
     this.delayNode.delayTime.value = 0.24;
     this.feedback.gain.value = 0.18;
-    this.active = false;
     // Routing
     this.delayNode.connect(this.feedback);
     this.feedback.connect(this.delayNode);
@@ -168,8 +162,6 @@ class DelayEffect {
     this.delayNode.delayTime.value = 0.05 + val * 0.6;
     this.feedback.gain.value = val * 0.65;
   }
-  activate() { this.active = true; }
-  deactivate() { this.active = false; }
 }
 class EchoEffect {
   constructor(ctx) {
@@ -178,7 +170,6 @@ class EchoEffect {
     this.outputNode = ctx.createGain();
     this.delayNode.delayTime.value = 0.10;
     this.feedback.gain.value = 0.11;
-    this.active = false;
     // Routing
     this.delayNode.connect(this.feedback);
     this.feedback.connect(this.delayNode);
@@ -196,11 +187,9 @@ class EchoEffect {
     this.delayNode.delayTime.value = 0.05 + val * 0.2;
     this.feedback.gain.value = val * 0.35;
   }
-  activate() { this.active = true; }
-  deactivate() { this.active = false; }
 }
 
-// ==== PLANTASIA APP CORE ====
+/* ==== PLANTASIA APP CORE ==== */
 const presetData = [
   {
     name: "Classic Plant",
@@ -213,4 +202,303 @@ const presetData = [
     name: "Mold",
     base: 260,
     scale: [0, 3, 5, 8, 10],
-    key
+    key: "C minor",
+    color: "#B5FF41"
+  },
+  {
+    name: "Mushroom",
+    base: 247,
+    scale: [0, 2, 5, 7, 9],
+    key: "B minor",
+    color: "#41AFFF"
+  },
+  {
+    name: "Bacteria",
+    base: 196,
+    scale: [0, 3, 5, 7, 10],
+    key: "G minor",
+    color: "#F6FF41"
+  },
+  {
+    name: "Photosynthesis",
+    base: 233,
+    scale: [0, 2, 5, 9, 10],
+    key: "Bb minor",
+    color: "#FF41E2"
+  }
+];
+let currentPreset = 0;
+
+// --- Audio Engine ---
+let ctx = null, masterGain = null, isPlaying = false, melodyInterval = null;
+let voices = [];
+const attack = 0.38, release = 1.8, noteLen = 1.65; // envelope (seconds)
+function getScaleNotes(base, scale) {
+  return scale.map(interval => base * Math.pow(2, interval / 12));
+}
+let scaleNotes = getScaleNotes(presetData[0].base, presetData[0].scale);
+
+// --- Modular Effects System ---
+const effectTypes = [
+  {
+    name: "Volume",
+    create: ctx => new VolumeEffect(ctx),
+    defaultActive: true,
+    defaultAmount: 0.32,
+    min: 0, max: 1, step: 0.01
+  },
+  {
+    name: "Filter",
+    create: ctx => new FilterEffect(ctx),
+    defaultActive: false,
+    defaultAmount: 1800,
+    min: 200, max: 4000, step: 1
+  },
+  {
+    name: "Delay",
+    create: ctx => new DelayEffect(ctx),
+    defaultActive: false,
+    defaultAmount: 0.13,
+    min: 0, max: 1, step: 0.01
+  },
+  {
+    name: "Echo",
+    create: ctx => new EchoEffect(ctx),
+    defaultActive: false,
+    defaultAmount: 0.10,
+    min: 0, max: 1, step: 0.01
+  }
+];
+let effects = []; // Array of { type, instance, active, amount }
+
+// --- Effects Panel UI Render ---
+function renderEffectsPanel() {
+  const panel = document.getElementById('effectsPanel');
+  panel.innerHTML = '';
+  effects.forEach((eff, i) => {
+    const block = document.createElement('div');
+    block.className = 'effect-block';
+    // Toggle
+    const label = document.createElement('label');
+    const cb = document.createElement('input');
+    cb.type = "checkbox";
+    cb.checked = eff.active;
+    cb.onchange = () => { eff.active = cb.checked; setupChain(); };
+    label.appendChild(cb);
+    label.appendChild(document.createTextNode(eff.type.name));
+    block.appendChild(label);
+    // Slider
+    const slider = document.createElement('input');
+    slider.type = "range";
+    slider.min = eff.type.min;
+    slider.max = eff.type.max;
+    slider.step = eff.type.step;
+    slider.value = eff.amount;
+    slider.oninput = () => {
+      eff.amount = Number(slider.value);
+      if (eff.instance) eff.instance.setAmount(eff.amount);
+      valSpan.textContent = formatAmount(eff, eff.amount);
+    };
+    block.appendChild(slider);
+    // Value
+    const valSpan = document.createElement('span');
+    valSpan.className = "slider-value";
+    valSpan.textContent = formatAmount(eff, eff.amount);
+    block.appendChild(valSpan);
+    panel.appendChild(block);
+  });
+}
+function formatAmount(eff, amt) {
+  if (eff.type.name === "Volume") return (amt*100|0) + "%";
+  if (eff.type.name === "Filter") return Math.round(amt) + "Hz";
+  return Math.round(amt * 100) + "%";
+}
+// --- Chain ---
+function setupChain() {
+  // Clean up old instances
+  if (masterGain) try { masterGain.disconnect(); } catch(e){}
+  effects.forEach(eff => { if (eff.instance) eff.instance.disconnect(); });
+  // Create new effect instances for chain
+  if (!ctx) return;
+  masterGain = ctx.createGain();
+  masterGain.gain.value = 1;
+  effects.forEach(eff => { eff.instance = eff.type.create(ctx); eff.instance.setAmount(eff.amount); });
+  // Chain: masterGain → enabled effects in order → ctx.destination
+  let node = masterGain;
+  effects.forEach(eff => {
+    if (eff.active) {
+      node.connect(eff.instance.input);
+      node = eff.instance.output;
+      if (eff.instance.setAmount) eff.instance.setAmount(eff.amount);
+    }
+  });
+  node.connect(ctx.destination);
+}
+
+// --- Oscillator Voice ---
+function playNote(freq, pan = 0) {
+  if (!ctx || !masterGain) return;
+  const now = ctx.currentTime;
+  let voice = [];
+  for (let i = 0; i < 3; i++) {
+    let osc = ctx.createOscillator();
+    osc.type = "square";
+    osc.frequency.value = freq + ((i - 1) * 2.4); // detune ±2.4 Hz for analog warmth
+    let gain = ctx.createGain();
+    let env = gain.gain;
+    env.setValueAtTime(0, now);
+    env.linearRampToValueAtTime(0.5, now + attack);
+    env.linearRampToValueAtTime(0, now + attack + release);
+    let panner = ctx.createStereoPanner();
+    panner.pan.value = (i === 0 ? -pan : (i === 2 ? pan : 0)); // left, center, right
+    osc.connect(gain).connect(panner).connect(masterGain);
+    osc.start(now);
+    osc.stop(now + attack + release + 0.2);
+    voice.push({ osc, gain, panner });
+    osc.onended = () => {
+      voice.forEach(v => {
+        try { v.osc.disconnect(); } catch(e){}
+        try { v.gain.disconnect(); } catch(e){}
+        try { v.panner.disconnect(); } catch(e){}
+      });
+    };
+  }
+  voices.push(voice);
+}
+
+// --- Melody Evolution ---
+let prevIdx = -1;
+function nextMelodyNote() {
+  let idx;
+  do {
+    idx = Math.floor(Math.random() * scaleNotes.length);
+  } while (idx === prevIdx);
+  prevIdx = idx;
+  let note = scaleNotes[idx];
+  playNote(note, 0.26);
+  updateWaveColor(idx);
+}
+
+// --- Play/Stop ---
+function startMelody() {
+  if (isPlaying) return;
+  if (!ctx) {
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  isPlaying = true;
+  document.getElementById('play').disabled = true;
+  document.getElementById('stop').disabled = false;
+  // Create effects fresh for chain
+  effects = effectTypes.map(t => ({
+    type: t,
+    instance: null,
+    active: t.defaultActive,
+    amount: t.defaultAmount
+  }));
+  renderEffectsPanel();
+  setupChain();
+  // Start melodic loop
+  melodyInterval = setInterval(nextMelodyNote, noteLen * 1000);
+  nextMelodyNote(); // Play first note immediately
+}
+function stopMelody() {
+  isPlaying = false;
+  document.getElementById('play').disabled = false;
+  document.getElementById('stop').disabled = true;
+  if (melodyInterval) clearInterval(melodyInterval);
+  melodyInterval = null;
+  if (voices.length) voices.forEach(voice =>
+    voice.forEach(v => {
+      try { v.osc.stop(); } catch(e){}
+      try { v.osc.disconnect(); } catch(e){}
+    })
+  );
+  voices = [];
+  if (masterGain) {
+    try { masterGain.disconnect(); } catch(e){}
+  }
+}
+// --- UI Handlers ---
+document.getElementById('play').onclick = function() {
+  if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+  ctx.resume && ctx.resume();
+  startMelody();
+};
+document.getElementById('stop').onclick = stopMelody;
+// --- Preset Select ---
+const presetSel = document.getElementById('preset');
+presetSel.innerHTML = "";
+presetData.forEach((p, i) => {
+  const opt = document.createElement('option');
+  opt.value = i;
+  opt.innerText = p.name;
+  presetSel.appendChild(opt);
+});
+presetSel.value = 0;
+presetSel.onchange = (e) => {
+  currentPreset = parseInt(e.target.value, 10);
+  const p = presetData[currentPreset];
+  scaleNotes = getScaleNotes(p.base, p.scale);
+  document.getElementById('keyLabel').innerText = p.key;
+  updateWaveColor(0);
+  prevIdx = -1; // Reset so pattern shuffles anew
+};
+document.getElementById('keyLabel').innerText = presetData[0].key;
+// --- Effects Panel Init ---
+renderEffectsPanel();
+// --- Waveform Visualizer ---
+const canvas = document.getElementById('wave');
+const ctx2d = canvas.getContext('2d');
+let W = 800, H = 300;
+function resize() {
+  W = window.innerWidth;
+  H = Math.floor(window.innerHeight * 0.60);
+  canvas.width = W;
+  canvas.height = H;
+}
+resize();
+window.onresize = resize;
+let waveColor = presetData[0].color;
+function updateWaveColor(idx) {
+  waveColor = presetData[currentPreset].color;
+}
+let waveT = 0;
+function drawWave() {
+  ctx2d.clearRect(0,0,W,H);
+  let c = waveColor;
+  let points = [];
+  for (let x = 0; x < W; x++) {
+    // Triangle-based waveform, animating slowly
+    let phase = (waveT + x / W * 2 * Math.PI) % (2 * Math.PI);
+    let y = H/2 + (Math.asin(Math.sin(phase * 2.1)) / Math.PI) * (H/3);
+    points.push([x, y]);
+  }
+  // Draw gradient waveform
+  let grad = ctx2d.createLinearGradient(0,0,W,0);
+  grad.addColorStop(0, c);
+  grad.addColorStop(1, "#fff");
+  ctx2d.strokeStyle = grad;
+  ctx2d.lineWidth = 4;
+  ctx2d.beginPath();
+  points.forEach(([x, y], i) => {
+    if (i === 0) ctx2d.moveTo(x, y);
+    else ctx2d.lineTo(x, y);
+  });
+  ctx2d.stroke();
+
+  // Draw frequency labels
+  ctx2d.font = "16px monospace";
+  ctx2d.fillStyle = "#fff";
+  scaleNotes.forEach((f, i) => {
+    let lx = 60 + i * ((W-120) / (scaleNotes.length-1));
+    ctx2d.fillText(`${Math.round(f)} Hz`, lx, H-18);
+  });
+
+  waveT += 0.016;
+  requestAnimationFrame(drawWave);
+}
+drawWave();
+
+</script>
+</body>
+</html>
