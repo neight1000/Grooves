@@ -53,9 +53,21 @@
       text-decoration: underline;
       transition: color 0.2s;
       cursor: pointer;
+      position: relative;
     }
     .proto-list a:hover {
       color: #7fffd4;
+    }
+    .proto-list .arrow {
+      display: inline-block;
+      margin-left: 6px;
+      color: #7fffd4;
+      font-weight: bold;
+      opacity: 1;
+      transition: opacity 0.14s;
+    }
+    .proto-list .arrow.hide {
+      opacity: 0;
     }
   </style>
 </head>
@@ -82,32 +94,32 @@
     </div>
     <h2 style="margin-top:32px;">Prototype List</h2>
     <ul class="proto-list" id="proto-list">
-      <li><a href="https://neight1000.github.io/Grooves/DMT.html"   >DMT.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/README.md"  >README.md</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/all.html"   >all.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/center.html">center.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/delay.html" >delay.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/design.html">design.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/dub-mode.html">dub-mode.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/index.html" >index.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/midi.html"  >midi.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/midi2.html" >midi2.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/midi3.html" >midi3.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/midi4.html" >midi4.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/midi5.html" >midi5.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/plantasia.html">plantasia.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/readme.html" >readme.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/v10.html"   >v10.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/v15.html"   >v15.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/v17.html"   >v17.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/v20.html"   >v20.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/v21.html"   >v21.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/v22.html"   >v22.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/v23.html"   >v23.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/v40.html"   >v40.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/v7.html"    >v7.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/v8.html"    >v8.html</a></li>
-      <li><a href="https://neight1000.github.io/Grooves/v9.html"    >v9.html</a></li>
+      <li><a href="https://neight1000.github.io/Grooves/DMT.html"   >DMT.html<span class="arrow hide">-&gt;</span></a></li>
+      <li><a href="https://neight1000.github.io/Grooves/README.md"  >README.md<span class="arrow hide">-&gt;</span></a></li>
+      <li><a href="https://neight1000.github.io/Grooves/all.html"   >all.html<span class="arrow hide">-&gt;</span></a></li>
+      <li><a href="https://neight1000.github.io/Grooves/center.html">center.html<span class="arrow hide">-&gt;</span></a></li>
+      <li><a href="https://neight1000.github.io/Grooves/delay.html" >delay.html<span class="arrow hide">-&gt;</span></a></li>
+      <li><a href="https://neight1000.github.io/Grooves/design.html">design.html<span class="arrow hide">-&gt;</span></a></li>
+      <li><a href="https://neight1000.github.io/Grooves/dub-mode.html">dub-mode.html<span class="arrow hide">-&gt;</span></a></li>
+      <li><a href="https://neight1000.github.io/Grooves/index.html" >index.html<span class="arrow hide">-&gt;</span></a></li>
+      <li><a href="https://neight1000.github.io/Grooves/midi.html"  >midi.html<span class="arrow hide">-&gt;</span></a></li>
+      <li><a href="https://neight1000.github.io/Grooves/midi2.html" >midi2.html<span class="arrow hide">-&gt;</span></a></li>
+      <li><a href="https://neight1000.github.io/Grooves/midi3.html" >midi3.html<span class="arrow hide">-&gt;</span></a></li>
+      <li><a href="https://neight1000.github.io/Grooves/midi4.html" >midi4.html<span class="arrow hide">-&gt;</span></a></li>
+      <li><a href="https://neight1000.github.io/Grooves/midi5.html" >midi5.html<span class="arrow hide">-&gt;</span></a></li>
+      <li><a href="https://neight1000.github.io/Grooves/plantasia.html">plantasia.html<span class="arrow hide">-&gt;</span></a></li>
+      <li><a href="https://neight1000.github.io/Grooves/readme.html" >readme.html<span class="arrow hide">-&gt;</span></a></li>
+      <li><a href="https://neight1000.github.io/Grooves/v10.html"   >v10.html<span class="arrow hide">-&gt;</span></a></li>
+      <li><a href="https://neight1000.github.io/Grooves/v15.html"   >v15.html<span class="arrow hide">-&gt;</span></a></li>
+      <li><a href="https://neight1000.github.io/Grooves/v17.html"   >v17.html<span class="arrow hide">-&gt;</span></a></li>
+      <li><a href="https://neight1000.github.io/Grooves/v20.html"   >v20.html<span class="arrow hide">-&gt;</span></a></li>
+      <li><a href="https://neight1000.github.io/Grooves/v21.html"   >v21.html<span class="arrow hide">-&gt;</span></a></li>
+      <li><a href="https://neight1000.github.io/Grooves/v22.html"   >v22.html<span class="arrow hide">-&gt;</span></a></li>
+      <li><a href="https://neight1000.github.io/Grooves/v23.html"   >v23.html<span class="arrow hide">-&gt;</span></a></li>
+      <li><a href="https://neight1000.github.io/Grooves/v40.html"   >v40.html<span class="arrow hide">-&gt;</span></a></li>
+      <li><a href="https://neight1000.github.io/Grooves/v7.html"    >v7.html<span class="arrow hide">-&gt;</span></a></li>
+      <li><a href="https://neight1000.github.io/Grooves/v8.html"    >v8.html<span class="arrow hide">-&gt;</span></a></li>
+      <li><a href="https://neight1000.github.io/Grooves/v9.html"    >v9.html<span class="arrow hide">-&gt;</span></a></li>
     </ul>
   </div>
   <script>
@@ -135,7 +147,6 @@
       osc.frequency.value = freq;
 
       const gain = synthCtx.createGain();
-      // Smooth attack and release
       gain.gain.setValueAtTime(0.0, now);
       gain.gain.linearRampToValueAtTime(0.16, now + 0.03);
       gain.gain.linearRampToValueAtTime(0.13, now + 0.09);
@@ -148,10 +159,25 @@
       osc.stop(now + 0.24);
     }
 
+    // Tone + arrow effect on link hover
     document.querySelectorAll('.proto-list a').forEach((link, idx) => {
+      const arrow = link.querySelector('.arrow');
       link.addEventListener('mouseenter', e => {
         initSynth();
         playPlantTone(hoverIndex++);
+        if (arrow) arrow.classList.remove('hide');
+      });
+      link.addEventListener('mouseleave', e => {
+        if (arrow) arrow.classList.add('hide');
+      });
+      // In case of keyboard focus
+      link.addEventListener('focus', e => {
+        initSynth();
+        playPlantTone(hoverIndex++);
+        if (arrow) arrow.classList.remove('hide');
+      });
+      link.addEventListener('blur', e => {
+        if (arrow) arrow.classList.add('hide');
       });
     });
   </script>
