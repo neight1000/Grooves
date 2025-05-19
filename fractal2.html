@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Plantasia Minimal – Touch & MIDI + Fractal Visuals</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.01, user-scalable=no" />
+  <link href="https://fonts.googleapis.com/css?family=Roboto:400,700&display=swap" rel="stylesheet">
+  <style>
+    html, body { margin:0; padding:0; background:#000; color:#fff; font-family:'Roboto',monospace; overflow:hidden; height:100%; width:100vw; user-select:none; overscroll-behavior:none; }
+    body { min-height:100vh; width:100vw; }
+    #waveCanvas { position:fixed; top:0; left:0; width:100vw; height:100vh; display:block; background:#000; z-index:1; }
+    .tray-skrim { position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.9); z-index:100; display:none; }
+    .tray { position:fixed; bottom:0; left:0; width:100vw; background:transparent; z-index:101; display:flex; justify-content:center; align-items:flex-end; pointer-events:none; }
+    .tray.open { pointer-events:auto; }
+    .ui { background:rgba(0,0,0,0.90); border-radius:18px 18px 0 0; box-shadow:0 -1px 18px #000c; display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:4px; padding:8px 4px 4px 4px; pointer-events:auto; min-width:225px; min-height:54px; max-width:98vw; margin:0 auto; border-top:1px solid #222; transition:transform 0.2s cubic-bezier(.87,0,.13,1); font-family:'Roboto',monospace; }
+    .ui.closed { transform:translateY(100%); pointer-events:none; }
+    .ui.open { transform:translateY(0%); pointer-events:auto; }
+    .ui label, .ui select, .ui input, .ui button, .ui span { font-family:'Roboto',monospace; font-size:10px; text-transform:lowercase; color:#fff; letter-spacing:0.04em; }
+    .ui label { margin-bottom:1px; font-weight:400; text-align:center; display:block; }
+    .ui input[type="range"], .ui select { width:100%; height:22px; font-size:10px; border-radius:7px; background:#111; border:1px solid #222; appearance:none; outline:none; accent-color:#00ffe0; margin:0 0 2px 0; padding:0; display:block; }
+    .ui select { font-size:10px; padding:2px 4px; min-width:48px; max-width:90px; height:22px; background:#111; border:1px solid #222; border-radius:7px; }
+    .ui button { width:32px; height:32px; border-radius:6px; border:none; background:#171717; color:#fff; font-size:10px; font-family:'Roboto',monospace; letter-spacing:0.09em; font-weight:400; margin:0 1px; padding:0; box-shadow:0 1px 7px #000c; cursor:pointer; transition:background .16s, border .13s, color .13s; text-transform:lowercase; display:flex; align-items:center; justify-content:center; }
+    .ui button:active, .ui button.active { background:#222; color:#0ffea0; border:1.5px solid #0ffea0; }
+    .ui > div { flex:1 1 30px; min-width:32px; max-width:80px; margin:2px 2px; display:flex; flex-direction:column; align-items:center; gap:0; }
+    .ui .color-slider-group { min-width:34px; max-width:80px; gap:0; }
+    .tray-toggle-btn { position:fixed; right:14px; bottom:18px; z-index:102; background:#111; color:#fff; border:1.5px solid #00ffe0; border-radius:8px; width:30px; height:30px; font-size:18px; cursor:pointer; box-shadow:0 1px 8px #000b; display:flex; align-items:center; justify-content:center; transition:background 0.14s, color 0.14s, border 0.14s; }
+    .tray-toggle-btn.open { background:#232323; color:#0ffea0; border-color:#0ffea0; }
+    .tray.open ~ .tray-toggle-btn { display:none; }
+    .ui input[type="range"]::-webkit-slider-thumb { width:15px; height:15px; border-radius:50%; background:#00ffe0; border:none; }
+    .ui input[type="range"]:focus { outline:1px solid #0ffea0; }
+    #infoDisplay, #midiLegend, #toggleLegend { display:none; }
+  </style>
+</head>
+<body>
+<canvas id="waveCanvas"></canvas>
+<div class="tray-skrim" id="traySkrim"></div>
+<div class="tray closed" id="tray">
+  <form class="ui closed" id="touchUI" autocomplete="off" onsubmit="return false;">
+    <div><label for="preset">preset</label>
+      <select id="preset" aria-label="preset" tabindex="0">
+        <option value="plants">plants</option>
+        <option value="mold">mold</option>
+        <option value="bacteria">bacteria</option>
+        <option value="mushrooms">mushrooms</option>
+        <option value="harmony">harmony</option>
+      </select>
+    </div>
+    <div><label for="delay">delay</label><input type="range" id="delay" min="0.01" max="2.0" step="0.01" value="0.6" aria-label="delay" tabindex="0" /></div>
+    <div><label for="echo">echo</label><input type="range" id="echo" min="0" max="1.0" step="0.01" value="0.4" aria-label="echo" tabindex="0" /></div>
+    <div><label for="filter">filter</label><input type="range" id="filter" min="100" max="8000" step="10" value="1200" aria-label="filter" tabindex="0" /></div>
+    <div><label for="freq">freq</label><input type="range" id="freq" min="50" max="1000" step="1" value="174" aria-label="frequency" tabindex="0" /></div>
+    <div><label for="volume">vol</label><input type="range" id="volume" min="0" max="100" value="60" aria-label="volume" tabindex="0" /></div>
+    <div><label for="bpm">bpm</label><input type="range" id="bpm" min="40" max="180" value="90" aria-label="bpm" tabindex="0" /></div>
+    <div>
+      <label for="midiChannelSelect">ch</label>
+      <select id="midiChannelSelect" aria-label="midi channel" tabindex="0">
+        <option value="-1">all</option>
+        <option value="0">1</option>
+        <option value="1">2</option>
+        <option value="2">3</option>
+        <option value="3">4</option>
+        <option value="4">5</option>
+        <option value="5">6</option>
+        <option value="6">7</option>
+        <option value="7">8</option>
+        <option value="8">9</option>
+        <option value="9">10</option>
+        <option value="10">11</option>
+        <option value="11">12</option>
+        <option value="12">13</option>
+        <option value="13">14</option>
+        <option value="14">15</option>
+        <option value="15">16</option>
+      </select>
+    </div>
+    <div class="color-slider-group">
+      <span class="color-slider-label">color</span>
+      <input type="range" id="colorSlider" min="0" max="359" value="180" aria-label="color" tabindex="0" />
+    </div>
+    <button id="play" aria-label="play" tabindex="0" title="play">&#9654;</button>
+    <button id="stop" aria-label="stop" tabindex="0" title="stop">&#9632;</button>
+    <button id="toggleDisplay" aria-label="data" tabindex="0" title="data">&#8505;</button>
+    <button id="toggleMidiIn" aria-label="midi" tabindex="0" title="midi">midi</button>
+    <button id="closeTray" aria-label="close tray" type="button" title="close" style="width:32px;height:32px;">&#215;</button>
+  </form>
+</div>
+<button class="tray-toggle-btn" id="openTrayBtn" aria-label="open tray" title="open" tabindex="0">&#9776;</button>
+<script>
+// --- Tray logic ---
+const tray = document.getElementById('tray');
+const traySkrim = document.getElementById('traySkrim');
+const touchUI = document.getElementById('touchUI');
+const openTrayBtn = document.getElementById('openTrayBtn');
+const closeTrayBtn = document.getElementById('closeTray');
+function openTray() {
+  tray.classList.remove('closed'); tray.classList.add('open');
+  touchUI.classList.remove('closed'); touchUI.classList.add('open');
+  traySkrim.style.display = 'block'; openTrayBtn.style.display = 'none';
+}
+function closeTray() {
+  tray.classList.remove('open'); tray.classList.add('closed');
+  touchUI.classList.remove('open'); touchUI.classList.add('closed');
+  traySkrim.style.display = 'none'; openTrayBtn.style.display = '';
+}
+openTrayBtn.addEventListener('click', openTray);
+traySkrim.addEventListener('click', closeTray);
+closeTrayBtn.addEventListener('click', closeTray);
+
+// --- Visualizer Fractal Logic (unchanged from last version) ---
+let secondaryColorHue = 180, currentWaveColor = "#00ffe0";
+let canvas = document.getElementById("waveCanvas"), ctx = canvas.getContext("2d");
+function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+window.addEventListener('resize', resizeCanvas); resizeCanvas();
+const presetFractals = {
+  plants: function(ctx, data, t, color) {
+    let branches = 8, len = Math.max(120, canvas.height/3), angleSpread = Math.PI / 6;
+    ctx.save();
+    ctx.translate(canvas.width/2, canvas.height);
+    ctx.strokeStyle = `rgba(0,255,120,${0.12+t*0.25})`;
+    ctx.shadowBlur = 24; ctx.shadowColor = "#4fff99";
+    function branch(level, l, a) {
+      if(level > 5) return;
+      ctx.save();
+      ctx.rotate(a);
+      ctx.beginPath();
+      ctx.moveTo(0,0);
+      ctx.lineTo(0, -l);
+      ctx.stroke();
+      ctx.translate(0, -l);
+      for(let i=0; i<2; ++i) {
+        branch(level+1, l*0.7, (i?-1:1)*angleSpread*(0.7+0.3*Math.sin(t*3+level)));
+      }
+      ctx.restore();
+    }
+    branch(0, len*(0.95+0.2*Math.sin(t*0.7)), 0);
+    ctx.restore();
+  },
+  mold: function(ctx, data, t, color) {
+    let cx = canvas.width/2, cy = canvas.height/2, baseR = Math.min(cx,cy)*0.5;
+    ctx.save();
+    ctx.globalAlpha = 0.16 + 0.12*Math.sin(t*2.4);
+    for(let blob=0; blob<7; ++blob) {
+      let R = baseR*(0.7+0.3*Math.sin(t+blob));
+      ctx.beginPath();
+      for(let a=0; a<=Math.PI*2; a+=Math.PI/48) {
+        let r = R*(1+0.14*Math.sin(blob*3+a*blob+t*blob+Math.cos(blob+t)));
+        let x = cx + r*Math.cos(a);
+        let y = cy + r*Math.sin(a);
+        if(a===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      }
+      ctx.closePath();
+      ctx.strokeStyle = `rgba(177, 98, 255, 0.45)`;
+      ctx.shadowColor = "#dbbfff";
+      ctx.shadowBlur = 18;
+      ctx.stroke();
+    }
+    ctx.restore();
+  },
+  bacteria: function(ctx, data, t, color) {
+    ctx.save();
+    let cells = 36, radius = 36 + 22*Math.sin(t*1.7);
+    let cx = canvas.width/2, cy = canvas.height/2;
+    for(let i=0; i<cells; ++i) {
+      let a = i*2*Math.PI/cells + Math.sin(t+i*0.2)*0.2;
+      let r = radius*(1+0.25*Math.sin(t*3+i));
+      let x = cx + r*Math.cos(a);
+      let y = cy + r*Math.sin(a);
+      ctx.beginPath();
+      ctx.arc(x, y, 8+6*Math.abs(Math.sin(t+i)), 0, 2*Math.PI);
+      ctx.fillStyle = `rgba(255, 80, 0, ${0.08+0.22*Math.abs(Math.sin(t+i*1.5))})`;
+      ctx.shadowColor = "#ffb400"; ctx.shadowBlur = 18;
+      ctx.fill();
+    }
+    ctx.restore();
+  },
+  mushrooms: function(ctx, data, t, color) {
+    ctx.save();
+    let n = 7;
+    for(let i=0;i<n;++i) {
+      let x = (canvas.width/(n+1))*(i+1);
+      let baseY = canvas.height*0.86;
+      let stemLen = 40+24*Math.abs(Math.sin(t+i));
+      let capR = 25+9*Math.cos(t*1.2+i);
+      let y = baseY - stemLen - capR;
+      ctx.beginPath();
+      ctx.moveTo(x, baseY);
+      ctx.lineTo(x, y+capR);
+      ctx.strokeStyle = "rgba(220,220,180,0.18)";
+      ctx.lineWidth = 7;
+      ctx.shadowColor = "#fffbe0"; ctx.shadowBlur = 4;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(x, y, capR, Math.PI, 0, false);
+      ctx.closePath();
+      ctx.fillStyle = "rgba(255, 215, 0, 0.28)";
+      ctx.shadowColor = "#ffe969"; ctx.shadowBlur = 20;
+      ctx.fill();
+    }
+    ctx.restore();
+  },
+  harmony: function(ctx, data, t, color) {
+    ctx.save();
+    let cx = canvas.width/2, cy = canvas.height/2;
+    ctx.globalAlpha = 0.16;
+    for(let i=0;i<5;++i) {
+      let r = 70+35*i + 18*Math.sin(t+i);
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, 2*Math.PI);
+      ctx.strokeStyle = `rgba(0,255,255,0.20)`;
+      ctx.shadowColor = "#00ffe0"; ctx.shadowBlur = 12+10*i;
+      ctx.lineWidth = 1.5+0.8*Math.sin(t+i);
+      ctx.stroke();
+    }
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 0.22;
+    ctx.beginPath();
+    for(let x=0;x<canvas.width;x+=4) {
+      let y = cy + 45*Math.sin(x/54+t)*Math.cos(t+0.7*x/250);
+      if(x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.strokeStyle = "#00ffe0";
+    ctx.lineWidth = 2.2;
+    ctx.shadowColor = "#00ffe0";
+    ctx.shadowBlur = 12;
+    ctx.stroke();
+    ctx.restore();
+  }
+};
+let lastPreset = "plants";
+function fractalVisualizer() {
+  requestAnimationFrame(fractalVisualizer);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  let preset = document.getElementById('preset')?.value || lastPreset;
+  lastPreset = preset;
+  let t = performance.now()/1000;
+  let data = window.dataArray || [];
+  let grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+  if (preset === "plants") {
+    grad.addColorStop(0, "#1e4023");
+    grad.addColorStop(1, "#56ffb2");
+  } else if (preset === "mold") {
+    grad.addColorStop(0, "#180825");
+    grad.addColorStop(1, "#b18aff");
+  } else if (preset === "bacteria") {
+    grad.addColorStop(0, "#2d1700");
+    grad.addColorStop(1, "#ff8a36");
+  } else if (preset === "mushrooms") {
+    grad.addColorStop(0, "#2e2400");
+    grad.addColorStop(1, "#ffe969");
+  } else if (preset === "harmony") {
+    grad.addColorStop(0, "#001e2f");
+    grad.addColorStop(1, "#00fff7");
+  }
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  if (presetFractals[preset]) presetFractals[preset](ctx, data, t, currentWaveColor);
+}
+window.addEventListener('DOMContentLoaded', () => { fractalVisualizer(); resizeCanvas(); });
+
+/* --- Synth, MIDI, and UI logic --- */
+let audioCtx, analyser, masterGain, delayReverbNode, bufferLength, dataArray;
+let bpm = 90, bpmTimer = null, stopped = true;
+function getInput(id) { return document.getElementById(id); }
+function getPresetSettings(val) {
+  const presetSettings = {
+    plants:     { scale: [174, 285, 396, 417, 528], color: "#00FF7F" },
+    mold:       { scale: [432, 639, 741],           color: "#8A2BE2" },
+    bacteria:   { scale: [528, 554, 585, 728],      color: "#FF4500" },
+    mushrooms:  { scale: [417, 444, 528, 639],      color: "#FFD700" },
+    harmony:    { scale: [432, 528, 639, 741, 852], color: "#00FFFF" }
+  };
+  return presetSettings[val] || presetSettings["plants"];
+}
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 2048;
+  bufferLength = analyser.frequencyBinCount;
+  dataArray = new Uint8Array(bufferLength);
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = parseFloat(getInput('volume').value) / 100;
+  delayReverbNode = audioCtx.createDelay();
+  const reverbFeedback = audioCtx.createGain();
+  delayReverbNode.delayTime.value = 0.4;
+  reverbFeedback.gain.value = 0.4;
+  delayReverbNode.connect(reverbFeedback);
+  reverbFeedback.connect(delayReverbNode);
+  delayReverbNode.connect(masterGain);
+  masterGain.connect(audioCtx.destination);
+  masterGain.connect(analyser);
+  window.analyser = analyser;
+  window.dataArray = dataArray;
+}
+function unlockAudioCtx() {
+  if (!audioCtx) return;
+  if (audioCtx.state === "suspended") audioCtx.resume();
+}
+function playTone(freq) {
+  if (!audioCtx) initAudio();
+  unlockAudioCtx();
+  const now = audioCtx.currentTime;
+  const filterNode = audioCtx.createBiquadFilter();
+  filterNode.type = "lowpass";
+  filterNode.frequency.value = parseFloat(getInput('filter').value);
+  const delayNode = audioCtx.createDelay();
+  delayNode.delayTime.value = parseFloat(getInput('delay').value);
+  const feedbackNode = audioCtx.createGain();
+  feedbackNode.gain.value = parseFloat(getInput('echo').value);
+  const gainNode = audioCtx.createGain();
+  gainNode.gain.setValueAtTime(0, now);
+  gainNode.gain.linearRampToValueAtTime(0.3, now + 0.3);
+  gainNode.gain.linearRampToValueAtTime(0.0, now + 3.0);
+  const panNode = audioCtx.createStereoPanner();
+  panNode.pan.value = Math.random() * 2 - 1;
+  const detuneOffsets = [-0.5, 0, 0.5];
+  let oscillators = [];
+  detuneOffsets.forEach(offset => {
+    const o = audioCtx.createOscillator();
+    o.type = "square";
+    o.frequency.value = freq * (1 + offset / 100);
+    o.connect(gainNode);
+    o.start(now);
+    o.stop(now + 3.0);
+    oscillators.push(o);
+  });
+  gainNode.connect(panNode);
+  panNode.connect(filterNode);
+  filterNode.connect(delayNode);
+  delayNode.connect(feedbackNode);
+  feedbackNode.connect(delayNode);
+  delayNode.connect(delayReverbNode);
+  gainNode.connect(analyser);
+  setTimeout(() => {
+    oscillators.forEach(o => o.disconnect());
+    gainNode.disconnect();
+    panNode.disconnect();
+    filterNode.disconnect();
+    delayNode.disconnect();
+    feedbackNode.disconnect();
+  }, 3100);
+}
+function scheduleNotes(scale) {
+  clearInterval(bpmTimer);
+  bpmTimer = setInterval(() => {
+    if (!stopped) {
+      const freq = scale[Math.floor(Math.random() * scale.length)];
+      playTone(freq);
+      sendMidiNote && sendMidiNote(freq);
+    }
+  }, 60000 / bpm);
+}
+function play() {
+  if (!audioCtx) initAudio();
+  unlockAudioCtx();
+  stopped = false;
+  clearInterval(bpmTimer);
+  const scale = getPresetSettings(getInput('preset').value).scale;
+  currentWaveColor = getPresetSettings(getInput('preset').value).color;
+  scheduleNotes(scale);
+}
+function stop() { stopped = true; clearInterval(bpmTimer); }
+getInput('play').addEventListener('click', play);
+getInput('stop').addEventListener('click', stop);
+getInput('freq').addEventListener('input', e => {
+  if (!audioCtx) initAudio();
+  unlockAudioCtx();
+  playTone(parseFloat(e.target.value));
+});
+getInput('bpm').addEventListener('input', e => {
+  bpm = parseInt(e.target.value);
+  if (!stopped) scheduleNotes(getPresetSettings(getInput('preset').value).scale);
+});
+getInput('volume').addEventListener('input', e => {
+  if (!masterGain) return;
+  masterGain.gain.value = parseFloat(e.target.value) / 100;
+});
+getInput('preset').addEventListener('change', () => {
+  currentWaveColor = getPresetSettings(getInput('preset').value).color;
+  if (!stopped) scheduleNotes(getPresetSettings(getInput('preset').value).scale);
+});
+
+// --- MIDI (FIXED: robust input event registration, ignore mobile resume logic, debug logging) ---
+let midiChannel = 9;
+let midiAccess = null, midiOutput = null, midiInEnabled = true;
+function midiNoteToFreq(note) { return 440 * Math.pow(2, (note - 69) / 12);}
+const midiButtonMap = {
+  36: () => playScaleNote(0),  37: () => playScaleNote(1), 38: () => playScaleNote(2),
+  39: () => playScaleNote(3),  40: () => playScaleNote(4),
+  41: nextPreset,  42: prevPreset,
+  43: play, 44: stop,
+  45: () => incSlider('delay', +0.05),   46: () => incSlider('delay', -0.05),
+  47: () => incSlider('echo', +0.05),    48: () => incSlider('echo', -0.05),
+  49: () => incSlider('filter', +100),   50: () => incSlider('filter', -100)
+};
+function playScaleNote(index) {
+  if (!audioCtx) return;
+  const scale = getPresetSettings(getInput('preset').value).scale;
+  const freq = scale[index % scale.length];
+  if (freq) playTone(freq);
+}
+function nextPreset() {
+  const presetEl = getInput('preset');
+  const presetOrder = ['plants', 'mold', 'bacteria', 'mushrooms', 'harmony'];
+  let idx = presetOrder.indexOf(presetEl.value);
+  presetEl.value = presetOrder[(idx + 1) % presetOrder.length];
+  currentWaveColor = getPresetSettings(presetEl.value).color;
+  if (!stopped) scheduleNotes(getPresetSettings(presetEl.value).scale);
+}
+function prevPreset() {
+  const presetEl = getInput('preset');
+  const presetOrder = ['plants', 'mold', 'bacteria', 'mushrooms', 'harmony'];
+  let idx = presetOrder.indexOf(presetEl.value);
+  presetEl.value = presetOrder[(idx - 1 + presetOrder.length) % presetOrder.length];
+  currentWaveColor = getPresetSettings(presetEl.value).color;
+  if (!stopped) scheduleNotes(getPresetSettings(presetEl.value).scale);
+}
+function incSlider(id, delta) {
+  const el = getInput(id);
+  let min = parseFloat(el.min), max = parseFloat(el.max), step = parseFloat(el.step);
+  let value = parseFloat(el.value) + delta;
+  value = Math.round(value / step) * step;
+  value = Math.max(min, Math.min(max, value));
+  el.value = value;
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  if (id === 'volume' && masterGain) masterGain.gain.value = parseFloat(el.value) / 100;
+  if (id === 'bpm' && !stopped) {
+    bpm = Math.round(value);
+    scheduleNotes(getPresetSettings(getInput('preset').value).scale);
+  }
+}
+function handleMidiMessage(e) {
+  const [status, note, velocity] = e.data;
+  const type = status & 0xf0;
+  const channel = status & 0x0f;
+  //console.log("MIDI msg", status, note, velocity, "chan", channel, "expected", midiChannel, "enabled", midiInEnabled);
+  if (!midiInEnabled) return;
+  if (type === 0x90 && velocity > 0 && (midiChannel === -1 || channel === midiChannel) && midiButtonMap[note]) {
+    //console.log("MIDI triggered for note", note);
+    midiButtonMap[note]();
+  }
+}
+function setupMidi() {
+  if (!navigator.requestMIDIAccess) return;
+  navigator.requestMIDIAccess().then(midi => {
+    midiAccess = midi;
+    const outputs = Array.from(midiAccess.outputs.values());
+    if (outputs.length > 0) midiOutput = outputs[0];
+    function registerInputs() {
+      midiAccess.inputs.forEach(input => {
+        input.onmidimessage = handleMidiMessage;
+      });
+    }
+    registerInputs();
+    midiAccess.onstatechange = function(event) {
+      if (event.port.type === "input" && event.port.state === "connected") {
+        registerInputs();
+      }
+    };
+  }, err => { console.warn("No MIDI access", err); });
+}
+setupMidi();
+function sendMidiNote(freq) {
+  if (!midiOutput) return;
+  let midiNote = Math.round(69 + 12 * Math.log2(freq / 440));
+  let velocity = 100;
+  let channel = midiChannel === -1 ? 9 : midiChannel;
+  midiOutput.send([0x90 + channel, midiNote, velocity]);
+  setTimeout(() => { midiOutput.send([0x80 + channel, midiNote, 0]); }, 400);
+}
+getInput('toggleMidiIn').addEventListener('click', () => {
+  midiInEnabled = !midiInEnabled;
+  getInput('toggleMidiIn').textContent = "midi" + (midiInEnabled ? "" : " off");
+});
+const midiChannelSelect = getInput('midiChannelSelect');
+midiChannelSelect.value = midiChannel;
+midiChannelSelect.addEventListener('change', function() {
+  midiChannel = Number(this.value);
+});
+
+// --- Tray Open at start ---
+closeTray();
+</script>
+</body>
+</html>
