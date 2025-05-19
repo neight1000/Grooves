@@ -1,38 +1,34 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
+  <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Plantasia App v57 – Full Presets & Triangle Waveform</title>
+  <title>Plantasia App v59 – Fixed UI + Continuous Triangle</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap');
     :root { --bg: #000; --fg: #fff; --font: 'Roboto Mono', monospace; --accent: #00ff00; }
-    * { box-sizing: border-box; margin:0; padding:0; }
-    body { font-family: var(--font); background: var(--bg); color: var(--fg); overflow:hidden; }
-    h1 { text-align:center; margin:1rem 0; font-size:1.5rem; }
-    #uiPanel { position:absolute; top:1rem; right:1rem; display:flex; gap:0.5rem; z-index:3; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font); background: var(--bg); color: var(--fg); overflow: hidden; }
+    h1 { text-align: center; margin: 1rem 0; font-size: 1.5rem; }
+    #uiPanel { position: absolute; top: 1rem; right: 1rem; display: flex; gap: 0.5rem; z-index: 3; }
     button, select, input[type="range"] {
-      background:transparent; color:var(--fg); border:1px solid var(--fg);
-      padding:0.5rem 1rem; font-size:0.9rem; text-transform:uppercase; font-family:var(--font);
+      background: transparent; color: var(--fg); border: 1px solid var(--fg);
+      padding: 0.5rem 1rem; font-size: 0.9rem; text-transform: uppercase;
     }
-    button:hover { background:var(--fg); color:var(--bg); cursor:pointer; }
-    input[type="range"] {
-      -webkit-appearance:none; width:150px; height:1px; background:var(--fg); margin:0.5rem 0;
-    }
-    input[type="range"]::-webkit-slider-runnable-track { width:100%; height:1px; background:var(--fg); }
     input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance:none; width:24px; height:24px; background:var(--accent);
-      border-radius:50%; margin-top:-11px; cursor:pointer;
+      -webkit-appearance: none; width: 24px; height: 24px;
+      background: var(--accent); border-radius: 50%; margin-top: -11px; cursor: pointer;
     }
-    label { font-size:0.75rem; text-transform:uppercase; display:flex; flex-direction:column; align-items:center; gap:0.25rem; }
     #controlsWrapper {
-      position:absolute; bottom:1rem; left:50%; transform:translateX(-50%);
-      display:none; background:rgba(0,0,0,0.85); padding:0.5rem; border:1px solid var(--fg); z-index:3;
+      position: absolute; bottom: 1rem; left: 50%; transform: translateX(-50%);
+      display: none; background: rgba(0,0,0,0.85); padding: 0.5rem; border: 1px solid var(--fg); z-index: 3;
     }
-    .controls { display:flex; flex-wrap:wrap; gap:0.5rem; }
-    #visualizer { position:absolute; top:0; left:0; width:100vw; height:100vh; background:var(--bg); z-index:1; }
-    #infoDisplay { position:absolute; top:1rem; left:1rem; background:rgba(0,0,0,0.6); padding:0.5rem; white-space:pre; display:none; z-index:3; }
-    .footer { position:absolute; bottom:0.5rem; width:100%; text-align:center; font-size:0.75rem; color:#888; z-index:3; }
+    .controls { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    #visualizer { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--bg); }
+    #infoDisplay { position: absolute; top: 1rem; left: 1rem; background: rgba(0,0,0,0.6);
+      padding: 0.5rem; white-space: pre; display: none; z-index: 3; }
+    .footer { position: absolute; bottom: 0.5rem; width: 100%; text-align: center;
+      font-size: 0.75rem; color: #888; }
   </style>
 </head>
 <body>
@@ -51,168 +47,144 @@
         <option value="bacteria">Bacteria</option>
         <option value="mushrooms">Mushrooms</option>
         <option value="harmony">Lifeform Harmony</option>
-        <option value="euclid">Euclidean Rhythm</option>
-        <option value="fib">Fibonacci Intervals</option>
-        <option value="markov">Markov Chain</option>
-        <option value="raga">Raga (Indian)</option>
-        <option value="hijaz">Hijaz (Middle East)</option>
-        <option value="pelog">Pelog (Gamelan)</option>
-        <option value="insen">In-Sen (Japanese)</option>
-        <option value="bachPreludeC">Bach Prelude</option>
-        <option value="planetRock">Planet Rock</option>
-        <option value="dmt">DMT (Slow & Drowny)</option>
       </select>
     </label>
-    <label>Delay <input type="range" id="delay" min="0.01" max="2" step="0.01" value="1.2"/></label>
-    <label>Echo <input type="range" id="echo" min="0" max="0.5" step="0.01" value="0.2"/></label>
-    <label>Reverb <input type="range" id="reverb" min="0" max="1" step="0.01" value="0.5"/></label>
-    <label>Filter <input type="range" id="filter" min="100" max="8000" step="10" value="1800"/></label>
-    <label>Freq <input type="range" id="freq" min="20" max="500" step="1" value="200"/></label>
+    <label>Freq <input type="range" id="freq" min="20" max="500" step="1" value="220"/></label>
     <label>Vol <input type="range" id="volume" min="0" max="100" step="1" value="40"/></label>
-    <label>BPM <input type="range" id="bpm" min="64" max="130" step="1" value="90"/></label>
     <label>Density <input type="range" id="density" min="1" max="10" step="1" value="3"/></label>
   </div>
   <canvas id="visualizer"></canvas>
   <div id="infoDisplay"></div>
-  <div class="footer">
-    © 2025 Nate &nbsp;|&nbsp; Category: <span id="categoryLabel">Plants</span>
-  </div>
+  <div class="footer">© 2025 Nate | Category: <span id="categoryLabel">Plants</span></div>
   <script>
-    // Setup audio and variables
-    let audioCtx, analyser, masterGain, bufferLength, dataArray, bpmTimer, stopped=true;
-    const trailFrames = [], MAX_FRAMES=12;
-    const canvas=document.getElementById('visualizer'), ctx=canvas.getContext('2d');
-    const ui={
-      play:document.getElementById('play'),
-      stop:document.getElementById('stop'),
-      toggleUI:document.getElementById('toggleUI'),
-      toggleData:document.getElementById('toggleData'),
-      controls:document.getElementById('controlsWrapper'),
-      info:document.getElementById('infoDisplay'),
-      category:document.getElementById('categoryLabel')
-    };
-    const ctrls={
-      preset:document.getElementById('preset'),
-      delay:document.getElementById('delay'),
-      echo:document.getElementById('echo'),
-      reverb:document.getElementById('reverb'),
-      filter:document.getElementById('filter'),
-      freq:document.getElementById('freq'),
-      volume:document.getElementById('volume'),
-      bpm:document.getElementById('bpm'),
-      density:document.getElementById('density')
+    let audioCtx, analyser, dataTime, masterGain, bufferLen, osc, env;
+    let canvas = document.getElementById("visualizer");
+    let ctx = canvas.getContext("2d");
+
+    const ctrls = {
+      preset: document.getElementById("preset"),
+      freq: document.getElementById("freq"),
+      volume: document.getElementById("volume"),
+      density: document.getElementById("density")
     };
 
-    function resize(){canvas.width=innerWidth;canvas.height=innerHeight;}
-    function initAudio(){
-      if(audioCtx)return;
-      audioCtx=new (window.AudioContext||webkitAudioContext)();
-      analyser=audioCtx.createAnalyser();analyser.fftSize=2048;
-      bufferLength=analyser.frequencyBinCount;dataArray=new Uint8Array(bufferLength);
-      masterGain=audioCtx.createGain();masterGain.gain.value=parseFloat(ctrls.volume.value)/100;
+    const ui = {
+      play: document.getElementById("play"),
+      stop: document.getElementById("stop"),
+      toggleUI: document.getElementById("toggleUI"),
+      toggleData: document.getElementById("toggleData"),
+      controls: document.getElementById("controlsWrapper"),
+      info: document.getElementById("infoDisplay"),
+      category: document.getElementById("categoryLabel")
+    };
+
+    function resize() {
+      canvas.width = innerWidth;
+      canvas.height = innerHeight;
+    }
+
+    function initAudio() {
+      if (audioCtx) return;
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 1024;
+      bufferLen = analyser.frequencyBinCount;
+      dataTime = new Uint8Array(bufferLen);
+      masterGain = audioCtx.createGain();
       masterGain.connect(audioCtx.destination);
-      window.addEventListener('resize',resize);resize();
-      for(let i=0;i<MAX_FRAMES;i++)trailFrames.push(new Uint8Array(bufferLength));
+      resize();
+      window.addEventListener("resize", resize);
     }
 
-    function playTone(){
-      const now=audioCtx.currentTime;
-      const osc=audioCtx.createOscillator();
-      osc.type='triangle'; // triangle waveform
-      const scale=getScale(ctrls.preset.value);
-      osc.frequency.setValueAtTime(scale[Math.floor(Math.random()*scale.length)],now);
-      const gainNode=audioCtx.createGain();
-      gainNode.gain.setValueAtTime(0,now);
-      gainNode.gain.linearRampToValueAtTime(0.3,now+0.1);
-      gainNode.gain.linearRampToValueAtTime(0,now+2);
-      osc.connect(gainNode).connect(masterGain);
-      osc.start(now);osc.stop(now+2);
+    function playOscillator() {
+      const now = audioCtx.currentTime;
+      osc = audioCtx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.value = parseFloat(ctrls.freq.value);
+
+      env = audioCtx.createGain();
+      env.gain.setValueAtTime(0, now);
+      env.gain.linearRampToValueAtTime(1, now + 0.5);
+
+      osc.connect(env).connect(analyser).connect(masterGain);
+      osc.start();
     }
 
-    function schedule(){
-      clearInterval(bpmTimer);
-      const interval=60000/parseInt(ctrls.bpm.value);
-      bpmTimer=setInterval(()=>{if(!stopped)playTone();},interval);
-    }
-
-    function getScale(preset){
-      const settings={
-        plants:[174,285,396,417,528],
-        mold:[432,639,741],
-        bacteria:[528,554,585,728],
-        mushrooms:[417,444,528,639],
-        harmony:[432,528,639,741,852],
-        euclid:[],
-        fib:[],
-        markov:[],
-        raga:[],
-        hijaz:[],
-        pelog:[],
-        insen:[],
-        bachPreludeC:[],
-        planetRock:[],
-        dmt:[100,140,200,250,310]
-      };
-      return settings[preset]||[174,220,261];
-    }
-
-    function animate(){
-      requestAnimationFrame(animate);
-      if(!analyser)return;
-      analyser.getByteTimeDomainData(dataArray);
-      trailFrames.shift();trailFrames.push(dataArray.slice());
-      ctx.fillStyle='rgba(0,0,0,0.05)';ctx.fillRect(0,0,canvas.width,canvas.height);
-      ctx.save();
-      // single triangle clip
-      ctx.beginPath();
-      const size=Math.min(canvas.width,canvas.height)*0.6;
-      const h=size*Math.sqrt(3)/2;
-      ctx.moveTo(canvas.width/2,canvas.height/2-2*h/3);
-      ctx.lineTo(canvas.width/2-size/2,canvas.height/2+h/3);
-      ctx.lineTo(canvas.width/2+size/2,canvas.height/2+h/3);
-      ctx.closePath();ctx.clip();
-      // draw waveform inside
-      ctx.strokeStyle=ctrls.preset.value==='plants'?'#00FF7F':'#FFFFFF';
-      ctx.lineJoin='round';ctx.lineCap='round';
-      const step=Math.max(1,Math.floor(bufferLength/(parseFloat(ctrls.density.value)*20)));
-      const slice=canvas.width/(bufferLength/step);
-      for(let t=0;t<trailFrames.length;t++){
-        const data=trailFrames[t];
-        ctx.beginPath();let x=0;
-        for(let i=0;i<data.length;i+=step){
-          const v=(data[i]-128)/128;
-          const y=v*(canvas.height/2*0.9)+canvas.height/2;
-          i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);x+=slice;
-        }
-        ctx.globalAlpha=0.05+(t/trailFrames.length)*0.15;ctx.stroke();
+    function stopOscillator() {
+      const now = audioCtx.currentTime;
+      if (env && osc) {
+        env.gain.cancelScheduledValues(now);
+        env.gain.setValueAtTime(env.gain.gain.value, now);
+        env.gain.linearRampToValueAtTime(0, now + 1);
+        osc.stop(now + 1.1);
       }
-      ctx.restore();
-      ctx.globalAlpha=1;
-      ctx.font="12pt Roboto Mono";ctx.fillStyle="#fff";ctx.textAlign="center";
-      ctx.fillText(ctrls.preset.options[ctrls.preset.selectedIndex].text,canvas.width/2,40);
     }
 
-    ui.play.addEventListener('click',async()=>{
-      initAudio();if(audioCtx.state==='suspended')await audioCtx.resume();
-      stopped=false;schedule();
+    function average(arr) {
+      return arr.reduce((a, b) => a + b, 0) / arr.length;
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      if (!analyser) return;
+
+      analyser.getByteTimeDomainData(dataTime);
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const low = average(dataTime.slice(0, bufferLen / 3)) / 255;
+      const mid = average(dataTime.slice(bufferLen / 3, 2 * bufferLen / 3)) / 255;
+      const high = average(dataTime.slice(2 * bufferLen / 3)) / 255;
+
+      const size = Math.min(canvas.width, canvas.height) * 0.4;
+      const h = size * Math.sqrt(3) / 2;
+      const cx = canvas.width / 2, cy = canvas.height / 2;
+      const verts = [[0, -h], [-size / 2, h / 3], [size / 2, h / 3]];
+      const amps = [low, mid, high];
+
+      ctx.beginPath();
+      verts.forEach((v, i) => {
+        const [dx, dy] = v;
+        const r = 1 + amps[i] * 0.5;
+        const x = cx + dx * r, y = cy + dy * r;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      });
+      ctx.closePath();
+      ctx.strokeStyle = ctrls.preset.value === "plants" ? "#00FF7F" : "#FFFFFF";
+      ctx.lineWidth = 4;
+      ctx.stroke();
+
+      ctx.font = "12pt Roboto Mono";
+      ctx.fillStyle = "#fff";
+      ctx.textAlign = "center";
+      ctx.fillText(ctrls.preset.options[ctrls.preset.selectedIndex].text, cx, 40);
+    }
+
+    ui.play.addEventListener("click", async () => {
+      initAudio();
+      if (audioCtx.state === "suspended") await audioCtx.resume();
+      playOscillator();
     });
-    ui.stop.addEventListener('click',()=>{stopped=true;clearInterval(bpmTimer);});
-    ui.toggleUI.addEventListener('click',()=>{
-      const v=ui.controls.style.display!=='flex';
-      ui.controls.style.display=v?'flex':'none';
-      ui.toggleUI.textContent=v?'Hide Controls':'Show Controls';
+
+    ui.stop.addEventListener("click", () => {
+      stopOscillator();
     });
-    ui.toggleData.addEventListener('click',()=>{
-      const v=ui.info.style.display!=='block';
-      ui.info.style.display=v?'block':'none';
-      ui.toggleData.textContent=v?'Hide Data':'Show Data';
+
+    ui.toggleUI.addEventListener("click", () => {
+      const showing = ui.controls.style.display === "flex";
+      ui.controls.style.display = showing ? "none" : "flex";
+      ui.toggleUI.textContent = showing ? "Show Controls" : "Hide Controls";
     });
-    ctrls.preset.addEventListener('change',()=>{
-      ui.category.textContent=ctrls.preset.options[ctrls.preset.selectedIndex].text;
+
+    ui.toggleData.addEventListener("click", () => {
+      const showing = ui.info.style.display === "block";
+      ui.info.style.display = showing ? "none" : "block";
+      ui.toggleData.textContent = showing ? "Show Data" : "Hide Data";
     });
-    setInterval(()=>{
-      ui.info.textContent=\`PRESET: \${ctrls.preset.value}\nDELAY: \${ctrls.delay.value}\nECHO: \${ctrls.echo.value}\nREVERB: \${ctrls.reverb.value}\nFILTER: \${ctrls.filter.value}\nFREQ: \${ctrls.freq.value}\nVOL: \${ctrls.volume.value}\nBPM: \${ctrls.bpm.value}\nDENSITY: \${ctrls.density.value}\`;
-    },250);
+
+    ctrls.preset.addEventListener("change", () => {
+      ui.category.textContent = ctrls.preset.options[ctrls.preset.selectedIndex].text;
+    });
+
     animate();
   </script>
 </body>
