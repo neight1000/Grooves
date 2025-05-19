@@ -1,12 +1,10 @@
-//MIDI MOBILE V2
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Plantasia App v3 – Responsive Touch & MIDI</title>
+  <title>Plantasia App v4 – Fullscreen Visual, Toggle Tray, No Secondary Color</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.01, user-scalable=no" />
-  <link href="https://fonts.googleapis.com/css?family=Roboto+Mono:400,700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css?family=Roboto+Mono:400,700&display=swap&font-display=swap" rel="stylesheet">
   <style>
     html, body {
       margin: 0;
@@ -31,8 +29,8 @@
       top: 0;
       left: 0;
       width: 100vw;
-      height: 58vh;
-      max-height: 340px;
+      height: 100vh;
+      max-height: none;
       display: block;
       z-index: 0;
       touch-action: none;
@@ -59,6 +57,12 @@
       -ms-overflow-style: none;
       min-height: 90px;
       max-height: 38vh;
+      transition: transform 0.3s cubic-bezier(.74,.05,.36,.95), opacity 0.2s;
+    }
+    .ui.hidden {
+      transform: translateY(110%);
+      opacity: 0;
+      pointer-events: none;
     }
     .ui::-webkit-scrollbar { display: none; }
     .ui > div, .ui button {
@@ -118,19 +122,29 @@
       border: 2px solid #3af779;
       color: #3af779;
     }
-    .color-slider-group {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      min-width: 82px;
-    }
-    .color-slider-label {
-      font-size: 12px;
+    #toggleTray {
+      position: fixed;
+      right: 13px;
+      bottom: 8vh;
+      z-index: 19;
+      background: #232323;
+      border: 1.5px solid #fff;
       color: #fff;
-      text-align: center;
-      margin-bottom: 3px;
-      letter-spacing: 1px;
-      font-family: monospace;
+      font-size: 17px;
+      padding: 8px 17px;
+      border-radius: 9px;
+      cursor: pointer;
+      letter-spacing: 1.2px;
+      min-width: 68px;
+      min-height: 36px;
+      font-weight: 700;
+      box-shadow: 0 1px 7px #000c;
+      transition: background .18s, border .16s;
+    }
+    #toggleTray:active {
+      background: #333;
+      color: #3af779;
+      border-color: #3af779;
     }
     #infoDisplay {
       position: absolute;
@@ -214,10 +228,6 @@
       border-color: #3af779;
     }
     @media (max-width: 700px) {
-      canvas {
-        height: 39vh;
-        max-height: 40vw;
-      }
       .ui {
         max-height: 54vh;
         padding: 7px 0 10px 0;
@@ -232,19 +242,16 @@
         height: 27px;
         min-width: 55px;
       }
-      .ui label, .color-slider-label {
+      .ui label {
         font-size: 11.5px;
       }
       #toggleLegend { font-size: 12px; min-width: 46px; }
       #midiLegend { font-size: 9.5px; }
       .legend-item { min-width: 34px; font-size: 8.5px; }
       #infoDisplay { font-size: 10.5px; padding: 8px 8px; }
+      #toggleTray { font-size: 13px; min-width: 54px; min-height: 29px; }
     }
     @media (max-width: 500px) {
-      canvas {
-        height: 31vh;
-        max-height: 49vw;
-      }
       .ui {
         flex-direction: column;
         flex-wrap: nowrap;
@@ -269,6 +276,7 @@
       #toggleLegend { font-size: 12px; min-width: 38vw; }
       #midiLegend { font-size: 8px; }
       .legend-item { min-width: 21vw; font-size: 7.5px; }
+      #toggleTray { font-size: 12px; min-width: 32vw; min-height: 22px; }
     }
   </style>
 </head>
@@ -276,10 +284,11 @@
 <canvas id="waveCanvas"></canvas>
 <div id="infoDisplay"></div>
 <div id="midiLegend"></div>
-<button id="toggleLegend">MIDI</button>
+<button id="toggleLegend" aria-label="Show/hide MIDI legend" tabindex="0">MIDI</button>
+<button id="toggleTray" aria-label="Show/hide controls tray" tabindex="0">HIDE TRAY</button>
 <div class="ui" id="touchUI">
-  <div><label>Preset</label>
-    <select id="preset" aria-label="Preset">
+  <div><label for="preset">Preset</label>
+    <select id="preset" aria-label="Preset" tabindex="0">
       <option value="plants">Plants</option>
       <option value="mold">Mold</option>
       <option value="bacteria">Bacteria</option>
@@ -287,23 +296,20 @@
       <option value="harmony">Lifeform Harmony</option>
     </select>
   </div>
-  <div><label>Delay</label><input type="range" id="delay" min="0.01" max="2.0" step="0.01" value="0.6" /></div>
-  <div><label>Echo</label><input type="range" id="echo" min="0" max="1.0" step="0.01" value="0.4" /></div>
-  <div><label>Filter</label><input type="range" id="filter" min="100" max="8000" step="10" value="1200" /></div>
-  <div><label>Frequency</label><input type="range" id="freq" min="50" max="1000" step="1" value="174" /></div>
-  <div><label>Volume</label><input type="range" id="volume" min="0" max="100" value="60" /></div>
-  <div><label>BPM</label><input type="range" id="bpm" min="40" max="180" value="90" /></div>
-  <div class="color-slider-group">
-    <span class="color-slider-label">Secondary Color</span>
-    <input type="range" id="colorSlider" min="0" max="359" value="180" />
-  </div>
-  <button id="play" aria-label="Play">PLAY</button>
-  <button id="stop" aria-label="Stop">STOP</button>
-  <button id="toggleDisplay">DATA</button>
-  <button id="toggleMidiIn">MIDI: ON</button>
+  <div><label for="delay">Delay</label><input type="range" id="delay" min="0.01" max="2.0" step="0.01" value="0.6" aria-label="Delay" tabindex="0" /></div>
+  <div><label for="echo">Echo</label><input type="range" id="echo" min="0" max="1.0" step="0.01" value="0.4" aria-label="Echo" tabindex="0" /></div>
+  <div><label for="filter">Filter</label><input type="range" id="filter" min="100" max="8000" step="10" value="1200" aria-label="Filter" tabindex="0" /></div>
+  <div><label for="freq">Frequency (Solo)</label><input type="range" id="freq" min="50" max="1000" step="1" value="174" aria-label="Frequency" tabindex="0" /></div>
+  <div><label for="volume">Volume</label><input type="range" id="volume" min="0" max="100" value="60" aria-label="Volume" tabindex="0" /></div>
+  <div><label for="bpm">BPM</label><input type="range" id="bpm" min="40" max="180" value="90" aria-label="BPM" tabindex="0" /></div>
+  <button id="play" aria-label="Play" tabindex="0">PLAY</button>
+  <button id="stop" aria-label="Stop" tabindex="0">STOP</button>
+  <button id="toggleDisplay" aria-label="Show/hide info panel" tabindex="0">DATA</button>
+  <button id="toggleMidiIn" aria-label="Toggle MIDI in" tabindex="0">MIDI: ON</button>
 </div>
 <script>
-let midiAccess = null, midiOutput = null, midiInEnabled = true;
+const MIDI_DEFAULT_CHANNEL = 9; // 0-based (9 == channel 10)
+let midiAccess = null, midiOutput = null, midiInEnabled = true, midiChannel = MIDI_DEFAULT_CHANNEL;
 function midiNoteToFreq(note) {
   return 440 * Math.pow(2, (note - 69) / 12);
 }
@@ -356,7 +362,7 @@ function handleMidiMessage(e) {
   const type = status & 0xf0;
   const channel = status & 0x0f;
   if (!midiInEnabled) return;
-  if (type === 0x90 && velocity > 0 && channel === 10 && midiButtonMap[note]) {
+  if (type === 0x90 && velocity > 0 && (channel === midiChannel || midiChannel === -1) && midiButtonMap[note]) {
     midiButtonMap[note]();
     highlightLegendByNote(note);
   }
@@ -379,18 +385,17 @@ setupMidi();
 function sendMidiNote(freq) {
   if (!midiOutput) return;
   let midiNote = Math.round(69 + 12 * Math.log2(freq / 440));
-  let channel = 10;
   let velocity = 100;
-  midiOutput.send([0x90 + channel, midiNote, velocity]);
+  midiOutput.send([0x90 + midiChannel, midiNote, velocity]);
   setTimeout(() => {
-    midiOutput.send([0x80 + channel, midiNote, 0]);
+    midiOutput.send([0x80 + midiChannel, midiNote, 0]);
   }, 400);
 }
-let audioCtx, analyser, masterGain, reverbNode, bufferLength, dataArray;
+let audioCtx, analyser, masterGain, delayReverbNode, bufferLength, dataArray;
 let bpm = 90, bpmTimer = null, stopped = true;
 let trailFrames = [], currentWaveColor = "#00FF7F";
 let canvas, ctx;
-let secondaryColorHue = 180;
+
 function hueToRgb(h) {
   let rgb = [];
   for (let i = 0; i < 3; i++) {
@@ -460,13 +465,13 @@ function initAudio() {
   dataArray = new Uint8Array(bufferLength);
   masterGain = audioCtx.createGain();
   masterGain.gain.value = parseFloat(volume.value) / 100;
-  reverbNode = audioCtx.createDelay();
+  delayReverbNode = audioCtx.createDelay();
   const reverbFeedback = audioCtx.createGain();
-  reverbNode.delayTime.value = 0.4;
+  delayReverbNode.delayTime.value = 0.4;
   reverbFeedback.gain.value = 0.4;
-  reverbNode.connect(reverbFeedback);
-  reverbFeedback.connect(reverbNode);
-  reverbNode.connect(masterGain);
+  delayReverbNode.connect(reverbFeedback);
+  reverbFeedback.connect(delayReverbNode);
+  delayReverbNode.connect(masterGain);
   masterGain.connect(audioCtx.destination);
   animate();
 }
@@ -474,7 +479,7 @@ function resizeCanvas() {
   canvas = document.getElementById("waveCanvas");
   if (!canvas) return;
   let w = window.innerWidth;
-  let h = Math.max(80, Math.min(window.innerHeight * (window.innerWidth < 600 ? 0.31 : 0.58), 400));
+  let h = window.innerHeight;
   canvas.width = w;
   canvas.height = h;
 }
@@ -495,6 +500,7 @@ function playTone(freq) {
   const panNode = audioCtx.createStereoPanner();
   panNode.pan.value = Math.random() * 2 - 1;
   const detuneOffsets = [-0.5, 0, 0.5];
+  let oscillators = [];
   detuneOffsets.forEach(offset => {
     const o = audioCtx.createOscillator();
     o.type = "square";
@@ -502,14 +508,24 @@ function playTone(freq) {
     o.connect(gainNode);
     o.start(now);
     o.stop(now + 3.0);
+    oscillators.push(o);
   });
   gainNode.connect(panNode);
   panNode.connect(filterNode);
   filterNode.connect(delayNode);
   delayNode.connect(feedbackNode);
   feedbackNode.connect(delayNode);
-  delayNode.connect(reverbNode);
+  delayNode.connect(delayReverbNode);
   gainNode.connect(analyser);
+
+  setTimeout(() => {
+    oscillators.forEach(o => o.disconnect());
+    gainNode.disconnect();
+    panNode.disconnect();
+    filterNode.disconnect();
+    delayNode.disconnect();
+    feedbackNode.disconnect();
+  }, 3100);
 }
 function play() {
   if (!audioCtx) initAudio();
@@ -543,7 +559,7 @@ function animate() {
   trailFrames.push([...dataArray]);
   const grad = ctx.createLinearGradient(0, 0, canvas.width, 0);
   grad.addColorStop(0, currentWaveColor);
-  grad.addColorStop(1, hueToRgb(secondaryColorHue));
+  grad.addColorStop(1, "#222"); // Use a fixed dark shade for end color
   for (let t = 0; t < trailFrames.length; t++) {
     const data = trailFrames[t];
     const slice = canvas.width / data.length;
@@ -566,10 +582,24 @@ function animate() {
     ctx.globalAlpha = 1.0;
   }
 }
-document.getElementById('play').addEventListener('touchstart', play, {passive: true});
-document.getElementById('play').addEventListener('click', play);
-document.getElementById('stop').addEventListener('touchstart', stop, {passive: true});
-document.getElementById('stop').addEventListener('click', stop);
+function addTouchAndClick(id, fn) {
+  let lock = false;
+  document.getElementById(id).addEventListener('touchstart', e => {
+    if (lock) return;
+    lock = true;
+    setTimeout(() => { lock = false; }, 300);
+    fn(e);
+  }, {passive: true});
+  document.getElementById(id).addEventListener('click', e => {
+    if (lock) return;
+    lock = true;
+    setTimeout(() => { lock = false; }, 300);
+    fn(e);
+  });
+}
+addTouchAndClick('play', play);
+addTouchAndClick('stop', stop);
+
 document.getElementById('bpm').addEventListener('input', e => {
   bpm = parseInt(e.target.value);
   if (!stopped) scheduleNotes(getScaleFromPreset(preset.value));
@@ -580,13 +610,14 @@ document.getElementById('preset').addEventListener('change', () => {
   if (!stopped) scheduleNotes(getScaleFromPreset(selected));
 });
 const display = document.getElementById("infoDisplay");
-document.getElementById("toggleDisplay").addEventListener("click", () => {
+function toggleDisplayPanel() {
   display.style.display = display.style.display === "none" ? "block" : "none";
-});
-document.getElementById("toggleDisplay").addEventListener("touchstart", () => {
-  display.style.display = display.style.display === "none" ? "block" : "none";
-}, {passive: true});
+}
+addTouchAndClick("toggleDisplay", toggleDisplayPanel);
+
+let infoDisplayInterval = null;
 function updateDisplay() {
+  if (display.style.display === "none") return;
   display.textContent =
     "PRESET     : " + document.getElementById("preset").value + "\n" +
     "DELAY      : " + document.getElementById("delay").value + "\n" +
@@ -595,15 +626,21 @@ function updateDisplay() {
     "FREQUENCY  : " + document.getElementById("freq").value + "\n" +
     "VOLUME     : " + document.getElementById("volume").value + "\n" +
     "BPM        : " + document.getElementById("bpm").value +
-    "\nMIDI IN    : " + (midiInEnabled ? "ON" : "OFF");
+    "\nMIDI IN    : " + (midiInEnabled ? "ON" : "OFF") +
+    "\nMIDI CHAN  : " + (midiChannel + 1);
 }
-setInterval(updateDisplay, 250);
+function startInfoDisplayUpdater() {
+  if (infoDisplayInterval) clearInterval(infoDisplayInterval);
+  infoDisplayInterval = setInterval(updateDisplay, 250);
+}
+function stopInfoDisplayUpdater() {
+  if (infoDisplayInterval) clearInterval(infoDisplayInterval);
+}
+display.style.display = "none";
+startInfoDisplayUpdater();
+
 const midiBtn = document.getElementById('toggleMidiIn');
-midiBtn.addEventListener('touchstart', () => {
-  midiInEnabled = !midiInEnabled;
-  midiBtn.textContent = "MIDI: " + (midiInEnabled ? "ON" : "OFF");
-}, {passive: true});
-midiBtn.addEventListener('click', () => {
+addTouchAndClick('toggleMidiIn', () => {
   midiInEnabled = !midiInEnabled;
   midiBtn.textContent = "MIDI: " + (midiInEnabled ? "ON" : "OFF");
 });
@@ -615,8 +652,8 @@ function showHideLegend() {
   midiLegend.style.display = legendVisible ? "flex" : "none";
   toggleLegendBtn.textContent = legendVisible ? "HIDE MIDI" : "MIDI";
 }
-toggleLegendBtn.addEventListener("touchstart", showHideLegend, {passive:true});
-toggleLegendBtn.addEventListener("click", showHideLegend);
+addTouchAndClick("toggleLegend", showHideLegend);
+
 function renderLegend() {
   midiLegend.innerHTML = "";
   midiLegendData.forEach(item => {
@@ -630,14 +667,28 @@ function renderLegend() {
   });
 }
 renderLegend();
-const colorSlider = document.getElementById("colorSlider");
-colorSlider.addEventListener("input", e => {
-  secondaryColorHue = parseInt(e.target.value, 10);
+
+// Frequency slider plays a solo note
+document.getElementById("freq").addEventListener("input", e => {
+  if (!audioCtx) initAudio();
+  playTone(parseFloat(e.target.value));
 });
-colorSlider.addEventListener("touchmove", e => {
-  secondaryColorHue = parseInt(e.target.value, 10);
-}, {passive:true});
-window.addEventListener('resize', resizeCanvas);
+
+// --- Bottom tray toggle logic ---
+const trayBtn = document.getElementById("toggleTray");
+const tray = document.getElementById("touchUI");
+let trayVisible = true;
+function updateTrayBtn() {
+  trayBtn.textContent = trayVisible ? "HIDE TRAY" : "SHOW TRAY";
+}
+function toggleTray() {
+  trayVisible = !trayVisible;
+  tray.classList.toggle("hidden", !trayVisible);
+  updateTrayBtn();
+}
+addTouchAndClick("toggleTray", toggleTray);
+updateTrayBtn();
+
 </script>
 </body>
 </html>
