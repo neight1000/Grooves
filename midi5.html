@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Plantasia App v3 – MIDI Button Control (Clean Legend & Sliders)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: black;
+      color: white;
+      font-family: monospace;
+      overflow: hidden;
+    }
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 0;
+      display: block;
+    }
+    .ui {
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      padding: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      z-index: 2;
+      align-items: flex-end;
+    }
+    .ui label {
+      font-size: 10px;
+      display: block;
+      text-align: center;
+    }
+    .ui input[type="range"], .ui select {
+      width: 90px;
+    }
+    .ui button {
+      font-size: 12px;
+      padding: 4px 8px;
+      background: transparent;
+      border: 1px solid white;
+      color: white;
+      cursor: pointer;
+    }
+    #infoDisplay {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 3;
+      background: rgba(0, 0, 0, 0.6);
+      color: white;
+      font-size: 12px;
+      padding: 10px;
+      display: none;
+      white-space: pre;
+    }
+    #midiLegend {
+      position: absolute;
+      top: 45px;
+      right: 10px;
+      z-index: 4;
+      display: flex;
+      flex-direction: row;
+      background: rgba(0,0,0,0.85);
+      padding: 7px 12px;
+      border-radius: 7px;
+      border: 1px solid #444;
+      gap: 8px;
+      min-width: unset;
+      box-shadow: 0 1px 6px #000b;
+      align-items: flex-start;
+      pointer-events: none;
+    }
+    .legend-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 0 2px;
+      padding: 4px 7px;
+      background: #191919;
+      border-radius: 4px;
+      border: 1px solid #333;
+      font-size: 10px;
+      color: #fff;
+      min-width: 55px;
+      text-align: center;
+      letter-spacing: 0.5px;
+    }
+    .legend-label {
+      font-weight: bold;
+      font-size: 10px;
+      color: #3af779;
+    }
+    #toggleLegend {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 5;
+      background: transparent;
+      border: 1px solid white;
+      color: white;
+      font-size: 12px;
+      padding: 4px 8px;
+      cursor: pointer;
+    }
+    /* Slider label for color */
+    .color-slider-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .color-slider-label {
+      font-size: 10px;
+      color: #fff;
+      text-align: center;
+      margin-bottom: 2px;
+      letter-spacing: 1px;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+<canvas id="waveCanvas"></canvas>
+<div id="infoDisplay"></div>
+<div id="midiLegend"></div>
+<button id="toggleLegend">MIDI CONTROLS</button>
+<div class="ui">
+  <div><label>Preset</label>
+    <select id="preset">
+      <option value="plants">Plants</option>
+      <option value="mold">Mold</option>
+      <option value="bacteria">Bacteria</option>
+      <option value="mushrooms">Mushrooms</option>
+      <option value="harmony">Lifeform Harmony</option>
+    </select>
+  </div>
+  <div><label>Delay</label><input type="range" id="delay" min="0.01" max="2.0" step="0.01" value="0.6" /></div>
+  <div><label>Echo</label><input type="range" id="echo" min="0" max="1.0" step="0.01" value="0.4" /></div>
+  <div><label>Filter</label><input type="range" id="filter" min="100" max="8000" step="10" value="1200" /></div>
+  <div><label>Frequency</label><input type="range" id="freq" min="50" max="1000" step="1" value="174" /></div>
+  <div><label>Volume</label><input type="range" id="volume" min="0" max="100" value="60" /></div>
+  <div><label>BPM</label><input type="range" id="bpm" min="40" max="180" value="90" /></div>
+  <div class="color-slider-group">
+    <span class="color-slider-label">Secondary Color</span>
+    <input type="range" id="colorSlider" min="0" max="359" value="180" />
+  </div>
+  <button id="play">PLAY</button>
+  <button id="stop">STOP</button>
+  <button id="toggleDisplay">TOGGLE DATA</button>
+  <button id="toggleMidiIn">MIDI IN: ON</button>
+</div>
+<script>
+let midiAccess = null, midiOutput = null, midiInEnabled = true;
+
+function midiNoteToFreq(note) {
+  return 440 * Math.pow(2, (note - 69) / 12);
+}
+
+const midiLegendData = [
+  {btn:1,n:36, action:'Play 1st note'},
+  {btn:2,n:37, action:'Play 2nd note'},
+  {btn:3,n:38, action:'Play 3rd note'},
+  {btn:4,n:39, action:'Play 4th note'},
+  {btn:5,n:40, action:'Play 5th note'},
+  {btn:6,n:41, action:'Next preset'},
+  {btn:7,n:42, action:'Previous preset'},
+  {btn:8,n:43, action:'PLAY'},
+  {btn:9,n:44, action:'STOP'},
+  {btn:10,n:45, action:'Delay +'},
+  {btn:11,n:46, action:'Delay -'},
+  {btn:12,n:47, action:'Echo +'},
+  {btn:13,n:48, action:'Echo -'},
+  {btn:14,n:49, action:'Filter +'},
+  {btn:15,n:50, action:'Filter -'},
+  {btn:16,n:51, action:'Toggle Data'}
+];
+
+const midiButtonMap = {
+  36: () => playScaleNote(0),  37: () => playScaleNote(1), 38: () => playScaleNote(2),
+  39: () => playScaleNote(3),  40: () => playScaleNote(4),
+  41: nextPreset,  42: prevPreset,
+  43: play, 44: stop,
+  45: () => incSlider('delay', +0.05),   46: () => incSlider('delay', -0.05),
+  47: () => incSlider('echo', +0.05),    48: () => incSlider('echo', -0.05),
+  49: () => incSlider('filter', +100),   50: () => incSlider('filter', -100),
+  51: () => document.getElementById('toggleDisplay').click()
+};
+
+function handleMidiMessage(e) {
+  const [status, note, velocity] = e.data;
+  const type = status & 0xf0;
+  const channel = status & 0x0f;
+  if (!midiInEnabled) return;
+  if (type === 0x90 && velocity > 0 && channel === 10 && midiButtonMap[note]) {
+    midiButtonMap[note]();
+  }
+}
+
+function setupMidi() {
+  if (!navigator.requestMIDIAccess) return;
+  navigator.requestMIDIAccess().then(midi => {
+    midiAccess = midi;
+    const outputs = Array.from(midiAccess.outputs.values());
+    if (outputs.length > 0) midiOutput = outputs[0];
+    midiAccess.inputs.forEach(input => { input.onmidimessage = handleMidiMessage; });
+    midiAccess.onstatechange = function(event) {
+      if (event.port.type === "input" && event.port.state === "connected") {
+        midiAccess.inputs.forEach(input => { input.onmidimessage = handleMidiMessage; });
+      }
+    };
+  });
+}
+setupMidi();
+
+function sendMidiNote(freq) {
+  if (!midiOutput) return;
+  let midiNote = Math.round(69 + 12 * Math.log2(freq / 440));
+  let channel = 10;
+  let velocity = 100;
+  midiOutput.send([0x90 + channel, midiNote, velocity]);
+  setTimeout(() => {
+    midiOutput.send([0x80 + channel, midiNote, 0]);
+  }, 400);
+}
+
+let audioCtx, analyser, masterGain, reverbNode, bufferLength, dataArray;
+let bpm = 90, bpmTimer = null, stopped = true;
+let trailFrames = [], currentWaveColor = "#00FF7F";
+let canvas, ctx;
+
+let secondaryColorHue = 180;
+function hueToRgb(h) {
+  // HSV rainbow mapping (0-359): returns CSS rgb()
+  let rgb = [];
+  for (let i = 0; i < 3; i++) {
+    let k = (5 - i * 2 + h / 60) % 6;
+    rgb[i] = 255 * (1 - Math.max(0, Math.min(1, Math.abs(k) - 1)));
+  }
+  return `rgb(${rgb.map(v => Math.round(v)).join(',')})`;
+}
+
+const presetOrder = ['plants', 'mold', 'bacteria', 'mushrooms', 'harmony'];
+const presetSettings = {
+  plants:     { scale: [174, 285, 396, 417, 528], color: "#00FF7F" },
+  mold:       { scale: [432, 639, 741],           color: "#8A2BE2" },
+  bacteria:   { scale: [528, 554, 585, 728],      color: "#FF4500" },
+  mushrooms:  { scale: [417, 444, 528, 639],      color: "#FFD700" },
+  harmony:    { scale: [432, 528, 639, 741, 852], color: "#00FFFF" }
+};
+
+function getScaleFromPreset(val) {
+  return presetSettings[val]?.scale || [174, 220, 261];
+}
+function getColorFromPreset(val) {
+  return presetSettings[val]?.color || "#FFFFFF";
+}
+function playScaleNote(index) {
+  if (!audioCtx) return;
+  const scale = getScaleFromPreset(document.getElementById('preset').value);
+  const freq = scale[index % scale.length];
+  if (freq) playTone(freq);
+}
+function nextPreset() {
+  const presetEl = document.getElementById('preset');
+  let idx = presetOrder.indexOf(presetEl.value);
+  presetEl.value = presetOrder[(idx + 1) % presetOrder.length];
+  currentWaveColor = getColorFromPreset(presetEl.value);
+  if (!stopped) scheduleNotes(getScaleFromPreset(presetEl.value));
+}
+function prevPreset() {
+  const presetEl = document.getElementById('preset');
+  let idx = presetOrder.indexOf(presetEl.value);
+  presetEl.value = presetOrder[(idx - 1 + presetOrder.length) % presetOrder.length];
+  currentWaveColor = getColorFromPreset(presetEl.value);
+  if (!stopped) scheduleNotes(getScaleFromPreset(presetEl.value));
+}
+function incSlider(id, delta) {
+  const el = document.getElementById(id);
+  let min = parseFloat(el.min), max = parseFloat(el.max), step = parseFloat(el.step);
+  let value = parseFloat(el.value) + delta;
+  value = Math.round(value / step) * step;
+  value = Math.max(min, Math.min(max, value));
+  el.value = value;
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  if (id === 'volume' && masterGain) masterGain.gain.value = parseFloat(el.value) / 100;
+  if (id === 'bpm' && !stopped) {
+    bpm = Math.round(value);
+    scheduleNotes(getScaleFromPreset(document.getElementById('preset').value));
+  }
+}
+
+function initAudio() {
+  if (audioCtx) return;
+  canvas = document.getElementById("waveCanvas");
+  ctx = canvas.getContext("2d");
+  if (!canvas || !ctx) return;
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 2048;
+  bufferLength = analyser.frequencyBinCount;
+  dataArray = new Uint8Array(bufferLength);
+
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = parseFloat(volume.value) / 100;
+
+  reverbNode = audioCtx.createDelay();
+  const reverbFeedback = audioCtx.createGain();
+  reverbNode.delayTime.value = 0.4;
+  reverbFeedback.gain.value = 0.4;
+  reverbNode.connect(reverbFeedback);
+  reverbFeedback.connect(reverbNode);
+  reverbNode.connect(masterGain);
+  masterGain.connect(audioCtx.destination);
+  animate();
+}
+function playTone(freq) {
+  const now = audioCtx.currentTime;
+  const filterNode = audioCtx.createBiquadFilter();
+  filterNode.type = "lowpass";
+  filterNode.frequency.value = parseFloat(filter.value);
+
+  const delayNode = audioCtx.createDelay();
+  delayNode.delayTime.value = parseFloat(delay.value);
+  const feedbackNode = audioCtx.createGain();
+  feedbackNode.gain.value = parseFloat(echo.value);
+
+  const gainNode = audioCtx.createGain();
+  gainNode.gain.setValueAtTime(0, now);
+  gainNode.gain.linearRampToValueAtTime(0.3, now + 0.3);
+  gainNode.gain.linearRampToValueAtTime(0.0, now + 3.0);
+
+  const panNode = audioCtx.createStereoPanner();
+  panNode.pan.value = Math.random() * 2 - 1;
+
+  const detuneOffsets = [-0.5, 0, 0.5];
+  detuneOffsets.forEach(offset => {
+    const o = audioCtx.createOscillator();
+    o.type = "square";
+    o.frequency.value = freq * (1 + offset / 100);
+    o.connect(gainNode);
+    o.start(now);
+    o.stop(now + 3.0);
+  });
+
+  gainNode.connect(panNode);
+  panNode.connect(filterNode);
+  filterNode.connect(delayNode);
+  delayNode.connect(feedbackNode);
+  feedbackNode.connect(delayNode);
+  delayNode.connect(reverbNode);
+  gainNode.connect(analyser);
+}
+
+// --- Robust PLAY/STOP always resets state ---
+function play() {
+  if (!audioCtx) initAudio();
+  stopped = false;
+  clearInterval(bpmTimer);
+  const scale = getScaleFromPreset(document.getElementById('preset').value);
+  currentWaveColor = getColorFromPreset(document.getElementById('preset').value);
+  scheduleNotes(scale);
+}
+function stop() {
+  stopped = true;
+  clearInterval(bpmTimer);
+}
+
+function scheduleNotes(scale) {
+  clearInterval(bpmTimer);
+  bpmTimer = setInterval(() => {
+    if (!stopped) {
+      const freq = scale[Math.floor(Math.random() * scale.length)];
+      playTone(freq);
+      sendMidiNote(freq);
+    }
+  }, 60000 / bpm);
+}
+function animate() {
+  if (!ctx || !analyser) return;
+  requestAnimationFrame(animate);
+  analyser.getByteTimeDomainData(dataArray);
+  ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  if (trailFrames.length > 12) trailFrames.shift();
+  trailFrames.push([...dataArray]);
+
+  // Updated: Use a gradient with secondary color
+  const grad = ctx.createLinearGradient(0, 0, canvas.width, 0);
+  grad.addColorStop(0, currentWaveColor);
+  grad.addColorStop(1, hueToRgb(secondaryColorHue));
+
+  for (let t = 0; t < trailFrames.length; t++) {
+    const data = trailFrames[t];
+    const slice = canvas.width / data.length;
+    ctx.beginPath();
+    let x = 0;
+    for (let i = 0; i < data.length; i++) {
+      const v = (data[i] - 128) / 128.0;
+      const y = (v * canvas.height / 2.0 * 0.9) + canvas.height / 2;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+      x += slice;
+    }
+    const alpha = 0.05 + (t / trailFrames.length) * 0.1;
+    ctx.strokeStyle = grad;
+    ctx.globalAlpha = alpha;
+    ctx.shadowBlur = 16;
+    ctx.shadowColor = currentWaveColor;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1.0;
+  }
+}
+
+document.getElementById('play').addEventListener('click', play);
+document.getElementById('stop').addEventListener('click', stop);
+
+document.getElementById('bpm').addEventListener('input', e => {
+  bpm = parseInt(e.target.value);
+  if (!stopped) scheduleNotes(getScaleFromPreset(preset.value));
+});
+document.getElementById('preset').addEventListener('change', () => {
+  const selected = preset.value;
+  currentWaveColor = getColorFromPreset(selected);
+  if (!stopped) scheduleNotes(getScaleFromPreset(selected));
+});
+const display = document.getElementById("infoDisplay");
+document.getElementById("toggleDisplay").addEventListener("click", () => {
+  display.style.display = display.style.display === "none" ? "block" : "none";
+});
+function updateDisplay() {
+  display.textContent =
+    "PRESET     : " + document.getElementById("preset").value + "\n" +
+    "DELAY      : " + document.getElementById("delay").value + "\n" +
+    "ECHO       : " + document.getElementById("echo").value + "\n" +
+    "FILTER     : " + document.getElementById("filter").value + "\n" +
+    "FREQUENCY  : " + document.getElementById("freq").value + "\n" +
+    "VOLUME     : " + document.getElementById("volume").value + "\n" +
+    "BPM        : " + document.getElementById("bpm").value +
+    "\nMIDI IN    : " + (midiInEnabled ? "ON" : "OFF");
+}
+setInterval(updateDisplay, 250);
+const midiBtn = document.getElementById('toggleMidiIn');
+midiBtn.addEventListener('click', () => {
+  midiInEnabled = !midiInEnabled;
+  midiBtn.textContent = "MIDI IN: " + (midiInEnabled ? "ON" : "OFF");
+});
+
+// --- Legend toggle ---
+const midiLegend = document.getElementById("midiLegend");
+const toggleLegendBtn = document.getElementById("toggleLegend");
+let legendVisible = false;
+toggleLegendBtn.addEventListener("click", () => {
+  legendVisible = !legendVisible;
+  midiLegend.style.display = legendVisible ? "flex" : "none";
+  toggleLegendBtn.textContent = legendVisible ? "HIDE MIDI CONTROLS" : "MIDI CONTROLS";
+});
+function renderLegend() {
+  midiLegend.innerHTML = "";
+  midiLegendData.forEach(item => {
+    const d = document.createElement("div");
+    d.className = "legend-item";
+    d.innerHTML =
+      `<span class="legend-label">B${item.btn}</span>` +
+      `<span>n${item.n}</span>` +
+      `<span>${item.action}</span>`;
+    midiLegend.appendChild(d);
+  });
+}
+renderLegend();
+
+// --- Color slider for gradient ---
+const colorSlider = document.getElementById("colorSlider");
+colorSlider.addEventListener("input", e => {
+  secondaryColorHue = parseInt(e.target.value, 10);
+});
+</script>
+</body>
+</html>
