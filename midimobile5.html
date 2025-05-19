@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Plantasia Minimal – Touch & MIDI</title>
+  <title>Plantasia Minimal – Touch & MIDI + Fractal Visuals</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.01, user-scalable=no" />
   <link href="https://fonts.googleapis.com/css?family=Roboto:400,700&display=swap" rel="stylesheet">
   <style>
@@ -31,30 +31,9 @@
       background: #000;
       z-index: 1;
     }
-    .tray-skrim {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: rgba(0,0,0,0.9);
-      z-index: 100;
-      display: none;
-      transition: background 0.2s;
-    }
-    .tray {
-      position: fixed;
-      bottom: 0; left: 0;
-      width: 100vw;
-      background: transparent;
-      z-index: 101;
-      display: flex;
-      justify-content: center;
-      align-items: flex-end;
-      pointer-events: none;
-    }
-    .tray.open {
-      pointer-events: auto;
-    }
+    .tray-skrim { position: fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.9); z-index:100; display:none; }
+    .tray { position:fixed; bottom:0; left:0; width:100vw; background:transparent; z-index:101; display:flex; justify-content:center; align-items:flex-end; pointer-events:none; }
+    .tray.open { pointer-events:auto; }
     .ui {
       background: rgba(0,0,0,0.90);
       border-radius: 18px 18px 0 0;
@@ -74,14 +53,8 @@
       transition: transform 0.2s cubic-bezier(.87,0,.13,1);
       font-family: 'Roboto', monospace;
     }
-    .ui.closed {
-      transform: translateY(100%);
-      pointer-events: none;
-    }
-    .ui.open {
-      transform: translateY(0%);
-      pointer-events: auto;
-    }
+    .ui.closed { transform: translateY(100%); pointer-events: none; }
+    .ui.open { transform: translateY(0%); pointer-events: auto; }
     .ui label, .ui select, .ui input, .ui button, .ui span {
       font-family: 'Roboto', monospace;
       font-size: 10px;
@@ -89,12 +62,7 @@
       color: #fff;
       letter-spacing: 0.04em;
     }
-    .ui label {
-      margin-bottom: 1px;
-      font-weight: 400;
-      text-align: center;
-      display: block;
-    }
+    .ui label { margin-bottom: 1px; font-weight: 400; text-align: center; display: block; }
     .ui input[type="range"], .ui select {
       width: 100%;
       height: 22px;
@@ -145,21 +113,8 @@
       color: #0ffea0;
       border: 1.5px solid #0ffea0;
     }
-    .ui > div {
-      flex: 1 1 30px;
-      min-width: 32px;
-      max-width: 80px;
-      margin: 2px 2px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0;
-    }
-    .ui .color-slider-group {
-      min-width: 34px;
-      max-width: 80px;
-      gap: 0;
-    }
+    .ui > div { flex: 1 1 30px; min-width: 32px; max-width: 80px; margin: 2px 2px; display: flex; flex-direction: column; align-items: center; gap: 0; }
+    .ui .color-slider-group { min-width: 34px; max-width: 80px; gap: 0; }
     .tray-toggle-btn {
       position: fixed;
       right: 14px;
@@ -179,22 +134,11 @@
       justify-content: center;
       transition: background 0.14s, color 0.14s, border 0.14s;
     }
-    .tray-toggle-btn.open {
-      background: #232323;
-      color: #0ffea0;
-      border-color: #0ffea0;
-    }
-    /* Hide tray toggle if tray open */
-    .tray.open ~ .tray-toggle-btn {
-      display: none;
-    }
-    .ui input[type="range"]::-webkit-slider-thumb {
-      width: 15px; height: 15px; border-radius: 50%; background: #00ffe0; border: none;
-    }
-    .ui input[type="range"]:focus {
-      outline: 1px solid #0ffea0;
-    }
-    #infoDisplay, #midiLegend, #toggleLegend { display: none; } /* Hide advanced overlays for minimal UI */
+    .tray-toggle-btn.open { background: #232323; color: #0ffea0; border-color: #0ffea0; }
+    .tray.open ~ .tray-toggle-btn { display: none; }
+    .ui input[type="range"]::-webkit-slider-thumb { width: 15px; height: 15px; border-radius: 50%; background: #00ffe0; border: none; }
+    .ui input[type="range"]:focus { outline: 1px solid #0ffea0; }
+    #infoDisplay, #midiLegend, #toggleLegend { display: none; }
     @media (max-width: 700px) {
       .ui { max-width: 99vw; }
       .ui > div, .color-slider-group { min-width: 27vw; max-width: 95vw; }
@@ -264,108 +208,196 @@
 </div>
 <button class="tray-toggle-btn" id="openTrayBtn" aria-label="open tray" title="open" tabindex="0">&#9776;</button>
 <script>
-/* --- Tray open/close logic --- */
+// --- Tray logic ---
 const tray = document.getElementById('tray');
 const traySkrim = document.getElementById('traySkrim');
 const touchUI = document.getElementById('touchUI');
 const openTrayBtn = document.getElementById('openTrayBtn');
 const closeTrayBtn = document.getElementById('closeTray');
-
 function openTray() {
-  tray.classList.remove('closed');
-  tray.classList.add('open');
-  touchUI.classList.remove('closed');
-  touchUI.classList.add('open');
-  traySkrim.style.display = 'block';
-  openTrayBtn.style.display = 'none';
+  tray.classList.remove('closed'); tray.classList.add('open');
+  touchUI.classList.remove('closed'); touchUI.classList.add('open');
+  traySkrim.style.display = 'block'; openTrayBtn.style.display = 'none';
 }
 function closeTray() {
-  tray.classList.remove('open');
-  tray.classList.add('closed');
-  touchUI.classList.remove('open');
-  touchUI.classList.add('closed');
-  traySkrim.style.display = 'none';
-  openTrayBtn.style.display = '';
+  tray.classList.remove('open'); tray.classList.add('closed');
+  touchUI.classList.remove('open'); touchUI.classList.add('closed');
+  traySkrim.style.display = 'none'; openTrayBtn.style.display = '';
 }
 openTrayBtn.addEventListener('click', openTray);
 traySkrim.addEventListener('click', closeTray);
 closeTrayBtn.addEventListener('click', closeTray);
+// --- End Tray ---
 
-/* --- Minimal UI logic, MIDI, synth, and visualizer --- */
-/* ...[The rest of your original JS logic, unchanged, fits here. 
-     Only show/hide the tray with openTray() / closeTray() and 
-     use the minimal UI as above. The canvas is now fullscreen.]... */
-
-/* --- Visualizer: Fullscreen, strong contrasting gradient, glowing contrast band --- */
-let secondaryColorHue = 180;
-let currentWaveColor = "#00ffe0";
-function hueToRgb(h) {
-  let rgb = [];
-  for (let i = 0; i < 3; i++) {
-    let k = (5 - i * 2 + h / 60) % 6;
-    rgb[i] = 255 * (1 - Math.max(0, Math.min(1, Math.abs(k) - 1)));
-  }
-  return `rgb(${rgb.map(v => Math.round(v)).join(',')})`;
-}
+// --- Visualizer Fractal Logic ---
+let secondaryColorHue = 180, currentWaveColor = "#00ffe0";
 let canvas = document.getElementById("waveCanvas"), ctx = canvas.getContext("2d");
-function resizeCanvas() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-}
+function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
 window.addEventListener('resize', resizeCanvas); resizeCanvas();
 let trailFrames = [];
-function animate() {
-  requestAnimationFrame(animate);
-  if (!window.analyser) return;
-  window.analyser.getByteTimeDomainData(window.dataArray);
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  // Strong contrast gradient: blue to yellow (glow band), then to dark violet
-  let grad = ctx.createLinearGradient(0, 0, canvas.width, 0);
-  grad.addColorStop(0, "#00ffe0");
-  grad.addColorStop(0.4, "#00ffe0");
-  grad.addColorStop(0.5, "#fff700");
-  grad.addColorStop(0.6, "#00ffe0");
-  grad.addColorStop(1, "#2d006e");
-  let glowBandStart = 0.42, glowBandEnd = 0.58;
-
-  // Draw waveform with glow only on the contrast band
-  if (trailFrames.length > 12) trailFrames.shift();
-  trailFrames.push([...window.dataArray]);
-  for (let t = 0; t < trailFrames.length; t++) {
-    let data = trailFrames[t];
-    let slice = canvas.width / data.length;
-    ctx.beginPath();
-    let x = 0;
-    for (let i = 0; i < data.length; i++) {
-      let v = (data[i] - 128) / 128.0;
-      let y = (v * canvas.height / 2.0 * 0.9) + canvas.height / 2;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-      x += slice;
+const presetFractals = {
+  plants: function(ctx, data, t, color) {
+    // Green palette, "growing" fractal tree from base
+    let branches = 8, len = Math.max(120, canvas.height/3), angleSpread = Math.PI / 6;
+    ctx.save();
+    ctx.translate(canvas.width/2, canvas.height);
+    ctx.strokeStyle = `rgba(0,255,120,${0.12+t*0.25})`;
+    ctx.shadowBlur = 24; ctx.shadowColor = "#4fff99";
+    function branch(level, l, a) {
+      if(level > 5) return;
+      ctx.save();
+      ctx.rotate(a);
+      ctx.beginPath();
+      ctx.moveTo(0,0);
+      ctx.lineTo(0, -l);
+      ctx.stroke();
+      ctx.translate(0, -l);
+      for(let i=0; i<2; ++i) {
+        branch(level+1, l*0.7, (i?-1:1)*angleSpread*(0.7+0.3*Math.sin(t*3+level)));
+      }
+      ctx.restore();
     }
-    let frac = t / trailFrames.length;
-    ctx.strokeStyle = grad;
-    ctx.globalAlpha = 0.10 + frac * 0.20;
-    // Only glow in contrast band:
-    let g = ctx.createLinearGradient(0, 0, canvas.width, 0);
-    g.addColorStop(glowBandStart, "#00ffe0");
-    g.addColorStop(0.5, "#fff700");
-    g.addColorStop(glowBandEnd, "#00ffe0");
-    ctx.shadowBlur = (frac > 0.7) ? 40 : 0;
-    ctx.shadowColor = (frac > 0.7) ? "#fff700" : "transparent";
-    ctx.stroke();
+    branch(0, len*(0.95+0.2*Math.sin(t*0.7)), 0);
+    ctx.restore();
+  },
+  mold: function(ctx, data, t, color) {
+    // Fuzzy, organic, spore-like fractal blobs (perlin blobs)
+    let cx = canvas.width/2, cy = canvas.height/2, baseR = Math.min(cx,cy)*0.5;
+    ctx.save();
+    ctx.globalAlpha = 0.16 + 0.12*Math.sin(t*2.4);
+    for(let blob=0; blob<7; ++blob) {
+      let R = baseR*(0.7+0.3*Math.sin(t+blob));
+      ctx.beginPath();
+      for(let a=0; a<=Math.PI*2; a+=Math.PI/48) {
+        let r = R*(1+0.14*Math.sin(blob*3+a*blob+t*blob+Math.cos(blob+t)));
+        let x = cx + r*Math.cos(a);
+        let y = cy + r*Math.sin(a);
+        if(a===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      }
+      ctx.closePath();
+      ctx.strokeStyle = `rgba(177, 98, 255, 0.45)`;
+      ctx.shadowColor = "#dbbfff";
+      ctx.shadowBlur = 18;
+      ctx.stroke();
+    }
+    ctx.restore();
+  },
+  bacteria: function(ctx, data, t, color) {
+    // Cellular automata-like, with random "division" dots, orange-red palette
+    ctx.save();
+    let cells = 36, radius = 36 + 22*Math.sin(t*1.7);
+    let cx = canvas.width/2, cy = canvas.height/2;
+    for(let i=0; i<cells; ++i) {
+      let a = i*2*Math.PI/cells + Math.sin(t+i*0.2)*0.2;
+      let r = radius*(1+0.25*Math.sin(t*3+i));
+      let x = cx + r*Math.cos(a);
+      let y = cy + r*Math.sin(a);
+      ctx.beginPath();
+      ctx.arc(x, y, 8+6*Math.abs(Math.sin(t+i)), 0, 2*Math.PI);
+      ctx.fillStyle = `rgba(255, 80, 0, ${0.08+0.22*Math.abs(Math.sin(t+i*1.5))})`;
+      ctx.shadowColor = "#ffb400"; ctx.shadowBlur = 18;
+      ctx.fill();
+    }
+    ctx.restore();
+  },
+  mushrooms: function(ctx, data, t, color) {
+    // Caps and stems, glowing gold, "bouncing" up and down
+    ctx.save();
+    let n = 7;
+    for(let i=0;i<n;++i) {
+      let x = (canvas.width/(n+1))*(i+1);
+      let baseY = canvas.height*0.86;
+      let stemLen = 40+24*Math.abs(Math.sin(t+i));
+      let capR = 25+9*Math.cos(t*1.2+i);
+      let y = baseY - stemLen - capR;
+      // Stem
+      ctx.beginPath();
+      ctx.moveTo(x, baseY);
+      ctx.lineTo(x, y+capR);
+      ctx.strokeStyle = "rgba(220,220,180,0.18)";
+      ctx.lineWidth = 7;
+      ctx.shadowColor = "#fffbe0"; ctx.shadowBlur = 4;
+      ctx.stroke();
+      // Cap
+      ctx.beginPath();
+      ctx.arc(x, y, capR, Math.PI, 0, false);
+      ctx.closePath();
+      ctx.fillStyle = "rgba(255, 215, 0, 0.28)";
+      ctx.shadowColor = "#ffe969"; ctx.shadowBlur = 20;
+      ctx.fill();
+    }
+    ctx.restore();
+  },
+  harmony: function(ctx, data, t, color) {
+    // Flowing waves and intersecting rings, cyan/blue, harmonious
+    ctx.save();
+    let cx = canvas.width/2, cy = canvas.height/2;
+    ctx.globalAlpha = 0.16;
+    for(let i=0;i<5;++i) {
+      let r = 70+35*i + 18*Math.sin(t+i);
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, 2*Math.PI);
+      ctx.strokeStyle = `rgba(0,255,255,0.20)`;
+      ctx.shadowColor = "#00ffe0"; ctx.shadowBlur = 12+10*i;
+      ctx.lineWidth = 1.5+0.8*Math.sin(t+i);
+      ctx.stroke();
+    }
+    // Flowing sine wave
     ctx.shadowBlur = 0;
-    ctx.globalAlpha = 1.0;
+    ctx.globalAlpha = 0.22;
+    ctx.beginPath();
+    for(let x=0;x<canvas.width;x+=4) {
+      let y = cy + 45*Math.sin(x/54+t)*Math.cos(t+0.7*x/250);
+      if(x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.strokeStyle = "#00ffe0";
+    ctx.lineWidth = 2.2;
+    ctx.shadowColor = "#00ffe0";
+    ctx.shadowBlur = 12;
+    ctx.stroke();
+    ctx.restore();
   }
+};
+let lastPreset = "plants";
+function fractalVisualizer() {
+  requestAnimationFrame(fractalVisualizer);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  let preset = document.getElementById('preset')?.value || lastPreset;
+  lastPreset = preset;
+  let t = performance.now()/1000;
+  // Use sound data for extra mod
+  let data = window.dataArray || [];
+  // Background gradient based on preset
+  let grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+  if (preset === "plants") {
+    grad.addColorStop(0, "#1e4023");
+    grad.addColorStop(1, "#56ffb2");
+  } else if (preset === "mold") {
+    grad.addColorStop(0, "#180825");
+    grad.addColorStop(1, "#b18aff");
+  } else if (preset === "bacteria") {
+    grad.addColorStop(0, "#2d1700");
+    grad.addColorStop(1, "#ff8a36");
+  } else if (preset === "mushrooms") {
+    grad.addColorStop(0, "#2e2400");
+    grad.addColorStop(1, "#ffe969");
+  } else if (preset === "harmony") {
+    grad.addColorStop(0, "#001e2f");
+    grad.addColorStop(1, "#00fff7");
+  }
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  // Fractal/pattern for preset:
+  if (presetFractals[preset]) presetFractals[preset](ctx, data, t, currentWaveColor);
 }
-window.addEventListener('DOMContentLoaded', animate);
-window.addEventListener('DOMContentLoaded', resizeCanvas);
+window.addEventListener('DOMContentLoaded', () => { fractalVisualizer(); resizeCanvas(); });
+// --- End Visualizer ---
 
-/* --- Continue rest of synth, MIDI, and UI logic from your previous implementation here --- */
-/* --- Make sure to call closeTray() at startup so UI is initially hidden --- */
+// Synth, MIDI, and UI logic: [Insert your previous working synth/MIDI logic below]
+// (Unchanged compared to previous working version, except `resizeCanvas` and color theme tied to preset if desired)
+
+// Example for tray open at start:
 closeTray();
-// Add your previous synth/MIDI logic below, adapting querySelectors for the minimal UI.
 </script>
 </body>
 </html>
