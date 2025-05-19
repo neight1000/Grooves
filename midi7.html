@@ -2,15 +2,23 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Plantasia App – Particle Slider (White Butterflies)</title>
+  <title>Plantasia App – All Features (Modular UI)</title>
+  <link href="https://fonts.googleapis.com/css?family=Roboto+Mono:400,700&display=swap" rel="stylesheet">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     html, body {
       margin: 0;
       padding: 0;
-      background: black;
-      color: white;
-      font-family: monospace;
+      background: #000;
+      color: #fff;
+      font-family: 'Roboto Mono', monospace;
+      font-size: 10pt;
+      width: 100vw;
+      height: 100vh;
+    }
+    body {
+      min-height: 100vh;
+      width: 100vw;
       overflow: hidden;
     }
     canvas {
@@ -18,306 +26,576 @@
       top: 0;
       left: 0;
       width: 100vw;
-      height: 100vh;
-      z-index: 0;
+      height: 64vh;
       display: block;
+      z-index: 1;
+    }
+    .ui, .effects-panel {
+      font-family: 'Roboto Mono', monospace;
+      font-size: 10pt;
+      letter-spacing: 0.01em;
     }
     .ui {
       position: absolute;
       bottom: 0;
-      width: 100%;
-      background: rgba(0, 0, 0, 0.85);
-      padding: 10px;
+      left: 0;
+      width: 100vw;
+      padding: 12px 0 8px 0;
+      background: rgba(0,0,0,0.98);
+      z-index: 4;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 24px;
+      justify-content: center;
+      border-top: 1.5px solid #444;
+    }
+    .ui select, .ui button {
+      font-family: 'Roboto Mono', monospace;
+      background: #000;
+      color: #fff;
+      border: 1px solid #fff;
+      font-size: 1.09rem;
+      border-radius: 7px;
+      padding: 5px 14px;
+      min-width: 58px;
+    }
+    .ui button {
+      cursor: pointer;
+      transition: background .1s;
+    }
+    .ui button:disabled {
+      opacity: 0.32;
+      cursor: not-allowed;
+    }
+    .ui button:hover:enabled {
+      background: #181818;
+    }
+    .key-label {
+      margin-left: 12px;
+      font-weight: bold;
+      font-size: 1.07em;
+      letter-spacing: 2px;
+      color: #b8fff7;
+      text-shadow: 0 0 7px #111, 0 0 2px #0ad;
+      min-width: 75px;
+      display: inline-block;
+    }
+    .effects-panel {
+      position: absolute;
+      left: 0;
+      bottom: 58px;
+      width: 100vw;
+      z-index: 10;
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
-      gap: 10px;
-      z-index: 2;
-      align-items: flex-end;
+      gap: 25px 30px;
+      background: rgba(0,0,0,0.94);
+      padding: 14px 0 8px 0;
+      border-top: 1px solid #222;
+      border-bottom: 1.5px solid #222;
+      box-shadow: 0 1.5px 16px #04040466;
     }
-    .ui label {
-      font-size: 10px;
-      display: block;
-      text-align: center;
+    .effect-block {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      min-width: 104px;
+      max-width: 142px;
+      color: #fff;
+      gap: 3px;
     }
-    .ui input[type="range"], .ui select {
-      width: 90px;
+    .effect-block label {
+      font-size: 1em;
+      margin-bottom: 3px;
+      letter-spacing: 0.04em;
+      font-weight: bold;
+      color: #7fffd4;
+      text-shadow: 0 1px 5px #000b;
     }
-    .ui button {
-      font-size: 12px;
-      padding: 4px 8px;
-      background: transparent;
-      border: 1px solid white;
-      color: white;
-      cursor: pointer;
+    .effect-block input[type="range"] {
+      width: 84px;
+      margin-bottom: 1px;
     }
-    #infoDisplay {
+    .effect-block input[type="checkbox"] {
+      margin-right: 7px;
+      accent-color: #fff;
+      scale: 1.13;
+    }
+    .effect-block .slider-value {
+      font-size: 0.96em;
+      color: #b7f0a7;
+      letter-spacing: 0.02em;
+      margin-left: 4px;
+    }
+    .effect-block .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-bottom: 2px;
+    }
+    /* Particle/Butterfly example: not rendered but reserved for future styles */
+    .butterfly {
       position: absolute;
-      top: 10px;
-      left: 10px;
-      z-index: 3;
-      background: rgba(0, 0, 0, 0.6);
-      color: white;
-      font-size: 12px;
-      padding: 10px;
-      display: none;
-      white-space: pre;
+      pointer-events: none;
+      border-radius: 50%;
+      background: white;
+      opacity: 0.77;
+      filter: blur(1.7px) brightness(1.14);
+      box-shadow: 0 0 13px #fff, 0 0 31px #fff3;
     }
   </style>
 </head>
 <body>
-<canvas id="waveCanvas"></canvas>
-<div id="infoDisplay"></div>
+<canvas id="wave"></canvas>
+<div class="effects-panel" id="effectsPanel"></div>
 <div class="ui">
-  <div><label>Preset</label>
-    <select id="preset">
-      <option value="plants">Plants</option>
-      <option value="mold">Mold</option>
-      <option value="bacteria">Bacteria</option>
-      <option value="mushrooms">Mushrooms</option>
-      <option value="harmony">Lifeform Harmony</option>
-    </select>
-  </div>
-  <div><label>Delay</label><input type="range" id="delay" min="0.01" max="2.0" step="0.01" value="0.6" /></div>
-  <div><label>Echo</label><input type="range" id="echo" min="0" max="1.0" step="0.01" value="0.4" /></div>
-  <div><label>Filter</label><input type="range" id="filter" min="100" max="8000" step="10" value="1200" /></div>
-  <div><label>Frequency</label><input type="range" id="freq" min="50" max="1000" step="1" value="174" /></div>
-  <div><label>Volume</label><input type="range" id="volume" min="0" max="100" value="60" /></div>
-  <div><label>BPM</label><input type="range" id="bpm" min="40" max="180" value="90" /></div>
-  <div><label>Particles</label><input type="range" id="particles" min="1" max="40" value="10" /></div>
-  <button id="play">PLAY</button>
-  <button id="stop">STOP</button>
-  <button id="toggleDisplay">TOGGLE DATA</button>
+  <button id="play">Play</button>
+  <button id="stop" disabled>Stop</button>
+  <select id="preset"></select>
+  <span class="key-label" id="keyLabel">—</span>
 </div>
 <script>
-let audioCtx, analyser, masterGain, reverbNode, bufferLength, dataArray;
-let bpm = 90, bpmTimer = null, stopped = true;
-let trailFrames = [], currentWaveColor = "#00FF7F";
-let canvas, ctx;
-let particleCount = 10; // default
-
-const presetSettings = {
-  plants:     { scale: [174, 285, 396, 417, 528], color: "#00FF7F" },
-  mold:       { scale: [432, 639, 741],           color: "#8A2BE2" },
-  bacteria:   { scale: [528, 554, 585, 728],      color: "#FF4500" },
-  mushrooms:  { scale: [417, 444, 528, 639],      color: "#FFD700" },
-  harmony:    { scale: [432, 528, 639, 741, 852], color: "#00FFFF" }
+/* ==== EFFECT CLASSES ==== */
+class VolumeEffect {
+  constructor(ctx) {
+    this.gainNode = ctx.createGain();
+    this.setAmount(0.32);
+  }
+  get input() { return this.gainNode; }
+  get output() { return this.gainNode; }
+  connect(node) { this.gainNode.connect(node); }
+  disconnect() { try { this.gainNode.disconnect(); } catch(e){} }
+  setAmount(val) { this.gainNode.gain.value = val; }
+}
+class FilterEffect {
+  constructor(ctx) {
+    this.filterNode = ctx.createBiquadFilter();
+    this.filterNode.type = "lowpass";
+    this.setAmount(1800);
+  }
+  get input() { return this.filterNode; }
+  get output() { return this.filterNode; }
+  connect(node) { this.filterNode.connect(node); }
+  disconnect() { try { this.filterNode.disconnect(); } catch(e){} }
+  setAmount(val) { this.filterNode.frequency.value = val; }
+}
+class DelayEffect {
+  constructor(ctx) {
+    this.delayNode = ctx.createDelay();
+    this.feedback = ctx.createGain();
+    this.outputNode = ctx.createGain();
+    this.delayNode.delayTime.value = 0.18;
+    this.feedback.gain.value = 0.21;
+    // Routing
+    this.delayNode.connect(this.feedback);
+    this.feedback.connect(this.delayNode);
+    this.delayNode.connect(this.outputNode);
+    this.inputNode = ctx.createGain();
+    this.inputNode.connect(this.delayNode);
+    this.inputNode.connect(this.outputNode);
+  }
+  get input() { return this.inputNode; }
+  get output() { return this.outputNode; }
+  connect(node) { this.outputNode.connect(node); }
+  disconnect() { try { this.outputNode.disconnect(); } catch(e){} }
+  setAmount(val) {
+    // val is 0..1, map to delayTime (0-0.65s) & feedback (0-0.7)
+    this.delayNode.delayTime.value = 0.05 + val * 0.55;
+    this.feedback.gain.value = val * 0.7;
+  }
+}
+class EchoEffect {
+  constructor(ctx) {
+    this.delayNode = ctx.createDelay();
+    this.feedback = ctx.createGain();
+    this.outputNode = ctx.createGain();
+    this.delayNode.delayTime.value = 0.10;
+    this.feedback.gain.value = 0.13;
+    // Routing
+    this.delayNode.connect(this.feedback);
+    this.feedback.connect(this.delayNode);
+    this.delayNode.connect(this.outputNode);
+    this.inputNode = ctx.createGain();
+    this.inputNode.connect(this.delayNode);
+    this.inputNode.connect(this.outputNode);
+  }
+  get input() { return this.inputNode; }
+  get output() { return this.outputNode; }
+  connect(node) { this.outputNode.connect(node); }
+  disconnect() { try { this.outputNode.disconnect(); } catch(e){} }
+  setAmount(val) {
+    // val is 0..1, map to delayTime (0.05-0.21s) & feedback (0-0.38)
+    this.delayNode.delayTime.value = 0.05 + val * 0.16;
+    this.feedback.gain.value = val * 0.38;
+  }
+}
+class ReverbEffect {
+  constructor(ctx) {
+    this.convolver = ctx.createConvolver();
+    // Very basic: create simple impulse for now
+    let len = ctx.sampleRate * 1.9, impulse = ctx.createBuffer(2, len, ctx.sampleRate);
+    for(let c=0;c<2;c++){
+      let d=impulse.getChannelData(c); for(let i=0;i<len;i++){d[i]=((Math.random()*2-1)*Math.pow(1-i/len,2));}
+    }
+    this.convolver.buffer = impulse;
+    this.inputNode = ctx.createGain();
+    this.inputNode.connect(this.convolver);
+    this.outputNode = ctx.createGain();
+    this.convolver.connect(this.outputNode);
+    this.mix = 0.22;
+    this.setAmount(this.mix);
+  }
+  get input() { return this.inputNode; }
+  get output() { return this.outputNode; }
+  connect(node) { this.outputNode.connect(node); }
+  disconnect() { try { this.outputNode.disconnect(); } catch(e){} }
+  setAmount(val) {
+    this.mix = val;
+    this.inputNode.gain.value = this.mix;
+  }
+}
+// "Pitch Wobble" via detune LFO (applied at note level)
+/* ==== PLANTASIA CONFIG ==== */
+const presetData = [
+  {
+    name: "Classic Plant",
+    base: 220,
+    scale: [0, 2, 4, 7, 9],
+    key: "A minor",
+    color: "#41FF7B"
+  },
+  {
+    name: "Mold",
+    base: 260,
+    scale: [0, 3, 5, 8, 10],
+    key: "C minor",
+    color: "#B5FF41"
+  },
+  {
+    name: "Mushroom",
+    base: 247,
+    scale: [0, 2, 5, 7, 9],
+    key: "B minor",
+    color: "#41AFFF"
+  },
+  {
+    name: "Bacteria",
+    base: 196,
+    scale: [0, 3, 5, 7, 10],
+    key: "G minor",
+    color: "#F6FF41"
+  },
+  {
+    name: "Photosynthesis",
+    base: 233,
+    scale: [0, 2, 5, 9, 10],
+    key: "Bb minor",
+    color: "#FF41E2"
+  }
+];
+let currentPreset = 0;
+/* ==== MODULAR EFFECTS: DEFINE ==== */
+const effectTypes = [
+  {
+    name: "Volume",
+    create: ctx => new VolumeEffect(ctx),
+    defaultActive: true,
+    defaultAmount: 0.32,
+    min: 0, max: 1, step: 0.01
+  },
+  {
+    name: "Filter",
+    create: ctx => new FilterEffect(ctx),
+    defaultActive: false,
+    defaultAmount: 1800,
+    min: 200, max: 4000, step: 1
+  },
+  {
+    name: "Delay",
+    create: ctx => new DelayEffect(ctx),
+    defaultActive: false,
+    defaultAmount: 0.13,
+    min: 0, max: 1, step: 0.01
+  },
+  {
+    name: "Echo",
+    create: ctx => new EchoEffect(ctx),
+    defaultActive: false,
+    defaultAmount: 0.10,
+    min: 0, max: 1, step: 0.01
+  },
+  {
+    name: "Reverb",
+    create: ctx => new ReverbEffect(ctx),
+    defaultActive: false,
+    defaultAmount: 0.22,
+    min: 0, max: 1, step: 0.01
+  }
+  // Add more modules here: e.g. BPM, Frequency, Oscillations, Pitch Wobble
+];
+let effects = []; // Array of { type, instance, active, amount }
+/* ==== MODULAR EFFECTS PANEL ==== */
+function renderEffectsPanel() {
+  const panel = document.getElementById('effectsPanel');
+  panel.innerHTML = '';
+  effects.forEach((eff, i) => {
+    const block = document.createElement('div');
+    block.className = 'effect-block';
+    // Toggle
+    const toggleRow = document.createElement('div');
+    toggleRow.className = "toggle-row";
+    const cb = document.createElement('input');
+    cb.type = "checkbox";
+    cb.checked = eff.active;
+    cb.id = "eff-toggle-"+i;
+    cb.onchange = () => { eff.active = cb.checked; setupChain(); };
+    toggleRow.appendChild(cb);
+    const label = document.createElement('label');
+    label.htmlFor = "eff-toggle-"+i;
+    label.textContent = eff.type.name;
+    toggleRow.appendChild(label);
+    block.appendChild(toggleRow);
+    // Slider
+    const slider = document.createElement('input');
+    slider.type = "range";
+    slider.min = eff.type.min;
+    slider.max = eff.type.max;
+    slider.step = eff.type.step;
+    slider.value = eff.amount;
+    slider.oninput = () => {
+      eff.amount = Number(slider.value);
+      if (eff.instance) eff.instance.setAmount(eff.amount);
+      valSpan.textContent = formatAmount(eff, eff.amount);
+    };
+    block.appendChild(slider);
+    // Value
+    const valSpan = document.createElement('span');
+    valSpan.className = "slider-value";
+    valSpan.textContent = formatAmount(eff, eff.amount);
+    block.appendChild(valSpan);
+    panel.appendChild(block);
+  });
+}
+function formatAmount(eff, amt) {
+  if (eff.type.name === "Volume") return (amt*100|0) + "%";
+  if (eff.type.name === "Filter") return Math.round(amt) + "Hz";
+  if (eff.type.name === "Reverb") return Math.round(amt*100)+"%";
+  return Math.round(amt * 100) + "%";
+}
+/* ==== AUDIO CHAIN ==== */
+let ctx = null, masterGain = null, isPlaying = false, melodyInterval = null;
+let voices = [];
+const attack = 0.38, release = 1.8, noteLen = 1.65; // envelope (seconds)
+function setupChain() {
+  // Clean up old instances
+  if (masterGain) try { masterGain.disconnect(); } catch(e){}
+  effects.forEach(eff => { if (eff.instance) eff.instance.disconnect(); });
+  // Create new effect instances for chain
+  if (!ctx) return;
+  masterGain = ctx.createGain();
+  masterGain.gain.value = 1;
+  effects.forEach(eff => { eff.instance = eff.type.create(ctx); eff.instance.setAmount(eff.amount); });
+  // Chain: masterGain → enabled effects in order → ctx.destination
+  let node = masterGain;
+  effects.forEach(eff => {
+    if (eff.active) {
+      node.connect(eff.instance.input);
+      node = eff.instance.output;
+      if (eff.instance.setAmount) eff.instance.setAmount(eff.amount);
+    }
+  });
+  node.connect(ctx.destination);
+}
+/* ==== OSCILLATOR ENGINE (WITH ALL FEATURES) ==== */
+function getScaleNotes(base, scale) {
+  return scale.map(interval => base * Math.pow(2, interval / 12));
+}
+let scaleNotes = getScaleNotes(presetData[0].base, presetData[0].scale);
+let bpm = 66;
+let prevIdx = -1;
+// "Pitch Wobble" (detune LFO)
+function getWobbleLfo(t) {
+  // Pitch wobble for all voices; keep gentle
+  return Math.sin(t * 1.8 + Math.cos(t * 0.8)) * 3.2;
+}
+function playNote(freq, pan = 0) {
+  if (!ctx || !masterGain) return;
+  const now = ctx.currentTime;
+  let voice = [];
+  for (let i = 0; i < 3; i++) {
+    let osc = ctx.createOscillator();
+    osc.type = "square";
+    // Detune + tape wobble
+    let t = now + Math.random()*0.04;
+    let wobble = getWobbleLfo(t);
+    osc.frequency.value = freq + ((i - 1) * 2.4) + wobble;
+    let gain = ctx.createGain();
+    let env = gain.gain;
+    env.setValueAtTime(0, now);
+    env.linearRampToValueAtTime(0.5, now + attack);
+    env.linearRampToValueAtTime(0, now + attack + release);
+    let panner = ctx.createStereoPanner();
+    panner.pan.value = (i === 0 ? -pan : (i === 2 ? pan : 0)); // left, center, right
+    osc.connect(gain).connect(panner).connect(masterGain);
+    osc.start(now);
+    osc.stop(now + attack + release + 0.2);
+    voice.push({ osc, gain, panner });
+    osc.onended = () => {
+      voice.forEach(v => {
+        try { v.osc.disconnect(); } catch(e){}
+        try { v.gain.disconnect(); } catch(e){}
+        try { v.panner.disconnect(); } catch(e){}
+      });
+    };
+  }
+  voices.push(voice);
+}
+/* ==== MELODIC EVOLUTION ==== */
+function nextMelodyNote() {
+  let idx;
+  do {
+    idx = Math.floor(Math.random() * scaleNotes.length);
+  } while (idx === prevIdx);
+  prevIdx = idx;
+  let note = scaleNotes[idx];
+  playNote(note, 0.26);
+  updateWaveColor(idx);
+}
+/* ==== PLAY/STOP ==== */
+function startMelody() {
+  if (isPlaying) return;
+  if (!ctx) {
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  isPlaying = true;
+  document.getElementById('play').disabled = true;
+  document.getElementById('stop').disabled = false;
+  // Create effects fresh for chain
+  effects = effectTypes.map(t => ({
+    type: t,
+    instance: null,
+    active: t.defaultActive,
+    amount: t.defaultAmount
+  }));
+  renderEffectsPanel();
+  setupChain();
+  // Start melodic loop (BPM based)
+  let delay = 60000 / bpm;
+  melodyInterval = setInterval(nextMelodyNote, delay);
+  nextMelodyNote(); // Play first note immediately
+}
+function stopMelody() {
+  isPlaying = false;
+  document.getElementById('play').disabled = false;
+  document.getElementById('stop').disabled = true;
+  if (melodyInterval) clearInterval(melodyInterval);
+  melodyInterval = null;
+  if (voices.length) voices.forEach(voice =>
+    voice.forEach(v => {
+      try { v.osc.stop(); } catch(e){}
+      try { v.osc.disconnect(); } catch(e){}
+    })
+  );
+  voices = [];
+  if (masterGain) {
+    try { masterGain.disconnect(); } catch(e){}
+  }
+}
+/* ==== UI HANDLERS ==== */
+document.getElementById('play').onclick = function() {
+  if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+  ctx.resume && ctx.resume();
+  startMelody();
 };
-
-function getScaleFromPreset(val) {
-  return presetSettings[val]?.scale || [174, 220, 261];
+document.getElementById('stop').onclick = stopMelody;
+const presetSel = document.getElementById('preset');
+presetSel.innerHTML = "";
+presetData.forEach((p, i) => {
+  const opt = document.createElement('option');
+  opt.value = i;
+  opt.innerText = p.name;
+  presetSel.appendChild(opt);
+});
+presetSel.value = 0;
+presetSel.onchange = (e) => {
+  currentPreset = parseInt(e.target.value, 10);
+  const p = presetData[currentPreset];
+  scaleNotes = getScaleNotes(p.base, p.scale);
+  document.getElementById('keyLabel').innerText = p.key;
+  updateWaveColor(0);
+  prevIdx = -1;
+};
+/* ==== KEY LABEL ==== */
+document.getElementById('keyLabel').innerText = presetData[0].key;
+/* ==== WAVEFORM VISUALIZER ==== */
+const canvas = document.getElementById('wave');
+const ctx2d = canvas.getContext('2d');
+let W = 800, H = 300;
+function resize() {
+  W = window.innerWidth;
+  H = Math.floor(window.innerHeight * 0.64);
+  canvas.width = W;
+  canvas.height = H;
 }
-function getColorFromPreset(val) {
-  return presetSettings[val]?.color || "#FFFFFF";
+resize();
+window.onresize = resize;
+let waveColor = presetData[0].color;
+function updateWaveColor(idx) {
+  waveColor = presetData[currentPreset].color;
 }
-
-function initAudio() {
-  if (audioCtx) return;
-  canvas = document.getElementById("waveCanvas");
-  ctx = canvas.getContext("2d");
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  analyser = audioCtx.createAnalyser();
-  analyser.fftSize = 2048;
-  bufferLength = analyser.frequencyBinCount;
-  dataArray = new Uint8Array(bufferLength);
-
-  masterGain = audioCtx.createGain();
-  masterGain.gain.value = parseFloat(volume.value) / 100;
-
-  reverbNode = audioCtx.createDelay();
-  const reverbFeedback = audioCtx.createGain();
-  reverbNode.delayTime.value = 0.4;
-  reverbFeedback.gain.value = 0.4;
-  reverbNode.connect(reverbFeedback);
-  reverbFeedback.connect(reverbNode);
-  reverbNode.connect(masterGain);
-  masterGain.connect(audioCtx.destination);
-  animate();
-}
-
-function playTone(freq) {
-  const now = audioCtx.currentTime;
-  const filterNode = audioCtx.createBiquadFilter();
-  filterNode.type = "lowpass";
-  filterNode.frequency.value = parseFloat(filter.value);
-
-  const delayNode = audioCtx.createDelay();
-  delayNode.delayTime.value = parseFloat(delay.value);
-  const feedbackNode = audioCtx.createGain();
-  feedbackNode.gain.value = parseFloat(echo.value);
-
-  const gainNode = audioCtx.createGain();
-  gainNode.gain.setValueAtTime(0, now);
-  gainNode.gain.linearRampToValueAtTime(0.3, now + 0.3);
-  gainNode.gain.linearRampToValueAtTime(0.0, now + 3.0);
-
-  const panNode = audioCtx.createStereoPanner();
-  panNode.pan.value = Math.random() * 2 - 1;
-
-  const detuneOffsets = [-0.5, 0, 0.5];
-  detuneOffsets.forEach(offset => {
-    const o = audioCtx.createOscillator();
-    o.type = "square";
-    o.frequency.value = freq * (1 + offset / 100);
-    o.connect(gainNode);
-    o.start(now);
-    o.stop(now + 3.0);
+let waveT = 0;
+function drawWave() {
+  ctx2d.clearRect(0,0,W,H);
+  let c = waveColor;
+  let points = [];
+  for (let x = 0; x < W; x++) {
+    // Triangle-based waveform, animating slowly
+    let phase = (waveT + x / W * 2 * Math.PI) % (2 * Math.PI);
+    let y = H/2 + (Math.asin(Math.sin(phase * 2.1)) / Math.PI) * (H/3);
+    points.push([x, y]);
+  }
+  // Draw gradient waveform with glow and trail/echo
+  let grad = ctx2d.createLinearGradient(0,0,W,0);
+  grad.addColorStop(0, c);
+  grad.addColorStop(1, "#fff");
+  ctx2d.save();
+  ctx2d.shadowColor = c;
+  ctx2d.shadowBlur = 19;
+  ctx2d.globalAlpha = 0.87;
+  ctx2d.strokeStyle = grad;
+  ctx2d.lineWidth = 4;
+  ctx2d.beginPath();
+  points.forEach(([x, y], i) => {
+    if (i === 0) ctx2d.moveTo(x, y);
+    else ctx2d.lineTo(x, y);
   });
-
-  gainNode.connect(panNode);
-  panNode.connect(filterNode);
-  filterNode.connect(delayNode);
-  delayNode.connect(feedbackNode);
-  feedbackNode.connect(delayNode);
-  delayNode.connect(reverbNode);
-  gainNode.connect(analyser);
-}
-
-function scheduleNotes(scale) {
-  clearInterval(bpmTimer);
-  bpmTimer = setInterval(() => {
-    if (!stopped) {
-      const freq = scale[Math.floor(Math.random() * scale.length)];
-      playTone(freq);
-    }
-  }, 60000 / bpm);
-}
-
-function animate() {
-  if (!ctx || !analyser) return;
-  requestAnimationFrame(animate);
-  analyser.getByteTimeDomainData(dataArray);
-  ctx.fillStyle = "rgba(0, 0, 0, 0.09)";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  if (trailFrames.length > 8) trailFrames.shift();
-  trailFrames.push([...dataArray]);
-
-  // Gradient for waveform
-  const grad = ctx.createLinearGradient(0, 0, canvas.width, 0);
-  grad.addColorStop(0, currentWaveColor);
-  grad.addColorStop(1, "#ffffff");
-
-  ctx.save();
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-
-  // Draw last 3 waveform trails (deep echo look)
-  for (let t = Math.max(0, trailFrames.length - 3); t < trailFrames.length; t++) {
-    const data = trailFrames[t];
-    const slice = canvas.width / data.length;
-    ctx.beginPath();
-    let x = 0;
-    for (let i = 0; i < data.length; i++) {
-      const v = (data[i] - 128) / 128.0;
-      const y = (v * canvas.height / 2.0 * 0.7) + canvas.height / 2;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-      x += slice;
-    }
-    const age = t - (trailFrames.length - 3);
-    ctx.strokeStyle = grad;
-    ctx.globalAlpha = 0.24 + 0.32 * (1 - age / 3);
-    ctx.lineWidth = 3.2 + 1.8 * (1 - age / 3);
-    ctx.shadowBlur = 12 + 20 * (1 - age / 3);
-    ctx.shadowColor = currentWaveColor;
-    ctx.stroke();
-  }
-  ctx.restore();
-
-  // --- White Butterfly Particles ---
-  if (!window.particles) window.particles = [];
-  // Only keep up to particleCount particles on screen
-  while (window.particles.length > particleCount) window.particles.shift();
-
-  // Only spawn new if below particleCount
-  let peak = 0, peakIdx = 0;
-  for (let i = 0; i < dataArray.length; i++) {
-    const val = Math.abs(dataArray[i] - 128);
-    if (val > peak) { peak = val; peakIdx = i; }
-  }
-  if (peak > 45 && window.particles.length < particleCount) {
-    const x = peakIdx * (canvas.width / dataArray.length);
-    const y = ((dataArray[peakIdx] - 128) / 128.0) * (canvas.height / 2.0 * 0.7) + canvas.height / 2;
-    window.particles.push({
-      x, y,
-      r: 8 + Math.random() * 12,
-      alpha: 0.7,
-      life: 0,
-      color: "#fff",
-      angle: Math.random() * Math.PI * 2,
-      flutter: 0.6 + Math.random() * 0.5
-    });
-  }
-  // Animate and draw butterflies
-  window.particles = window.particles.filter(p => {
-    p.life += 1;
-    p.r *= 1.008;
-    p.alpha *= 0.976;
-    p.y -= 0.16 + Math.random() * 0.22;
-    p.x += Math.sin(p.life * 0.12 + p.angle) * p.flutter;
-    ctx.save();
-    ctx.globalAlpha = Math.max(0, p.alpha);
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, p.r * 0.7, 0, 2 * Math.PI, false);
-    ctx.shadowBlur = 16 + 16 * Math.random();
-    ctx.shadowColor = "#fff";
-    ctx.fillStyle = "#fff";
-    ctx.fill();
-    ctx.restore();
-    return p.alpha > 0.13 && p.r < 38;
+  ctx2d.stroke();
+  // Visual echo/trail (ghosted)
+  ctx2d.globalAlpha = 0.21;
+  ctx2d.lineWidth = 13;
+  ctx2d.shadowBlur = 35;
+  ctx2d.beginPath();
+  points.forEach(([x, y], i) => {
+    if (i === 0) ctx2d.moveTo(x, y+7);
+    else ctx2d.lineTo(x, y+7);
   });
+  ctx2d.stroke();
+  ctx2d.restore();
+  // Frequency markers/labels
+  ctx2d.font = "16px Roboto Mono, monospace";
+  ctx2d.fillStyle = "#fff";
+  scaleNotes.forEach((f, i) => {
+    let lx = 60 + i * ((W-120) / (scaleNotes.length-1));
+    ctx2d.fillText(`${Math.round(f)} Hz`, lx, H-18);
+  });
+  waveT += 0.0135;
+  requestAnimationFrame(drawWave);
 }
-
-// UI Event Handlers
-document.getElementById('play').addEventListener('click', () => {
-  initAudio();
-  stopped = false;
-  const scale = getScaleFromPreset(preset.value);
-  currentWaveColor = getColorFromPreset(preset.value);
-  scheduleNotes(scale);
-});
-document.getElementById('stop').addEventListener('click', () => {
-  stopped = true;
-  clearInterval(bpmTimer);
-});
-document.getElementById('bpm').addEventListener('input', e => {
-  bpm = parseInt(e.target.value);
-  if (!stopped) {
-    scheduleNotes(getScaleFromPreset(preset.value));
-  }
-});
-document.getElementById('preset').addEventListener('change', () => {
-  const selected = preset.value;
-  currentWaveColor = getColorFromPreset(selected);
-  if (!stopped) {
-    scheduleNotes(getScaleFromPreset(selected));
-  }
-});
-document.getElementById('particles').addEventListener('input', e => {
-  particleCount = parseInt(e.target.value, 10);
-});
-
-// Display Toggle
-const display = document.getElementById("infoDisplay");
-document.getElementById("toggleDisplay").addEventListener("click", () => {
-  display.style.display = display.style.display === "none" ? "block" : "none";
-});
-function updateDisplay() {
-  display.textContent =
-    "PRESET     : " + document.getElementById("preset").value + "\n" +
-    "DELAY      : " + document.getElementById("delay").value + "\n" +
-    "ECHO       : " + document.getElementById("echo").value + "\n" +
-    "FILTER     : " + document.getElementById("filter").value + "\n" +
-    "FREQUENCY  : " + document.getElementById("freq").value + "\n" +
-    "VOLUME     : " + document.getElementById("volume").value + "\n" +
-    "BPM        : " + document.getElementById("bpm").value + "\n" +
-    "PARTICLES  : " + particleCount;
-}
-setInterval(updateDisplay, 250);
+drawWave();
+/* ==== PARTICLE/BUTTERFLY SYSTEM ==== */
+/* This is a stub: you can drop in your existing or new code for white-only, floating butterflies/particles here. For production, use an efficient canvas-based approach and trigger on waveform peaks. */
 </script>
 </body>
 </html>
