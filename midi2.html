@@ -1,3 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Plantasia App v3 – MIDI Button Mapping with Slider Sync</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: black;
+      color: white;
+      font-family: monospace;
+      overflow: hidden;
+    }
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 0;
+    }
+    .ui {
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      padding: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      z-index: 2;
+    }
+    .ui label {
+      font-size: 10px;
+      display: block;
+      text-align: center;
+    }
+    .ui input[type="range"], .ui select {
+      width: 90px;
+    }
+    .ui button {
+      font-size: 12px;
+      padding: 4px 8px;
+      background: transparent;
+      border: 1px solid white;
+      color: white;
+      cursor: pointer;
+    }
+    #infoDisplay {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 3;
+      background: rgba(0, 0, 0, 0.6);
+      color: white;
+      font-size: 12px;
+      padding: 10px;
+      display: none;
+      white-space: pre;
+    }
+  </style>
+</head>
+<body>
+<canvas id="waveCanvas"></canvas>
+<div id="infoDisplay"></div>
+<div class="ui">
+  <div><label>Preset</label>
+    <select id="preset">
+      <option value="plants">Plants</option>
+      <option value="mold">Mold</option>
+      <option value="bacteria">Bacteria</option>
+      <option value="mushrooms">Mushrooms</option>
+      <option value="harmony">Lifeform Harmony</option>
+    </select>
+  </div>
+  <div><label>Delay</label><input type="range" id="delay" min="0.01" max="2.0" step="0.01" value="0.6" /></div>
+  <div><label>Echo</label><input type="range" id="echo" min="0" max="1.0" step="0.01" value="0.4" /></div>
+  <div><label>Filter</label><input type="range" id="filter" min="100" max="8000" step="10" value="1200" /></div>
+  <div><label>Frequency</label><input type="range" id="freq" min="50" max="1000" step="1" value="174" /></div>
+  <div><label>Volume</label><input type="range" id="volume" min="0" max="100" value="60" /></div>
+  <div><label>BPM</label><input type="range" id="bpm" min="40" max="180" value="90" /></div>
+  <button id="play">PLAY</button>
+  <button id="stop">STOP</button>
+  <button id="toggleDisplay">TOGGLE DATA</button>
+  <button id="toggleMidiIn">MIDI IN: ON</button>
+</div>
 <script>
 // MIDI SETUP
 let midiAccess = null, midiOutput = null, midiInEnabled = true;
@@ -6,7 +95,7 @@ function midiNoteToFreq(note) {
 }
 
 const midiButtonMap = {
-  // Map NOTE numbers (e.g. 36-51 for most pad controllers) to actions
+  // Map NOTE numbers (36-51) to actions
   36: () => playScaleNote(0), // Button 1: first scale note
   37: () => playScaleNote(1), // Button 2
   38: () => playScaleNote(2), // Button 3
@@ -16,13 +105,13 @@ const midiButtonMap = {
   42: prevPreset,             // Button 7: previous preset
   43: startPlayback,          // Button 8: Play
   44: stopPlayback,           // Button 9: Stop
-  45: () => changeRange('delay', +0.05),   // Button 10: increase delay
-  46: () => changeRange('delay', -0.05),   // Button 11: decrease delay
-  47: () => changeRange('echo', +0.05),    // Button 12: increase echo
-  48: () => changeRange('echo', -0.05),    // Button 13: decrease echo
-  49: () => changeRange('filter', +100),   // Button 14: increase filter
-  50: () => changeRange('filter', -100),   // Button 15: decrease filter
-  51: toggleDataDisplay                    // Button 16: toggle data display
+  45: () => incSlider('delay', +0.05),   // Button 10: increase delay
+  46: () => incSlider('delay', -0.05),   // Button 11: decrease delay
+  47: () => incSlider('echo', +0.05),    // Button 12: increase echo
+  48: () => incSlider('echo', -0.05),    // Button 13: decrease echo
+  49: () => incSlider('filter', +100),   // Button 14: increase filter
+  50: () => incSlider('filter', -100),   // Button 15: decrease filter
+  51: toggleDataDisplay                  // Button 16: toggle data display
 };
 
 function handleMidiMessage(e) {
@@ -30,8 +119,6 @@ function handleMidiMessage(e) {
   const type = status & 0xf0;
   const channel = status & 0x0f;
   if (!midiInEnabled) return;
-
-  // Note On, Channel 11 (zero-based 10), velocity > 0
   if (type === 0x90 && d2 > 0 && channel === 10) {
     if (midiButtonMap[d1]) midiButtonMap[d1]();
   }
@@ -119,17 +206,25 @@ function startPlayback() {
 function stopPlayback() {
   document.getElementById('stop').click();
 }
-function changeRange(id, delta) {
+
+// Utility: increment/decrement and update slider, clamp to min/max
+function incSlider(id, delta) {
   const el = document.getElementById(id);
+  let min = parseFloat(el.min), max = parseFloat(el.max), step = parseFloat(el.step);
   let value = parseFloat(el.value) + delta;
-  if (id === 'delay') value = Math.min(Math.max(value, 0.01), 2.0);
-  if (id === 'echo') value = Math.min(Math.max(value, 0), 1.0);
-  if (id === 'filter') value = Math.min(Math.max(value, 100), 8000);
-  el.value = value.toFixed(id === 'filter' ? 0 : 2);
-  if (id === 'filter' && !stopped) scheduleNotes(getScaleFromPreset(document.getElementById('preset').value));
-  if (id === 'delay' && !stopped) scheduleNotes(getScaleFromPreset(document.getElementById('preset').value));
-  if (id === 'echo' && !stopped) scheduleNotes(getScaleFromPreset(document.getElementById('preset').value));
+  // Snap to step
+  value = Math.round(value / step) * step;
+  value = Math.max(min, Math.min(max, value));
+  el.value = value;
+  // Fire input event to sync UI and audio if needed
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  if (id === 'volume' && masterGain) masterGain.gain.value = parseFloat(el.value) / 100;
+  if (id === 'bpm' && !stopped) {
+    bpm = Math.round(value);
+    scheduleNotes(getScaleFromPreset(document.getElementById('preset').value));
+  }
 }
+
 function toggleDataDisplay() {
   document.getElementById('toggleDisplay').click();
 }
@@ -149,155 +244,4 @@ function initAudio() {
   dataArray = new Uint8Array(bufferLength);
 
   masterGain = audioCtx.createGain();
-  masterGain.gain.value = parseFloat(volume.value) / 100;
-
-  reverbNode = audioCtx.createDelay();
-  const reverbFeedback = audioCtx.createGain();
-  reverbNode.delayTime.value = 0.4;
-  reverbFeedback.gain.value = 0.4;
-  reverbNode.connect(reverbFeedback);
-  reverbFeedback.connect(reverbNode);
-  reverbNode.connect(masterGain);
-  masterGain.connect(audioCtx.destination);
-  animate();
-}
-
-function playTone(freq) {
-  const now = audioCtx.currentTime;
-  const filterNode = audioCtx.createBiquadFilter();
-  filterNode.type = "lowpass";
-  filterNode.frequency.value = parseFloat(filter.value);
-
-  const delayNode = audioCtx.createDelay();
-  delayNode.delayTime.value = parseFloat(delay.value);
-  const feedbackNode = audioCtx.createGain();
-  feedbackNode.gain.value = parseFloat(echo.value);
-
-  const gainNode = audioCtx.createGain();
-  gainNode.gain.setValueAtTime(0, now);
-  gainNode.gain.linearRampToValueAtTime(0.3, now + 0.3);
-  gainNode.gain.linearRampToValueAtTime(0.0, now + 3.0);
-
-  const panNode = audioCtx.createStereoPanner();
-  panNode.pan.value = Math.random() * 2 - 1;
-
-  const detuneOffsets = [-0.5, 0, 0.5];
-  detuneOffsets.forEach(offset => {
-    const o = audioCtx.createOscillator();
-    o.type = "square";
-    o.frequency.value = freq * (1 + offset / 100);
-    o.connect(gainNode);
-    o.start(now);
-    o.stop(now + 3.0);
-  });
-
-  gainNode.connect(panNode);
-  panNode.connect(filterNode);
-  filterNode.connect(delayNode);
-  delayNode.connect(feedbackNode);
-  feedbackNode.connect(delayNode);
-  delayNode.connect(reverbNode);
-  gainNode.connect(analyser);
-}
-
-function scheduleNotes(scale) {
-  clearInterval(bpmTimer);
-  bpmTimer = setInterval(() => {
-    if (!stopped) {
-      const freq = scale[Math.floor(Math.random() * scale.length)];
-      playTone(freq);
-      sendMidiNote(freq); // MIDI OUT
-    }
-  }, 60000 / bpm);
-}
-
-function animate() {
-  if (!ctx || !analyser) return;
-  requestAnimationFrame(animate);
-  analyser.getByteTimeDomainData(dataArray);
-  ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  if (trailFrames.length > 12) trailFrames.shift();
-  trailFrames.push([...dataArray]);
-
-  const grad = ctx.createLinearGradient(0, 0, canvas.width, 0);
-  grad.addColorStop(0, currentWaveColor);
-  grad.addColorStop(1, "#000000");
-
-  for (let t = 0; t < trailFrames.length; t++) {
-    const data = trailFrames[t];
-    const slice = canvas.width / data.length;
-    ctx.beginPath();
-    let x = 0;
-    for (let i = 0; i < data.length; i++) {
-      const v = (data[i] - 128) / 128.0;
-      const y = (v * canvas.height / 2.0 * 0.9) + canvas.height / 2;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-      x += slice;
-    }
-    const alpha = 0.05 + (t / trailFrames.length) * 0.1;
-    ctx.strokeStyle = grad;
-    ctx.globalAlpha = alpha;
-    ctx.shadowBlur = 16;
-    ctx.shadowColor = currentWaveColor;
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-    ctx.globalAlpha = 1.0;
-  }
-}
-
-document.getElementById('play').addEventListener('click', () => {
-  initAudio();
-  stopped = false;
-  const scale = getScaleFromPreset(preset.value);
-  currentWaveColor = getColorFromPreset(preset.value);
-  scheduleNotes(scale);
-});
-
-document.getElementById('stop').addEventListener('click', () => {
-  stopped = true;
-  clearInterval(bpmTimer);
-});
-
-document.getElementById('bpm').addEventListener('input', e => {
-  bpm = parseInt(e.target.value);
-  if (!stopped) {
-    scheduleNotes(getScaleFromPreset(preset.value));
-  }
-});
-
-document.getElementById('preset').addEventListener('change', () => {
-  const selected = preset.value;
-  currentWaveColor = getColorFromPreset(selected);
-  if (!stopped) {
-    scheduleNotes(getScaleFromPreset(selected));
-  }
-});
-
-// Display Toggle
-const display = document.getElementById("infoDisplay");
-document.getElementById("toggleDisplay").addEventListener("click", () => {
-  display.style.display = display.style.display === "none" ? "block" : "none";
-});
-function updateDisplay() {
-  display.textContent =
-    "PRESET     : " + document.getElementById("preset").value + "\n" +
-    "DELAY      : " + document.getElementById("delay").value + "\n" +
-    "ECHO       : " + document.getElementById("echo").value + "\n" +
-    "FILTER     : " + document.getElementById("filter").value + "\n" +
-    "FREQUENCY  : " + document.getElementById("freq").value + "\n" +
-    "VOLUME     : " + document.getElementById("volume").value + "\n" +
-    "BPM        : " + document.getElementById("bpm").value +
-    "\nMIDI IN    : " + (midiInEnabled ? "ON" : "OFF");
-}
-setInterval(updateDisplay, 250);
-
-// MIDI IN Toggle
-const midiBtn = document.getElementById('toggleMidiIn');
-midiBtn.addEventListener('click', () => {
-  midiInEnabled = !midiInEnabled;
-  midiBtn.textContent = "MIDI IN: " + (midiInEnabled ? "ON" : "OFF");
-});
-</script>
+  masterGain.g
