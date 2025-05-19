@@ -1,41 +1,65 @@
-
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Plantasia App v61 – Restored UI, Sliders, and Playback</title>
+  <title>Plantasia App v62 – Original Waveform Restored</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     html, body {
-      margin: 0; padding: 0;
-      background: black; color: white;
-      font-family: monospace; overflow: hidden;
+      margin: 0;
+      padding: 0;
+      background: black;
+      color: white;
+      font-family: monospace;
+      overflow: hidden;
     }
     canvas {
-      position: absolute; top: 0; left: 0;
-      width: 100vw; height: 100vh; z-index: 0;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 0;
     }
     .ui {
-      position: absolute; bottom: 0; width: 100%;
-      background: rgba(0,0,0,0.85); padding: 10px;
-      display: flex; flex-wrap: wrap;
-      justify-content: center; gap: 10px; z-index: 2;
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      padding: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      z-index: 2;
     }
     .ui label {
-      font-size: 10px; display: block; text-align: center;
+      font-size: 10px;
+      display: block;
+      text-align: center;
     }
     .ui input[type="range"], .ui select {
       width: 90px;
     }
     .ui button {
-      font-size: 12px; padding: 4px 8px;
-      background: transparent; border: 1px solid white;
-      color: white; cursor: pointer;
+      font-size: 12px;
+      padding: 4px 8px;
+      background: transparent;
+      border: 1px solid white;
+      color: white;
+      cursor: pointer;
     }
     #infoDisplay {
-      position: absolute; top: 10px; left: 10px;
-      z-index: 3; background: rgba(0,0,0,0.6);
-      color: white; font-size: 12px; padding: 10px;
-      display: none; white-space: pre;
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 3;
+      background: rgba(0, 0, 0, 0.6);
+      color: white;
+      font-size: 12px;
+      padding: 10px;
+      display: none;
+      white-space: pre;
     }
   </style>
 </head>
@@ -79,6 +103,31 @@ let bpm = 90, bpmTimer = null, stopped = true;
 let trailFrames = [], currentWaveColor = "#00FF7F";
 let canvas = document.getElementById("waveCanvas");
 let ctx = canvas.getContext("2d");
+
+const presetSettings = {
+  plants:     { scale: [174,285,396,417,528], color: "#00FF7F" },
+  mold:       { scale: [432,639,741],         color: "#8A2BE2" },
+  bacteria:   { scale: [528,554,585,728],     color: "#FF4500" },
+  mushrooms:  { scale: [417,444,528,639],     color: "#FFD700" },
+  harmony:    { scale: [432,528,639,741,852], color: "#00FFFF" },
+  dmt:        { scale: [100,140,200,250,310], color: "#7F00FF" },
+  planetRock: { scale: [110,130,180,220,260], color: "#FF1493" },
+  bachPreludeC:[261.6,329.6,392.0,523.3],      // no color override
+  euclid:     { scale: [120,240,360,480],     color: "#4B0082" },
+  fib:        { scale: [100,161.8,261.8,423.6],color: "#20B2AA" },
+  markov:     { scale: [180,200,220,180,240], color: "#6495ED" },
+  raga:       { scale: [261,293,311,349,391], color: "#DA70D6" },
+  hijaz:      { scale: [130,163,195,260,325], color: "#CD5C5C" },
+  pelog:      { scale: [120,135,165,180],     color: "#FF8C00" },
+  insen:      { scale: [130,150,195,220],     color: "#90EE90" }
+};
+
+function getScaleFromPreset(val) {
+  return presetSettings[val]?.scale || [174,220,261];
+}
+function getColorFromPreset(val) {
+  return presetSettings[val]?.color || "#00FF7F";
+}
 
 function initAudio() {
   if (audioCtx) return;
@@ -132,7 +181,7 @@ function playTone(freqVal) {
   [-0.5, 0, 0.5].forEach(offset => {
     const osc = audioCtx.createOscillator();
     osc.type = "square";
-    osc.frequency.value = freqVal * (1 + offset/100);
+    osc.frequency.value = freqVal * (1 + offset / 100);
     osc.connect(gainNode);
     osc.start(now); osc.stop(now + 3);
   });
@@ -146,27 +195,6 @@ function playTone(freqVal) {
   gainNode.connect(analyser);
 }
 
-function getScaleFromPreset(val) {
-  const presetSettings = {
-    plants:     [174, 285, 396, 417, 528],
-    mold:       [432, 639, 741],
-    bacteria:   [528, 554, 585, 728],
-    mushrooms:  [417, 444, 528, 639],
-    harmony:    [432, 528, 639, 741, 852],
-    dmt:        [100, 140, 200, 250, 310],
-    planetRock: [110, 130, 180, 220, 260],
-    bachPreludeC: [261.6, 329.6, 392.0, 523.3],
-    euclid:     [120, 240, 360, 480],
-    fib:        [100, 161.8, 261.8, 423.6],
-    markov:     [180, 200, 220, 180, 240],
-    raga:       [261, 293, 311, 349, 391],
-    hijaz:      [130, 163, 195, 260, 325],
-    pelog:      [120, 135, 165, 180],
-    insen:      [130, 150, 195, 220]
-  };
-  return presetSettings[val] || [174, 220, 261];
-}
-
 function scheduleNotes(scale) {
   clearInterval(bpmTimer);
   bpmTimer = setInterval(() => {
@@ -178,6 +206,7 @@ function scheduleNotes(scale) {
 }
 
 function animate() {
+  if (!ctx || !analyser) return;
   requestAnimationFrame(animate);
   analyser.getByteTimeDomainData(dataArray);
   ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
@@ -218,7 +247,7 @@ document.getElementById('play').addEventListener('click', () => {
   stopped = false;
   bpm = parseInt(bpm.value);
   const scale = getScaleFromPreset(preset.value);
-  currentWaveColor = getComputedStyle(preset).color || "#00FF7F";
+  currentWaveColor = getColorFromPreset(preset.value);
   scheduleNotes(scale);
 });
 
@@ -233,7 +262,7 @@ document.getElementById('bpm').addEventListener('input', e => {
 });
 
 document.getElementById('preset').addEventListener('change', () => {
-  currentWaveColor = "#00FF7F";
+  currentWaveColor = getColorFromPreset(preset.value);
   if (!stopped) scheduleNotes(getScaleFromPreset(preset.value));
 });
 
