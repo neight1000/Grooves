@@ -1,5 +1,4 @@
-MPC-V4
-
+```html name=plantasia-instrumentation-midi-lowlatency.html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -37,31 +36,42 @@ MPC-V4
       z-index: 2;
       border-radius: 28px 28px 0 0;
       box-shadow: 0 -2px 32px #000c;
+      transition: transform 0.22s cubic-bezier(.87,0,.13,1);
     }
-    .ui label {
-      font-size: 12px;
-      display: block;
-      text-align: center;
-      margin-bottom: 2px;
+    .ui.closed {
+      transform: translateY(105%);
+      pointer-events: none;
     }
-    .ui input[type="range"], .ui select {
-      width: 112px;
+    .ui.open {
+      transform: translateY(0%);
+      pointer-events: auto;
     }
-    .ui button {
-      font-size: 16px;
-      padding: 7px 18px;
-      background: #1a1a1a;
-      border: 1px solid #fff;
+    .drawer-toggle-btn {
+      position: fixed;
+      right: 24px;
+      bottom: 26px;
+      z-index: 10;
+      background: #111;
       color: #fff;
+      border: 1.5px solid #00ffe0;
       border-radius: 8px;
+      width: 42px;
+      height: 42px;
+      font-size: 22px;
       cursor: pointer;
-      min-width: 58px;
-      transition: background 0.18s, color 0.15s;
+      box-shadow: 0 1px 8px #000b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.14s, color 0.14s, border 0.14s;
     }
-    .ui button:active, .ui button.active {
-      background: #222;
-      color: #00ffa5;
-      border-color: #00ffa5;
+    .drawer-toggle-btn.open { background: #232323; color: #0ffea0; border-color: #0ffea0; }
+    #closeDrawer {
+      position: absolute;
+      top: 7px; right: 17px; z-index: 20;
+      width: 32px; height: 32px; border-radius: 8px; border: none;
+      background: #171717; color: #fff; font-size: 18px; cursor: pointer; font-family: monospace;
+      display: flex; align-items: center; justify-content: center;
     }
     #infoDisplay {
       position: absolute;
@@ -85,13 +95,16 @@ MPC-V4
       .ui > div { margin:0 0 8px 0; }
       .ui input[type="range"], .ui select { width: 80vw; }
       .ui button { min-width: 90vw; }
+      .drawer-toggle-btn { width: 44px; height: 44px; font-size: 28px; }
     }
   </style>
 </head>
 <body>
 <canvas id="waveCanvas"></canvas>
 <div id="infoDisplay"></div>
-<div class="ui">
+<button id="openDrawer" class="drawer-toggle-btn" title="open controls">&#9776;</button>
+<div class="ui closed" id="drawer">
+  <button id="closeDrawer" title="close controls">&#215;</button>
   <div>
     <label>Preset</label>
     <select id="preset">
@@ -155,6 +168,24 @@ MPC-V4
 </div>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+  // Drawer logic
+  const drawer = document.getElementById('drawer');
+  const openDrawerBtn = document.getElementById('openDrawer');
+  const closeDrawerBtn = document.getElementById('closeDrawer');
+
+  function openDrawer() {
+    drawer.classList.remove('closed');
+    drawer.classList.add('open');
+    openDrawerBtn.style.display = 'none';
+  }
+  function closeDrawer() {
+    drawer.classList.remove('open');
+    drawer.classList.add('closed');
+    openDrawerBtn.style.display = '';
+  }
+  openDrawerBtn.addEventListener('click', openDrawer);
+  closeDrawerBtn.addEventListener('click', closeDrawer);
+
   // --- Instrumentation parameters per preset ---
   const presetSettings = {
     plants: {
@@ -231,8 +262,8 @@ document.addEventListener('DOMContentLoaded', function () {
     if (audioCtx) return;
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    // Use latencyHint 'interactive' for lowest latency in synths
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)({latencyHint: 'interactive'});
     analyser = audioCtx.createAnalyser();
     analyser.fftSize = 2048;
     bufferLength = analyser.frequencyBinCount;
@@ -254,8 +285,9 @@ document.addEventListener('DOMContentLoaded', function () {
     animate();
   }
 
-  function playInstrument(params) {
+  function playInstrument(params, when=undefined) {
     const now = audioCtx.currentTime;
+    const startTime = when !== undefined ? when : now;
     const filterNode = audioCtx.createBiquadFilter();
     filterNode.type = params.filterType || "lowpass";
     filterNode.frequency.value = params.filterFreq;
@@ -269,9 +301,9 @@ document.addEventListener('DOMContentLoaded', function () {
     reverbSend.delayTime.value = params.reverb || 0.3;
 
     const gainNode = audioCtx.createGain();
-    gainNode.gain.setValueAtTime(0, now);
-    gainNode.gain.linearRampToValueAtTime(0.3, now + params.attack);
-    gainNode.gain.linearRampToValueAtTime(0.0, now + params.attack + params.release);
+    gainNode.gain.setValueAtTime(0, startTime);
+    gainNode.gain.linearRampToValueAtTime(0.3, startTime + params.attack);
+    gainNode.gain.linearRampToValueAtTime(0.0, startTime + params.attack + params.release);
 
     const panNode = audioCtx.createStereoPanner();
     panNode.pan.value = typeof params.pan === "function" ? params.pan() : (params.pan || 0);
@@ -282,8 +314,8 @@ document.addEventListener('DOMContentLoaded', function () {
       o.type = params.waveform || "square";
       o.frequency.value = params.freq * Math.pow(2, offset/1200);
       o.connect(gainNode);
-      o.start(now);
-      o.stop(now + params.attack + params.release + 0.1);
+      o.start(startTime);
+      o.stop(startTime + params.attack + params.release + 0.1);
     });
 
     gainNode.connect(panNode);
@@ -296,8 +328,10 @@ document.addEventListener('DOMContentLoaded', function () {
     gainNode.connect(analyser);
   }
 
-  function playTone(freq) {
+  function playTone(freq, midiEventTimeMs) {
     if (!audioCtx) initAudio();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+
     const params = { ...getPresetParams() };
     params.freq = freq;
     // Allow user sliders to override
@@ -305,7 +339,17 @@ document.addEventListener('DOMContentLoaded', function () {
     params.echo = parseFloat($("echo").value);
     params.filterFreq = parseFloat($("filter").value);
     params.reverb = 0.3 + parseFloat($("echo").value)*0.5;
-    playInstrument(params);
+
+    // If midiEventTimeMs is provided, schedule oscillator start to match
+    if (typeof midiEventTimeMs === "number") {
+      // Convert ms to audioCtx.currentTime offset
+      const delta = (midiEventTimeMs - performance.now())/1000;
+      // Clamp to avoid scheduling in the past
+      const when = Math.max(audioCtx.currentTime, audioCtx.currentTime + delta);
+      playInstrument(params, when);
+    } else {
+      playInstrument(params);
+    }
   }
 
   function scheduleNotes(scale) {
@@ -430,11 +474,12 @@ document.addEventListener('DOMContentLoaded', function () {
     47: () => incSlider('echo', +0.05),    48: () => incSlider('echo', -0.05),
     49: () => incSlider('filter', +100),   50: () => incSlider('filter', -100)
   };
-  function playScaleNote(index) {
+  function playScaleNote(index, midiEventTimeMs) {
     if (!audioCtx) initAudio();
+    if (audioCtx.state === "suspended") audioCtx.resume();
     const preset = getPresetParams();
     const freq = preset.scale[index % preset.scale.length];
-    if (freq) playTone(freq);
+    if (freq) playTone(freq, midiEventTimeMs);
   }
   function nextPreset() {
     const presetEl = $("preset");
@@ -471,8 +516,14 @@ document.addEventListener('DOMContentLoaded', function () {
     const type = status & 0xf0;
     const channel = status & 0x0f;
     if (!midiInEnabled) return;
-    if (type === 0x90 && velocity > 0 && (midiChannel === -1 || channel === midiChannel) && midiButtonMap[note]) {
-      midiButtonMap[note]();
+    // Use receivedTime for lowest-latency scheduling
+    if (type === 0x90 && velocity > 0 && (midiChannel === -1 || channel === midiChannel)) {
+      if (midiButtonMap[note]) {
+        midiButtonMap[note](undefined, e.receivedTime);
+      } else if (note >= 36 && note < 36 + getScaleFromPreset().length) {
+        // Direct MIDI pad note-to-scale mapping
+        playScaleNote(note - 36, e.receivedTime);
+      }
     }
   }
   function setupMidi() {
@@ -512,3 +563,4 @@ document.addEventListener('DOMContentLoaded', function () {
 </script>
 </body>
 </html>
+```
