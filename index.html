@@ -4,289 +4,58 @@
   <meta charset="UTF-8" />
   <title>Plant Harmonic Synth – Full UI + Ambient Automation</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      background: black;
-      color: white;
-      font-family: monospace;
-      overflow: hidden;
-    }
-    canvas {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      z-index: 0;
-    }
-    .ui {
-      position: absolute;
-      bottom: 0;
-      width: 100%;
-      background: rgba(0, 0, 0, 0.9);
-      padding: 10px;
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 10px;
-      z-index: 1;
-    }
-    .ui label {
-      font-size: 10px;
-      display: block;
-      text-align: center;
-    }
-    .ui input[type="range"], .ui select {
-      width: 90px;
-    }
-    .ui button {
-      font-size: 12px;
-      padding: 4px 8px;
-      background: transparent;
-      border: 1px solid white;
-      color: white;
-      cursor: pointer;
-    }
-  </style>
+  <meta name="description" content="Plant Harmonic Synth – Full UI + Ambient Automation">
+  <meta property="og:title" content="Plant Harmonic Synth">
+  <meta property="og:description" content="A generative synth with interactive ambient controls.">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<canvas id="waveCanvas"></canvas>
-<div class="ui">
-  <div><label>Preset</label>
-    <select id="preset">
-      <option value="greenhouse">Greenhouse</option>
-      <option value="deep">Deep Space</option>
-      <option value="bright">Daylight</option>
-    </select>
-  </div>
-  <div><label>Delay</label><input type="range" id="delay" min="0.05" max="1.5" step="0.01" value="0.8" /></div>
-  <div><label>Echo</label><input type="range" id="echo" min="0" max="0.95" step="0.01" value="0.6" /></div>
-  <div><label>Filter</label><input type="range" id="filter" min="200" max="4000" step="1" value="1000" /></div>
-  <div><label>Frequency</label><input type="range" id="freq" min="100" max="400" step="1" value="180" /></div>
-  <div><label>Volume</label><input type="range" id="volume" min="0" max="100" value="60" /></div>
-  <div><label>Particles</label><input type="range" id="particles" min="1" max="40" value="9" /></div>
-  <div><label>BPM</label><input type="range" id="bpm" min="50" max="130" value="90" /></div>
-  <button id="play">PLAY</button>
-  <button id="stop">STOP</button>
-  <button id="fullscreen">FULLSCREEN</button>
-</div>
-<script>
-let audioCtx, analyser, masterGain, delayNode, echoNode, filterNode, bufferLength, dataArray;
-let stopped = true, bpm = 90, bpmTimer = null, scale = [], waveformColor = "#55ff99";
-let canvas, ctx;
-let particles = [];
-let particleCount = 9;
-const trailFrames = [];
-
-const presetSettings = {
-  greenhouse: {
-    scale: [174, 220, 285, 396, 528],
-    delay: 0.8,
-    echo: 0.6,
-    filter: 1000,
-    freq: 180,
-    volume: 60,
-    particles: 9,
-    bpm: 90,
-    color: "#55ff99"
-  },
-  deep: {
-    scale: [110, 174, 261, 370, 495],
-    delay: 1.2,
-    echo: 0.9,
-    filter: 650,
-    freq: 120,
-    volume: 52,
-    particles: 18,
-    bpm: 66,
-    color: "#5599ff"
-  },
-  bright: {
-    scale: [220, 285, 370, 528, 660],
-    delay: 0.38,
-    echo: 0.2,
-    filter: 1800,
-    freq: 330,
-    volume: 77,
-    particles: 13,
-    bpm: 110,
-    color: "#ffe066"
-  }
-};
-
-function applyPreset(p) {
-  const set = presetSettings[p];
-  document.getElementById("delay").value = set.delay;
-  document.getElementById("echo").value = set.echo;
-  document.getElementById("filter").value = set.filter;
-  document.getElementById("freq").value = set.freq;
-  document.getElementById("volume").value = set.volume;
-  document.getElementById("particles").value = set.particles;
-  document.getElementById("bpm").value = set.bpm;
-  scale = set.scale;
-  waveformColor = set.color;
-  particleCount = set.particles;
-  bpm = set.bpm;
-}
-
-function initAudio() {
-  if (audioCtx) return;
-  canvas = document.getElementById("waveCanvas");
-  ctx = canvas.getContext("2d");
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  analyser = audioCtx.createAnalyser();
-  analyser.fftSize = 2048;
-  bufferLength = analyser.frequencyBinCount;
-  dataArray = new Uint8Array(bufferLength);
-
-  masterGain = audioCtx.createGain();
-  masterGain.gain.value = parseFloat(volume.value) / 100;
-
-  delayNode = audioCtx.createDelay();
-  delayNode.delayTime.value = parseFloat(delay.value);
-
-  echoNode = audioCtx.createGain();
-  echoNode.gain.value = parseFloat(echo.value);
-
-  filterNode = audioCtx.createBiquadFilter();
-  filterNode.type = "lowpass";
-  filterNode.frequency.value = parseFloat(filter.value);
-
-  delayNode.connect(echoNode);
-  echoNode.connect(delayNode);
-  delayNode.connect(masterGain);
-
-  filterNode.connect(delayNode);
-  masterGain.connect(audioCtx.destination);
-  masterGain.connect(analyser);
-  animate();
-}
-
-function playTone(freq) {
-  const now = audioCtx.currentTime;
-  const osc = audioCtx.createOscillator();
-  osc.type = "square";
-  osc.frequency.value = freq;
-  const env = audioCtx.createGain();
-  env.gain.setValueAtTime(0, now);
-  env.gain.linearRampToValueAtTime(0.3, now + 0.15);
-  env.gain.linearRampToValueAtTime(0, now + 2.6);
-
-  osc.connect(env);
-  env.connect(filterNode);
-  osc.start(now);
-  osc.stop(now + 2.6);
-}
-
-function scheduleNotes() {
-  clearInterval(bpmTimer);
-  bpmTimer = setInterval(() => {
-    if (!stopped) {
-      let f = scale[Math.floor(Math.random() * scale.length)];
-      playTone(f);
-      addParticle(f);
-    }
-  }, 60000 / bpm);
-}
-
-function animate() {
-  if (!ctx || !analyser) return;
-  requestAnimationFrame(animate);
-  analyser.getByteTimeDomainData(dataArray);
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  // Draw waveform
-  ctx.save();
-  ctx.globalAlpha = 0.86;
-  ctx.lineWidth = 2.2;
-  ctx.strokeStyle = waveformColor;
-  ctx.beginPath();
-  let slice = canvas.width / dataArray.length;
-  for (let i = 0; i < dataArray.length; i++) {
-    let v = (dataArray[i] - 128) / 128.0;
-    let y = (v * canvas.height / 2.0 * 0.7) + canvas.height / 2;
-    if (i === 0) ctx.moveTo(0, y);
-    else ctx.lineTo(i * slice, y);
-  }
-  ctx.stroke();
-  ctx.restore();
-
-  // Draw particles
-  for (let i = particles.length - 1; i >= 0; i--) {
-    let pt = particles[i];
-    ctx.save();
-    ctx.globalAlpha = pt.alpha;
-    ctx.beginPath();
-    ctx.arc(pt.x, pt.y, pt.r, 0, 2 * Math.PI, false);
-    ctx.fillStyle = pt.color;
-    ctx.shadowBlur = 16;
-    ctx.shadowColor = pt.color;
-    ctx.fill();
-    ctx.restore();
-    pt.x += pt.vx;
-    pt.y += pt.vy;
-    pt.alpha -= 0.008;
-    pt.r *= 0.995;
-    if (pt.alpha < 0.02 || pt.r < 2) particles.splice(i, 1);
-  }
-}
-
-function addParticle(f) {
-  if (particles.length > particleCount * 2) particles.shift();
-  let angle = Math.random() * 2 * Math.PI;
-  let r = 12 + Math.random() * 22;
-  let color = waveformColor;
-  let x = canvas.width / 2 + Math.cos(angle) * (40 + Math.random() * 100);
-  let y = canvas.height / 2 + Math.sin(angle) * (30 + Math.random() * 80);
-  particles.push({
-    x, y,
-    vx: Math.cos(angle) * (1.4 + Math.random()),
-    vy: Math.sin(angle) * (1.2 + Math.random() * 0.7),
-    r, color, alpha: 0.42 + Math.random() * 0.3
-  });
-}
-
-// UI Events
-document.getElementById("play").onclick = function() {
-  initAudio();
-  stopped = false;
-  scheduleNotes();
-};
-document.getElementById("stop").onclick = function() {
-  stopped = true;
-  clearInterval(bpmTimer);
-};
-document.getElementById("fullscreen").onclick = function() {
-  const elem = document.documentElement;
-  if (!document.fullscreenElement) elem.requestFullscreen();
-  else document.exitFullscreen();
-};
-
-const delay = document.getElementById("delay");
-const echo = document.getElementById("echo");
-const filter = document.getElementById("filter");
-const freq = document.getElementById("freq");
-const volume = document.getElementById("volume");
-const particlesSlider = document.getElementById("particles");
-const bpmSlider = document.getElementById("bpm");
-const preset = document.getElementById("preset");
-
-delay.oninput = () => { if(delayNode) delayNode.delayTime.value = parseFloat(delay.value); };
-echo.oninput = () => { if(echoNode) echoNode.gain.value = parseFloat(echo.value); };
-filter.oninput = () => { if(filterNode) filterNode.frequency.value = parseFloat(filter.value); };
-volume.oninput = () => { if(masterGain) masterGain.gain.value = parseFloat(volume.value) / 100; };
-particlesSlider.oninput = () => { particleCount = parseInt(particlesSlider.value); };
-bpmSlider.oninput = () => { bpm = parseInt(bpmSlider.value); if(!stopped) scheduleNotes(); };
-
-preset.onchange = function() {
-  applyPreset(preset.value);
-  if(!stopped) scheduleNotes();
-};
-applyPreset("greenhouse");
-</script>
+  <main>
+    <canvas id="waveCanvas" aria-label="Oscilloscope visualization"></canvas>
+    <section class="ui" aria-label="Synth controls">
+      <div>
+        <label for="preset">Preset</label>
+        <select id="preset" aria-label="Preset">
+          <option value="greenhouse">Greenhouse</option>
+          <option value="deep">Deep Space</option>
+          <option value="bright">Daylight</option>
+        </select>
+      </div>
+      <div>
+        <label for="delay">Delay</label>
+        <input type="range" id="delay" min="0.05" max="1.5" step="0.01" value="0.8" aria-label="Delay"/>
+      </div>
+      <div>
+        <label for="echo">Echo</label>
+        <input type="range" id="echo" min="0" max="0.95" step="0.01" value="0.6" aria-label="Echo"/>
+      </div>
+      <div>
+        <label for="filter">Filter</label>
+        <input type="range" id="filter" min="200" max="4000" step="1" value="1000" aria-label="Filter"/>
+      </div>
+      <div>
+        <label for="freq">Frequency</label>
+        <input type="range" id="freq" min="100" max="400" step="1" value="180" aria-label="Frequency"/>
+      </div>
+      <div>
+        <label for="volume">Volume</label>
+        <input type="range" id="volume" min="0" max="100" value="60" aria-label="Volume"/>
+      </div>
+      <div>
+        <label for="particles">Particles</label>
+        <input type="range" id="particles" min="1" max="40" value="9" aria-label="Particles"/>
+      </div>
+      <div>
+        <label for="bpm">BPM</label>
+        <input type="range" id="bpm" min="50" max="130" value="90" aria-label="BPM"/>
+      </div>
+      <button id="play" aria-label="Play">PLAY</button>
+      <button id="stop" aria-label="Stop">STOP</button>
+      <button id="fullscreen" aria-label="Toggle Fullscreen">FULLSCREEN</button>
+    </section>
+  </main>
+  <script src="main.js"></script>
 </body>
 </html>
