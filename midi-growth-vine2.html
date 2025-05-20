@@ -140,6 +140,7 @@
   <button id="toggleMidiIn">midi</button>
 </div>
 <script>
+// Utility
 function $(id) { return document.getElementById(id); }
 let currentWaveColor = "#00FF7F";
 
@@ -152,16 +153,68 @@ closeDrawerBtn.addEventListener('click', () => { drawer.classList.remove('open')
 let growthMode = false, growthBtn = $("growthModeToggle"), vine = null, vineAnimId = null;
 function getVinePresetProps() {
   const preset = $("preset").value;
-  if (preset === "plants" || preset === "plantasiaClassic") return { color: "#00FF7F", glow: "#caffc4", leaf: "#d7ffd7", spiral: false, zigzag: false, vineWidth: 3.3, leafSize: 9, growthRate: 0.11, leafInterval: 17, edgeBehavior: "wrap", bloom: false, };
-  if (preset === "mold" || preset === "mycomurk") return { color: "#8A2BE2", glow: "#f5d3ff", leaf: "#cabfff", spiral: false, zigzag: false, vineWidth: 2.2, leafSize: 4.5, growthRate: 0.19, leafInterval: 5, edgeBehavior: "spore", bloom: true, sporeColor: "#e0caff" };
-  if (preset === "bacteria" || preset === "microburst") return { color: "#FF4500", glow: "#ffbe8d", leaf: "#fff6a3", spiral: false, zigzag: true, vineWidth: 1.5, leafSize: 2.7, growthRate: 0.26, leafInterval: 2, edgeBehavior: "bounce", bloom: false };
-  if (preset === "mushrooms") return { color: "#FFD700", glow: "#ffe69d", leaf: "#fff5d7", spiral: false, zigzag: false, vineWidth: 3.8, leafSize: 6.5, growthRate: 0.13, leafInterval: 13, edgeBehavior: "wrap", bloom: true, capColor: "#d7a63a" };
-  if (preset === "harmony") return { color: "#00FFFF", glow: "#b0fff9", leaf: "#e9fff6", spiral: true, zigzag: false, vineWidth: 2.8, leafSize: 8, growthRate: 0.09, leafInterval: 19, edgeBehavior: "wrap", bloom: false };
-  if (preset === "greenhouse") return { color: "#56f28c", glow: "#e4ffe7", leaf: "#7fffbf", spiral: false, zigzag: false, vineWidth: 4, leafSize: 10, growthRate: 0.09, leafInterval: 16, edgeBehavior: "wrap", bloom: false };
-  if (preset === "cosmicdew") return { color: "#a5e6f4", glow: "#d3f8ff", leaf: "#caffff", spiral: false, zigzag: false, vineWidth: 2.2, leafSize: 5, growthRate: 0.13, leafInterval: 14, edgeBehavior: "bounce", bloom: false };
-  if (preset === "daybeam") return { color: "#ffe56c", glow: "#fffbe0", leaf: "#fff6a3", spiral: false, zigzag: false, vineWidth: 3.8, leafSize: 10, growthRate: 0.11, leafInterval: 13, edgeBehavior: "bounce", bloom: false };
-  if (preset === "spiralback" || preset === "fibonaccishift") return { color: "#ffb44f", glow: "#fff0cc", leaf: "#ffe9c5", spiral: true, zigzag: false, vineWidth: 2.5, leafSize: 6, growthRate: 0.12, leafInterval: 19, edgeBehavior: "wrap", bloom: false };
-  if (preset === "rockflora") return { color: "#9df0ff", glow: "#fff", leaf: "#aee0f7", spiral: false, zigzag: false, vineWidth: 2.1, leafSize: 7, growthRate: 0.17, leafInterval: 8, edgeBehavior: "bounce", bloom: false };
+  // Specialized mold/bacteria visuals
+  if (preset === "mold" || preset === "mycomurk") return {
+    color: "#8A2BE2", glow: "#f5d3ff", leaf: "#cabfff", spiral: false, zigzag: false, vineWidth: 2.2, leafSize: 4.5, growthRate: 0.19, leafInterval: 5, edgeBehavior: "spore", bloom: true, sporeColor: "#e0caff",
+    render: function(ctx, vine) {
+      // Mold "spreading" circles and fuzzy edges
+      for (let i = 0; i < vine.points.length; i += this.leafInterval) {
+        let p = vine.points[i];
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, this.leafSize + Math.random() * 4, 0, 2 * Math.PI);
+        ctx.globalAlpha = 0.13 + Math.random() * 0.10;
+        ctx.fillStyle = this.leaf;
+        ctx.shadowColor = this.color;
+        ctx.shadowBlur = 16 + Math.random() * 8;
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+  };
+  if (preset === "bacteria" || preset === "microburst") return {
+    color: "#FF4500", glow: "#ffbe8d", leaf: "#fff6a3", spiral: false, zigzag: true, vineWidth: 1.5, leafSize: 2.7, growthRate: 0.26, leafInterval: 2, edgeBehavior: "bounce", bloom: false,
+    render: function(ctx, vine) {
+      // Bacteria: segmented dots, erratic
+      for (let i = 0; i < vine.points.length; i += this.leafInterval) {
+        let p = vine.points[i];
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, this.leafSize, 0, 2 * Math.PI);
+        ctx.globalAlpha = 0.30 + Math.random() * 0.12;
+        ctx.fillStyle = this.leaf;
+        ctx.shadowColor = this.color;
+        ctx.shadowBlur = 2 + Math.random() * 4;
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+  };
+  if (preset === "plants" || preset === "plantasiaClassic") return {
+    color: "#00FF7F", glow: "#caffc4", leaf: "#d7ffd7", spiral: false, zigzag: false, vineWidth: 3.3, leafSize: 9, growthRate: 0.11, leafInterval: 17, edgeBehavior: "wrap", bloom: false
+  };
+  if (preset === "mushrooms") return {
+    color: "#FFD700", glow: "#ffe69d", leaf: "#fff5d7", spiral: false, zigzag: false, vineWidth: 3.8, leafSize: 6.5, growthRate: 0.13, leafInterval: 13, edgeBehavior: "wrap", bloom: true, capColor: "#d7a63a"
+  };
+  if (preset === "harmony") return {
+    color: "#00FFFF", glow: "#b0fff9", leaf: "#e9fff6", spiral: true, zigzag: false, vineWidth: 2.8, leafSize: 8, growthRate: 0.09, leafInterval: 19, edgeBehavior: "wrap", bloom: false
+  };
+  if (preset === "greenhouse") return {
+    color: "#56f28c", glow: "#e4ffe7", leaf: "#7fffbf", spiral: false, zigzag: false, vineWidth: 4, leafSize: 10, growthRate: 0.09, leafInterval: 16, edgeBehavior: "wrap", bloom: false
+  };
+  if (preset === "cosmicdew") return {
+    color: "#a5e6f4", glow: "#d3f8ff", leaf: "#caffff", spiral: false, zigzag: false, vineWidth: 2.2, leafSize: 5, growthRate: 0.13, leafInterval: 14, edgeBehavior: "bounce", bloom: false
+  };
+  if (preset === "daybeam") return {
+    color: "#ffe56c", glow: "#fffbe0", leaf: "#fff6a3", spiral: false, zigzag: false, vineWidth: 3.8, leafSize: 10, growthRate: 0.11, leafInterval: 13, edgeBehavior: "bounce", bloom: false
+  };
+  if (preset === "spiralback" || preset === "fibonaccishift") return {
+    color: "#ffb44f", glow: "#fff0cc", leaf: "#ffe9c5", spiral: true, zigzag: false, vineWidth: 2.5, leafSize: 6, growthRate: 0.12, leafInterval: 19, edgeBehavior: "wrap", bloom: false
+  };
+  if (preset === "rockflora") return {
+    color: "#9df0ff", glow: "#fff", leaf: "#aee0f7", spiral: false, zigzag: false, vineWidth: 2.1, leafSize: 7, growthRate: 0.17, leafInterval: 8, edgeBehavior: "bounce", bloom: false
+  };
+  // Default
   return { color: "#3fff8b", glow: "#aaffc8", leaf: "#d7ffd7", spiral: false, zigzag: false, vineWidth: 2.1, leafSize: 7, growthRate: 0.12, leafInterval: 15, edgeBehavior: "wrap", bloom: false };
 }
 function resetVine() {
@@ -173,6 +226,7 @@ function growVineFrame() {
   let canvas = $("waveCanvas"), ctx = canvas.getContext("2d");
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   let props = vine.props;
+  // Grow
   if (!vine.growSlow) vine.growSlow = 0;
   vine.growSlow += props.growthRate;
   if (vine.growSlow >= 1) {
@@ -185,6 +239,7 @@ function growVineFrame() {
     let len = 7 + Math.random()*2;
     let nx = vine.tipX + Math.cos(vine.tipAngle)*len;
     let ny = vine.tipY + Math.sin(vine.tipAngle)*len;
+    // Edge behavior
     if (props.edgeBehavior === "wrap") {
       if (nx < 0) nx = canvas.width+nx; if (nx > canvas.width) nx -= canvas.width;
       if (ny < 0) ny = canvas.height+ny; if (ny > canvas.height) ny -= canvas.height;
@@ -216,16 +271,21 @@ function growVineFrame() {
     if (i===0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
   }
   ctx.stroke(); ctx.shadowBlur = 0;
-  for (let i=props.leafInterval; i<vine.points.length; i+=props.leafInterval) {
-    let p = vine.points[i];
-    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.angle+Math.PI/2);
-    ctx.fillStyle = props.leaf; ctx.globalAlpha = 0.68; ctx.beginPath();
-    ctx.ellipse(0, 0, props.leafSize, props.leafSize/2.2, 0, 0, Math.PI*2); ctx.fill();
-    if (props.bloom && Math.random() < 0.13) {
-      ctx.beginPath(); ctx.arc(0, -props.leafSize*1.4, props.leafSize/1.7, 0, Math.PI, true);
-      ctx.fillStyle = props.capColor || "#fff9c4"; ctx.globalAlpha = 0.46; ctx.fill();
+  // Draw leaves/blooms or custom visuals
+  if (typeof props.render === "function") {
+    props.render(ctx, vine);
+  } else {
+    for (let i=props.leafInterval; i<vine.points.length; i+=props.leafInterval) {
+      let p = vine.points[i];
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.angle+Math.PI/2);
+      ctx.fillStyle = props.leaf; ctx.globalAlpha = 0.68; ctx.beginPath();
+      ctx.ellipse(0, 0, props.leafSize, props.leafSize/2.2, 0, 0, Math.PI*2); ctx.fill();
+      if (props.bloom && Math.random() < 0.13) {
+        ctx.beginPath(); ctx.arc(0, -props.leafSize*1.4, props.leafSize/1.7, 0, Math.PI, true);
+        ctx.fillStyle = props.capColor || "#fff9c4"; ctx.globalAlpha = 0.46; ctx.fill();
+      }
+      ctx.restore();
     }
-    ctx.restore();
   }
   ctx.restore();
   if (growthMode) vineAnimId = requestAnimationFrame(growVineFrame);
@@ -247,7 +307,7 @@ window.addEventListener('resize', function() {
   if (growthMode) { resetVine(); growVineFrame(); } else animate();
 });
 
-// Audio/Synth/Sequencer/MIDI
+// Audio/Synth/Sequencer/MIDI/All Controls
 let audioCtx, analyser, masterGain, bufferLength, dataArray, reverbNode;
 let bpm = 90, bpmTimer = null, stopped = true;
 let trailFrames = [];
@@ -266,7 +326,7 @@ lfoAmtSlider.addEventListener('input', updateLfoDisplay);
 updateLfoDisplay();
 
 // MIDI controls
-let midiChannel = 9;
+let midiChannel = -1;
 let midiAccess = null, midiInEnabled = true;
 function midiNoteToFreq(note) { return 440 * Math.pow(2, (note - 69) / 12);}
 const midiChannelSelect = $("midiChannelSelect");
@@ -301,6 +361,7 @@ function handleMidiMessage(e) {
 function playMidiNote(midiNote, velocity) {
   let freq = midiNoteToFreq(midiNote);
   playInstrument(freq);
+  if (growthMode) vinePulse();
 }
 setupMidi();
 
@@ -343,7 +404,6 @@ function playInstrument(freq) {
   gainNode.gain.setValueAtTime(0, now);
   gainNode.gain.linearRampToValueAtTime(0.3, now + params.attack);
   gainNode.gain.linearRampToValueAtTime(0.0, now + params.attack + params.release);
-
   // LFO
   const lfoRate = parseFloat(lfoRateSlider.value);
   const lfoAmt = parseFloat(lfoAmtSlider.value);
@@ -362,7 +422,6 @@ function playInstrument(freq) {
     }
     lfo.start(now); lfo.stop(now + params.attack + params.release + 0.1);
   }
-
   o.connect(gainNode); gainNode.connect(filterNode); filterNode.connect(masterGain);
   o.start(now); o.stop(now + params.attack + params.release + 0.1);
   if (growthMode) vinePulse();
@@ -397,7 +456,6 @@ $("waveformSelect").addEventListener('change', () => {
 $("filter").addEventListener('input', () => {
   if (growthMode) { resetVine(); growVineFrame(); } else animate();
 });
-
 // EQ Visualizer
 function animate() {
   if (growthMode) return;
