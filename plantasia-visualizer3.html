@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Plantasia – Instrumentation Tribute</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: black;
+      color: white;
+      font-family: monospace;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+    }
+    #waveCanvas {
+      position: absolute;
+      top: 0; left: 0; width: 100vw; height: 100vh; z-index: 0;
+      display: block;
+      background: #000;
+      transition: opacity 0.4s;
+      pointer-events: none; /* Ensures UI buttons are clickable */
+    }
+    .ui {
+      position: absolute;
+      bottom: 0;
+      width: 100vw;
+      background: rgba(0, 0, 0, 0.92);
+      padding: 18px 0 10px 0;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: flex-end;
+      gap: 18px 16px;
+      z-index: 2;
+      border-radius: 28px 28px 0 0;
+      box-shadow: 0 -2px 32px #000c;
+      transition: transform 0.22s cubic-bezier(.87,0,.13,1);
+    }
+    .ui.closed {
+      transform: translateY(105%);
+      pointer-events: none;
+    }
+    .ui.open {
+      transform: translateY(0%);
+      pointer-events: auto;
+    }
+    .drawer-toggle-btn {
+      position: fixed;
+      right: 24px;
+      bottom: 26px;
+      z-index: 20;
+      background: #111;
+      color: #fff;
+      border: 1.5px solid #00ffe0;
+      border-radius: 8px;
+      width: 42px;
+      height: 42px;
+      font-size: 22px;
+      cursor: pointer;
+      box-shadow: 0 1px 8px #000b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.14s, color 0.14s, border 0.14s;
+      pointer-events: auto;
+    }
+    .drawer-toggle-btn.open { background: #232323; color: #0ffea0; border-color: #0ffea0; }
+    #closeDrawer {
+      position: absolute;
+      top: 7px; right: 17px; z-index: 20;
+      width: 32px; height: 32px; border-radius: 8px; border: none;
+      background: #171717; color: #fff; font-size: 18px; cursor: pointer; font-family: monospace;
+      display: flex; align-items: center; justify-content: center;
+    }
+    #infoDisplay {
+      position: absolute;
+      top: 18px;
+      left: 16px;
+      z-index: 3;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      font-size: 13px;
+      padding: 14px 17px 14px 15px;
+      display: none;
+      border-radius: 9px;
+      white-space: pre;
+      letter-spacing: 0.4px;
+      border: 1.5px solid #222;
+      box-shadow: 0 2px 18px #000c;
+      max-width: 80vw;
+    }
+    .mod-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .mod-row {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 7px;
+    }
+    .mod-row label {
+      font-size: 12px;
+    }
+    .growth-toggle-btn {
+      font-size: 16px;
+      padding: 7px 18px;
+      background: #193e1a;
+      border: 1.5px solid #71d37a;
+      color: #71ffae;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.18s, color 0.15s, border-color 0.15s;
+      margin-right: 10px;
+      margin-bottom: 2px;
+    }
+    .growth-toggle-btn.active {
+      background: #2f7f3c;
+      color: #fff;
+      border-color: #00ffa5;
+    }
+    @media (max-width:700px) {
+      .ui { flex-direction:column; align-items:stretch; max-width:99vw; min-width:90vw; border-radius: 20px 20px 0 0; }
+      .ui > div { margin:0 0 8px 0; }
+      .ui input[type="range"], .ui select { width: 80vw; }
+      .ui button { min-width: 90vw; }
+      .drawer-toggle-btn { width: 44px; height: 44px; font-size: 28px; }
+    }
+  </style>
+</head>
+<body>
+<canvas id="waveCanvas"></canvas>
+<div id="infoDisplay"></div>
+<button id="openDrawer" class="drawer-toggle-btn" title="open controls">&#9776;</button>
+<div class="ui closed" id="drawer">
+  <button id="closeDrawer" title="close controls">&#215;</button>
+  <button id="growthModeToggle" class="growth-toggle-btn" title="Toggle plant growth mode">🌱 Growth Mode</button>
+  <div>
+    <label>Preset</label>
+    <select id="preset">
+      <option value="plants">Plants</option>
+      <option value="mold">Mold</option>
+      <option value="bacteria">Bacteria</option>
+      <option value="mushrooms">Mushrooms</option>
+      <option value="harmony">Lifeform Harmony</option>
+      <option value="plantasiaClassic">Plantasia Classic</option>
+      <option value="greenhouse">Greenhouse Lush</option>
+      <option value="cosmicdew">Cosmic Dew</option>
+      <option value="daybeam">Daybeam</option>
+      <option value="spiralback">Spiral Back</option>
+      <option value="rockflora">Planet Rockflora</option>
+      <option value="mycomurk">Myco-Murk</option>
+      <option value="microburst">Microburst</option>
+      <option value="fibonaccishift">Fibonacci Shift</option>
+    </select>
+  </div>
+  <div>
+    <label>OSC/WAVE</label>
+    <select id="waveformSelect">
+      <option value="triangle">Triangle</option>
+      <option value="sine">Sine</option>
+      <option value="square">Square</option>
+      <option value="sawtooth">Sawtooth</option>
+    </select>
+  </div>
+  <div>
+    <label>Delay</label>
+    <input type="range" id="delay" min="0.01" max="2.0" step="0.01" value="0.6" />
+  </div>
+  <div>
+    <label>Echo</label>
+    <input type="range" id="echo" min="0" max="1.0" step="0.01" value="0.4" />
+  </div>
+  <div>
+    <label>Filter</label>
+    <input type="range" id="filter" min="100" max="8000" step="10" value="1200" />
+  </div>
+  <div>
+    <label>Frequency</label>
+    <input type="range" id="freq" min="50" max="1000" step="1" value="174" />
+  </div>
+  <div>
+    <label>Volume</label>
+    <input type="range" id="volume" min="0" max="100" value="60" />
+  </div>
+  <div>
+    <label>BPM</label>
+    <input type="range" id="bpm" min="40" max="180" value="90" />
+  </div>
+  <div>
+    <label for="midiChannelSelect">Midi Ch</label>
+    <select id="midiChannelSelect">
+      <option value="-1">all</option>
+      <option value="0">1</option>
+      <option value="1">2</option>
+      <option value="2">3</option>
+      <option value="3">4</option>
+      <option value="4">5</option>
+      <option value="5">6</option>
+      <option value="6">7</option>
+      <option value="7">8</option>
+      <option value="8">9</option>
+      <option value="9">10</option>
+      <option value="10">11</option>
+      <option value="11">12</option>
+      <option value="12">13</option>
+      <option value="13">14</option>
+      <option value="14">15</option>
+      <option value="15">16</option>
+    </select>
+  </div>
+  <div class="mod-section">
+    <div class="mod-row">
+      <label>LFO Rate</label>
+      <input type="range" id="lfoRate" min="0.01" max="10" step="0.01" value="0.18" style="width: 70px;" />
+      <span id="lfoRateValue">0.18</span> Hz
+    </div>
+    <div class="mod-row">
+      <label>LFO Amt</label>
+      <input type="range" id="lfoAmt" min="0" max="1200" step="1" value="180" style="width: 70px;" />
+      <span id="lfoAmtValue">180</span>
+    </div>
+    <div class="mod-row">
+      <label>LFO Dest</label>
+      <select id="lfoDest">
+        <option value="filter">Filter</option>
+        <option value="pitch">Pitch</option>
+        <option value="pan">Pan</option>
+      </select>
+    </div>
+  </div>
+  <button id="play">PLAY</button>
+  <button id="stop">STOP</button>
+  <button id="toggleDisplay">DATA</button>
+  <button id="toggleMidiIn">midi</button>
+</div>
+<script>
+// (All synth, controls, and MIDI code is unchanged. Only the vine visualizer is updated!)
+document.addEventListener('DOMContentLoaded', function () {
+  // Drawer logic
+  const drawer = document.getElementById('drawer');
+  const openDrawerBtn = document.getElementById('openDrawer');
+  const closeDrawerBtn = document.getElementById('closeDrawer');
+  function openDrawer() {
+    drawer.classList.remove('closed');
+    drawer.classList.add('open');
+    openDrawerBtn.style.display = 'none';
+  }
+  function closeDrawer() {
+    drawer.classList.remove('open');
+    drawer.classList.add('closed');
+    openDrawerBtn.style.display = '';
+  }
+  openDrawerBtn.addEventListener('click', openDrawer);
+  closeDrawerBtn.addEventListener('click', closeDrawer);
+
+  // GROWTH MODE - VINE VISUALIZER
+  let growthMode = false;
+  const growthBtn = document.getElementById('growthModeToggle');
+  let vine = null, vineAnimId = null;
+  let vinePresetProps = {};
+
+  // Helper for vine preset visual properties
+  function getVinePresetProps() {
+    const preset = getPreset();
+    if (preset === "plants" || preset === "plantasiaClassic") return {
+      color: "#00FF7F",
+      glow: "#caffc4",
+      leaf: "#d7ffd7",
+      spiral: false,
+      zigzag: false,
+      wide: true,
+      vineWidth: 3.3,
+      leafSize: 9,
+      growthRate: 0.11,
+      leafInterval: 17,
+      edgeBehavior: "wrap",
+      bloom: false,
+    };
+    if (preset === "mold" || preset === "mycomurk") return {
+      color: "#8A2BE2",
+      glow: "#f5d3ff",
+      leaf: "#cabfff",
+      spiral: false,
+      zigzag: false,
+      wide: false,
+      vineWidth: 2.2,
+      leafSize: 4.5,
+      growthRate: 0.19,
+      leafInterval: 5,
+      edgeBehavior: "spore",
+      bloom: true,
+      sporeColor: "#e0caff"
+    };
+    if (preset === "bacteria" || preset === "microburst") return {
+      color: "#FF4500",
+      glow: "#ffbe8d",
+      leaf: "#fff6a3",
+      spiral: false,
+      zigzag: true,
+      wide: false,
+      vineWidth: 1.5,
+      leafSize: 2.7,
+      growthRate: 0.26,
+      leafInterval: 2,
+      edgeBehavior: "bounce",
+      bloom: false
+    };
+    if (preset === "mushrooms") return {
+      color: "#FFD700",
+      glow: "#ffe69d",
+      leaf: "#fff5d7",
+      spiral: false,
+      zigzag: false,
+      wide: true,
+      vineWidth: 3.8,
+      leafSize: 6.5,
+      growthRate: 0.13,
+      leafInterval: 13,
+      edgeBehavior: "wrap",
+      bloom: true,
+      capColor: "#d7a63a"
+    };
+    if (preset === "harmony") return {
+      color: "#00FFFF",
+      glow: "#b0fff9",
+      leaf: "#e9fff6",
+      spiral: true,
+      zigzag: false,
+      wide: false,
+      vineWidth: 2.8,
+      leafSize: 8,
+      growthRate: 0.09,
+      leafInterval: 19,
+      edgeBehavior: "wrap",
+      bloom: false
+    };
+    if (preset === "greenhouse") return {
+      color: "#56f28c",
+      glow: "#e4ffe7",
+      leaf: "#7fffbf",
+      spiral: false,
+      zigzag: false,
+      wide: true,
+      vineWidth: 4,
+      leafSize: 10,
+      growthRate: 0.09,
+      leafInterval: 16,
+      edgeBehavior: "wrap",
+      bloom: false
+    };
+    if (preset === "cosmicdew") return {
+      color: "#a5e6f4",
+      glow: "#d3f8ff",
+      leaf: "#caffff",
+      spiral: false,
+      zigzag: false,
+      wide: false,
+      vineWidth: 2.2,
+      leafSize: 5,
+      growthRate: 0.13,
+      leafInterval: 14,
+      edgeBehavior: "bounce",
+      bloom: false
+    };
+    if (preset === "daybeam") return {
+      color: "#ffe56c",
+      glow: "#fffbe0",
+      leaf: "#fff6a3",
+      spiral: false,
+      zigzag: false,
+      wide: true,
+      vineWidth: 3.8,
+      leafSize: 10,
+      growthRate: 0.11,
+      leafInterval: 13,
+      edgeBehavior: "bounce",
+      bloom: false
+    };
+    if (preset === "spiralback" || preset === "fibonaccishift") return {
+      color: "#ffb44f",
+      glow: "#fff0cc",
+      leaf: "#ffe9c5",
+      spiral: true,
+      zigzag: false,
+      wide: false,
+      vineWidth: 2.5,
+      leafSize: 6,
+      growthRate: 0.12,
+      leafInterval: 19,
+      edgeBehavior: "wrap",
+      bloom: false
+    };
+    if (preset === "rockflora") return {
+      color: "#9df0ff",
+      glow: "#fff",
+      leaf: "#aee0f7",
+      spiral: false,
+      zigzag: false,
+      wide: false,
+      vineWidth: 2.1,
+      leafSize: 7,
+      growthRate: 0.17,
+      leafInterval: 8,
+      edgeBehavior: "bounce",
+      bloom: false
+    };
+    // fallback
+    return {
+      color: "#3fff8b",
+      glow: "#aaffc8",
+      leaf: "#d7ffd7",
+      spiral: false,
+      zigzag: false,
+      wide: false,
+      vineWidth: 2.1,
+      leafSize: 7,
+      growthRate: 0.12,
+      leafInterval: 15,
+      edgeBehavior: "wrap",
+      bloom: false
+    };
+  }
+
+  function resetVine() {
+    vinePresetProps = getVinePresetProps();
+    vine = {
+      points: [],
+      tipAngle: -Math.PI/2,
+      tipX: window.innerWidth/2,
+      tipY: window.innerHeight-30,
+      pulse: 0
+    };
+    vine.points.push({x: vine.tipX, y: vine.tipY, angle: vine.tipAngle, age: 0});
+  }
+
+  function growVineFrame() {
+    let ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Growth: add segment every ~X frames
+    if (!vine.growSlow) vine.growSlow = 0;
+    vine.growSlow += vinePresetProps.growthRate;
+    let addSegment = false;
+    if (vine.growSlow >= 1) {
+      vine.growSlow -= 1;
+      addSegment = true;
+    }
+    if (addSegment) {
+      let angleDelta = 0;
+      if (vinePresetProps.spiral) {
+        angleDelta += 0.07;
+      }
+      if (vinePresetProps.zigzag) {
+        angleDelta += ((Math.floor(vine.points.length/vinePresetProps.leafInterval)%2)===0 ? 0.22 : -0.22);
+      }
+      // Meandering random walk
+      angleDelta += (Math.random()-0.5)*0.16;
+      vine.tipAngle += angleDelta;
+      let len = 7 + Math.random()*2;
+      let nx = vine.tipX + Math.cos(vine.tipAngle)*len;
+      let ny = vine.tipY + Math.sin(vine.tipAngle)*len;
+
+      // Edge behavior
+      if (vinePresetProps.edgeBehavior === "wrap") {
+        if (nx < 0) nx = canvas.width+nx;
+        if (nx > canvas.width) nx -= canvas.width;
+        if (ny < 0) ny = canvas.height+ny;
+        if (ny > canvas.height) ny -= canvas.height;
+      } else if (vinePresetProps.edgeBehavior === "bounce") {
+        if (nx < 0 || nx > canvas.width) vine.tipAngle = Math.PI - vine.tipAngle;
+        if (ny < 0 || ny > canvas.height) vine.tipAngle = -vine.tipAngle;
+        nx = Math.max(0, Math.min(nx, canvas.width));
+        ny = Math.max(0, Math.min(ny, canvas.height));
+      } else if (vinePresetProps.edgeBehavior === "spore") {
+        // If mold hits edge, create a spore bloom
+        if (nx < 0 || nx > canvas.width || ny < 0 || ny > canvas.height) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(
+            Math.max(0, Math.min(nx, canvas.width)),
+            Math.max(0, Math.min(ny, canvas.height)),
+            20 + Math.random()*12, 0, Math.PI*2
+          );
+          ctx.fillStyle = vinePresetProps.sporeColor || "#fff";
+          ctx.globalAlpha = 0.22+Math.random()*0.18;
+          ctx.shadowColor = vinePresetProps.color;
+          ctx.shadowBlur = 18;
+          ctx.fill();
+          ctx.restore();
+          vine.tipAngle += Math.PI/2 + (Math.random()-0.5)*Math.PI;
+          nx = Math.max(0, Math.min(nx, canvas.width));
+          ny = Math.max(0, Math.min(ny, canvas.height));
+        }
+      }
+      vine.tipX = nx;
+      vine.tipY = ny;
+      vine.points.push({x: nx, y: ny, angle: vine.tipAngle, age: 0});
+      if (vine.points.length > 1200) vine.points.shift();
+    }
+
+    // Pulse decays
+    vine.pulse *= 0.96;
+
+    // Draw vine path
+    ctx.save();
+    ctx.shadowBlur = 24 + vine.pulse*8;
+    ctx.shadowColor = vinePresetProps.glow;
+    ctx.strokeStyle = vinePresetProps.color;
+    ctx.lineWidth = vinePresetProps.vineWidth + vine.pulse*2;
+    ctx.beginPath();
+    for (let i=0; i<vine.points.length; ++i) {
+      let p = vine.points[i];
+      if (i===0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Draw leaves
+    for (let i=vinePresetProps.leafInterval; i<vine.points.length; i+=vinePresetProps.leafInterval) {
+      let p = vine.points[i];
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.angle+Math.PI/2);
+      ctx.fillStyle = vinePresetProps.leaf;
+      ctx.globalAlpha = 0.68;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, vinePresetProps.leafSize, vinePresetProps.leafSize/2.2, 0, 0, Math.PI*2);
+      ctx.fill();
+      // Special: mold/mushrooms draw "bloom"/cap
+      if (vinePresetProps.bloom && Math.random() < 0.13) {
+        ctx.beginPath();
+        ctx.arc(0, -vinePresetProps.leafSize*1.4, vinePresetProps.leafSize/1.7, 0, Math.PI, true);
+        ctx.fillStyle = vinePresetProps.capColor || "#fff9c4";
+        ctx.globalAlpha = 0.46;
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    ctx.restore();
+
+    if (growthMode) vineAnimId = requestAnimationFrame(growVineFrame);
+  }
+
+  function vinePulse() { vine.pulse = 1.25; }
+
+  // --- Instrumentation parameters per preset ---
+  // [Insert your synth, controls, presetSettings, and MIDI code exactly as before]
+  // (Not repeated here for brevity; use your unchanged previous working build code.)
+
+  // Add the following lines at the appropriate places in your unchanged code:
+  // - On preset change: if (growthMode) { resetVine(); growVineFrame(); }
+  // - On play: if (growthMode) { resetVine(); growVineFrame(); }
+  // - In playInstrument: if (growthMode) vinePulse();
+  // - In window resize: if (growthMode) { resetVine(); growVineFrame(); }
+  // - For visualizer: use growVineFrame when growthMode, otherwise original animate/EQ
+
+  // Growth Mode toggle
+  function setGrowthMode(on) {
+    growthMode = !!on;
+    if (growthMode) {
+      growthBtn.classList.add("active");
+      cancelAnimationFrame(vineAnimId);
+      vineAnimId = null;
+      resetVine();
+      growVineFrame();
+    } else {
+      growthBtn.classList.remove("active");
+      cancelAnimationFrame(vineAnimId);
+      vineAnimId = null;
+      vine = null;
+      animate();
+    }
+  }
+  growthBtn.addEventListener("click", function() {
+    setGrowthMode(!growthMode);
+  });
+
+  // All other synth and UI code unchanged from previous working build
+  // (Use your code from previous answer for synth controls, EQ, MIDI, etc.)
+  // (Just add above vine visualizer for growth mode personality!)
+});
+</script>
+</body>
+</html>
