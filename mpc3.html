@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Plantasia – Instrumentation Tribute</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: black;
+      color: white;
+      font-family: monospace;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+    }
+    #waveCanvas {
+      position: absolute;
+      top: 0; left: 0; width: 100vw; height: 100vh; z-index: 0;
+      display: block;
+      background: #000;
+    }
+    .ui {
+      position: absolute;
+      bottom: 0;
+      width: 100vw;
+      background: rgba(0, 0, 0, 0.92);
+      padding: 18px 0 10px 0;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: flex-end;
+      gap: 18px 16px;
+      z-index: 2;
+      border-radius: 28px 28px 0 0;
+      box-shadow: 0 -2px 32px #000c;
+    }
+    .ui label {
+      font-size: 12px;
+      display: block;
+      text-align: center;
+      margin-bottom: 2px;
+    }
+    .ui input[type="range"], .ui select {
+      width: 112px;
+    }
+    .ui button {
+      font-size: 16px;
+      padding: 7px 18px;
+      background: #1a1a1a;
+      border: 1px solid #fff;
+      color: #fff;
+      border-radius: 8px;
+      cursor: pointer;
+      min-width: 58px;
+      transition: background 0.18s, color 0.15s;
+    }
+    .ui button:active, .ui button.active {
+      background: #222;
+      color: #00ffa5;
+      border-color: #00ffa5;
+    }
+    #infoDisplay {
+      position: absolute;
+      top: 18px;
+      left: 16px;
+      z-index: 3;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      font-size: 13px;
+      padding: 14px 17px 14px 15px;
+      display: none;
+      border-radius: 9px;
+      white-space: pre;
+      letter-spacing: 0.4px;
+      border: 1.5px solid #222;
+      box-shadow: 0 2px 18px #000c;
+      max-width: 80vw;
+    }
+    @media (max-width:700px) {
+      .ui { flex-direction:column; align-items:stretch; max-width:99vw; min-width:90vw; border-radius: 20px 20px 0 0; }
+      .ui > div { margin:0 0 8px 0; }
+      .ui input[type="range"], .ui select { width: 80vw; }
+      .ui button { min-width: 90vw; }
+    }
+  </style>
+</head>
+<body>
+<canvas id="waveCanvas"></canvas>
+<div id="infoDisplay"></div>
+<div class="ui">
+  <div>
+    <label>Preset</label>
+    <select id="preset">
+      <option value="plants">Plants</option>
+      <option value="mold">Mold</option>
+      <option value="bacteria">Bacteria</option>
+      <option value="mushrooms">Mushrooms</option>
+      <option value="harmony">Lifeform Harmony</option>
+    </select>
+  </div>
+  <div>
+    <label>Delay</label>
+    <input type="range" id="delay" min="0.01" max="2.0" step="0.01" value="0.6" />
+  </div>
+  <div>
+    <label>Echo</label>
+    <input type="range" id="echo" min="0" max="1.0" step="0.01" value="0.4" />
+  </div>
+  <div>
+    <label>Filter</label>
+    <input type="range" id="filter" min="100" max="8000" step="10" value="1200" />
+  </div>
+  <div>
+    <label>Frequency</label>
+    <input type="range" id="freq" min="50" max="1000" step="1" value="174" />
+  </div>
+  <div>
+    <label>Volume</label>
+    <input type="range" id="volume" min="0" max="100" value="60" />
+  </div>
+  <div>
+    <label>BPM</label>
+    <input type="range" id="bpm" min="40" max="180" value="90" />
+  </div>
+  <div>
+    <label for="midiChannelSelect">Midi Ch</label>
+    <select id="midiChannelSelect">
+      <option value="-1">all</option>
+      <option value="0">1</option>
+      <option value="1">2</option>
+      <option value="2">3</option>
+      <option value="3">4</option>
+      <option value="4">5</option>
+      <option value="5">6</option>
+      <option value="6">7</option>
+      <option value="7">8</option>
+      <option value="8">9</option>
+      <option value="9">10</option>
+      <option value="10">11</option>
+      <option value="11">12</option>
+      <option value="12">13</option>
+      <option value="13">14</option>
+      <option value="14">15</option>
+      <option value="15">16</option>
+    </select>
+  </div>
+  <button id="play">PLAY</button>
+  <button id="stop">STOP</button>
+  <button id="toggleDisplay">DATA</button>
+  <button id="toggleMidiIn">midi</button>
+</div>
+<script>
+// --- Instrumentation parameters per preset ---
+const presetSettings = {
+  plants: {
+    scale: [174, 220, 285, 396, 528, 660],
+    color: "#00FF7F",
+    waveform: "triangle",
+    attack: 0.25, release: 2.0,
+    detuneCents: [-7, 0, 7],
+    pan: 0,
+    filterType: "lowpass",
+    filterFreq: 1800,
+    delay: 0.4, echo: 0.34, reverb: 0.5
+  },
+  mold: {
+    scale: [432, 639, 741, 852],
+    color: "#8A2BE2",
+    waveform: "sawtooth",
+    attack: 0.04, release: 0.7,
+    detuneCents: [-10, 0, 10],
+    pan: () => Math.random()*2-1,
+    filterType: "bandpass",
+    filterFreq: 1100,
+    delay: 0.5, echo: 0.51, reverb: 0.25
+  },
+  bacteria: {
+    scale: [528, 554, 585, 728, 311],
+    color: "#FF4500",
+    waveform: "square",
+    attack: 0.01, release: 0.18,
+    detuneCents: [-12, 0, 12],
+    pan: () => Math.random()*2-1,
+    filterType: "highpass",
+    filterFreq: 1400,
+    delay: 0.2, echo: 0.17, reverb: 0.12
+  },
+  mushrooms: {
+    scale: [417, 444, 528, 639, 392],
+    color: "#FFD700",
+    waveform: "sine",
+    attack: 0.11, release: 1.1,
+    detuneCents: [-6, 0, 6],
+    pan: () => Math.sin(performance.now()/950),
+    filterType: "lowpass",
+    filterFreq: 1600,
+    delay: 0.38, echo: 0.24, reverb: 0.44
+  },
+  harmony: {
+    scale: [261, 329, 392, 466, 528, 639],
+    color: "#00FFFF",
+    waveform: "triangle",
+    attack: 0.27, release: 2.1,
+    detuneCents: [-8, 0, 8],
+    pan: 0,
+    filterType: "lowpass",
+    filterFreq: 2400,
+    delay: 0.22, echo: 0.32, reverb: 0.63
+  }
+};
+
+let audioCtx, analyser, masterGain, reverbNode, bufferLength, dataArray;
+let bpm = 90, bpmTimer = null, stopped = true;
+let trailFrames = [], currentWaveColor = "#00FF7F";
+let canvas, ctx;
+
+function getPreset() {
+  return document.getElementById("preset").value;
+}
+function getPresetParams() {
+  return presetSettings[getPreset()];
+}
+function getScaleFromPreset() {
+  return getPresetParams().scale;
+}
+function getColorFromPreset() {
+  return getPresetParams().color;
+}
+function getWaveformFromPreset() {
+  return getPresetParams().waveform;
+}
+
+function initAudio() {
+  if (audioCtx) return;
+  canvas = document.getElementById("waveCanvas");
+  ctx = canvas.getContext("2d");
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 2048;
+  bufferLength = analyser.frequencyBinCount;
+  dataArray = new Uint8Array(bufferLength);
+
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = parseFloat(volume.value) / 100;
+
+  reverbNode = audioCtx.createDelay();
+  const reverbFeedback = audioCtx.createGain();
+  reverbNode.delayTime.value = 0.4;
+  reverbFeedback.gain.value = 0.4;
+  reverbNode.connect(reverbFeedback);
+  reverbFeedback.connect(reverbNode);
+  reverbNode.connect(masterGain);
+  masterGain.connect(audioCtx.destination);
+  animate();
+}
+
+function playInstrument(params) {
+  const now = audioCtx.currentTime;
+  const filterNode = audioCtx.createBiquadFilter();
+  filterNode.type = params.filterType || "lowpass";
+  filterNode.frequency.value = params.filterFreq;
+
+  const delayNode = audioCtx.createDelay();
+  delayNode.delayTime.value = params.delay;
+  const feedbackNode = audioCtx.createGain();
+  feedbackNode.gain.value = params.echo;
+
+  const reverbSend = audioCtx.createDelay();
+  reverbSend.delayTime.value = params.reverb || 0.3;
+
+  const gainNode = audioCtx.createGain();
+  gainNode.gain.setValueAtTime(0, now);
+  gainNode.gain.linearRampToValueAtTime(0.3, now + params.attack);
+  gainNode.gain.linearRampToValueAtTime(0.0, now + params.attack + params.release);
+
+  const panNode = audioCtx.createStereoPanner();
+  panNode.pan.value = typeof params.pan === "function" ? params.pan() : (params.pan || 0);
+
+  params.detuneCents = params.detuneCents || [-5, 0, 5];
+  params.detuneCents.forEach(offset => {
+    const o = audioCtx.createOscillator();
+    o.type = params.waveform || "square";
+    o.frequency.value = params.freq * Math.pow(2, offset/1200);
+    o.connect(gainNode);
+    o.start(now);
+    o.stop(now + params.attack + params.release + 0.1);
+  });
+
+  gainNode.connect(panNode);
+  panNode.connect(filterNode);
+  filterNode.connect(delayNode);
+  delayNode.connect(feedbackNode);
+  feedbackNode.connect(delayNode);
+  delayNode.connect(reverbSend);
+  reverbSend.connect(reverbNode);
+  gainNode.connect(analyser);
+}
+
+function playTone(freq) {
+  if (!audioCtx) initAudio();
+  const params = { ...getPresetParams() };
+  params.freq = freq;
+  // Allow user sliders to override
+  params.delay = parseFloat(document.getElementById("delay").value);
+  params.echo = parseFloat(document.getElementById("echo").value);
+  params.filterFreq = parseFloat(document.getElementById("filter").value);
+  params.reverb = 0.3 + parseFloat(document.getElementById("echo").value)*0.5;
+  playInstrument(params);
+}
+
+function scheduleNotes(scale) {
+  clearInterval(bpmTimer);
+  bpmTimer = setInterval(() => {
+    if (!stopped) {
+      const freq = scale[Math.floor(Math.random() * scale.length)];
+      playTone(freq);
+      sendMidiNote && sendMidiNote(freq);
+    }
+  }, 60000 / bpm);
+}
+
+// --- Visualizer ---
+function animate() {
+  if (!ctx || !analyser) return;
+  requestAnimationFrame(animate);
+  analyser.getByteTimeDomainData(dataArray);
+  ctx.fillStyle = "rgba(0, 0, 0, 0.06)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  if (trailFrames.length > 12) trailFrames.shift();
+  trailFrames.push([...dataArray]);
+
+  const grad = ctx.createLinearGradient(0, 0, canvas.width, 0);
+  grad.addColorStop(0, currentWaveColor);
+  grad.addColorStop(1, "#000000");
+
+  for (let t = 0; t < trailFrames.length; t++) {
+    const data = trailFrames[t];
+    const slice = canvas.width / data.length;
+    ctx.beginPath();
+    let x = 0;
+    for (let i = 0; i < data.length; i++) {
+      const v = (data[i] - 128) / 128.0;
+      const y = (v * canvas.height / 2.0 * 0.9) + canvas.height / 2;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+      x += slice;
+    }
+    const alpha = 0.06 + (t / trailFrames.length) * 0.13;
+    ctx.strokeStyle = grad;
+    ctx.globalAlpha = alpha;
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = currentWaveColor;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1.0;
+  }
+}
+
+// --- UI and Data Panel ---
+document.getElementById('play').addEventListener('click', () => {
+  initAudio();
+  stopped = false;
+  const scale = getScaleFromPreset();
+  currentWaveColor = getColorFromPreset();
+  scheduleNotes(scale);
+});
+
+document.getElementById('stop').addEventListener('click', () => {
+  stopped = true;
+  clearInterval(bpmTimer);
+});
+
+document.getElementById('bpm').addEventListener('input', e => {
+  bpm = parseInt(e.target.value);
+  if (!stopped) {
+    scheduleNotes(getScaleFromPreset());
+  }
+});
+
+document.getElementById('preset').addEventListener('change', () => {
+  const selected = getPreset();
+  currentWaveColor = getColorFromPreset();
+  if (!stopped) {
+    scheduleNotes(getScaleFromPreset());
+  }
+});
+
+// Data panel
+const display = document.getElementById("infoDisplay");
+document.getElementById("toggleDisplay").addEventListener("click", () => {
+  display.style.display = display.style.display === "none" ? "block" : "none";
+});
+function updateDisplay() {
+  const p = getPresetParams();
+  display.textContent =
+    "PRESET     : " + getPreset() + "\n" +
+    "SCALE      : [" + p.scale.join(", ") + "]\n" +
+    "OSC/WAVE   : " + p.waveform + "\n" +
+    "ATTACK     : " + p.attack + "s\n" +
+    "RELEASE    : " + p.release + "s\n" +
+    "DETUNE     : [" + p.detuneCents.join(", ") + "]\n" +
+    "FILTER     : " + p.filterType + " " + document.getElementById("filter").value + "Hz\n" +
+    "DELAY      : " + document.getElementById("delay").value + "s\n" +
+    "ECHO       : " + document.getElementById("echo").value + "\n" +
+    "REVERB     : " + (0.3 + parseFloat(document.getElementById("echo").value)*0.5).toFixed(2) + "\n" +
+    "VOLUME     : " + document.getElementById("volume").value + "\n" +
+    "BPM        : " + document.getElementById("bpm").value +
+    "\nMIDI IN    : " + (midiInEnabled ? "ON" : "OFF") +
+    "\nMIDI CHAN  : " + (midiChannel === -1 ? 'all' : (Number(midiChannel)+1));
+}
+setInterval(updateDisplay, 250);
+
+window.addEventListener('resize', function() {
+  if (!canvas) return;
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+});
+
+/* --- MIDI Controls --- */
+let midiChannel = 9;
+let midiAccess = null, midiOutput = null, midiInEnabled = true;
+
+function midiNoteToFreq(note) { return 440 * Math.pow(2, (note - 69) / 12);}
+const midiButtonMap = {
+  36: () => playScaleNote(0),  37: () => playScaleNote(1), 38: () => playScaleNote(2),
+  39: () => playScaleNote(3),  40: () => playScaleNote(4),
+  41: nextPreset,  42: prevPreset,
+  43: () => document.getElementById('play').click(), 44: () => document.getElementById('stop').click(),
+  45: () => incSlider('delay', +0.05),   46: () => incSlider('delay', -0.05),
+  47: () => incSlider('echo', +0.05),    48: () => incSlider('echo', -0.05),
+  49: () => incSlider('filter', +100),   50: () => incSlider('filter', -100)
+};
+function playScaleNote(index) {
+  if (!audioCtx) initAudio();
+  const preset = getPresetParams();
+  const freq = preset.scale[index % preset.scale.length];
+  if (freq) playTone(freq);
+}
+function nextPreset() {
+  const presetEl = document.getElementById('preset');
+  const presetOrder = ['plants', 'mold', 'bacteria', 'mushrooms', 'harmony'];
+  let idx = presetOrder.indexOf(presetEl.value);
+  presetEl.value = presetOrder[(idx + 1) % presetOrder.length];
+  currentWaveColor = getColorFromPreset();
+  if (!stopped) scheduleNotes(getScaleFromPreset());
+}
+function prevPreset() {
+  const presetEl = document.getElementById('preset');
+  const presetOrder = ['plants', 'mold', 'bacteria', 'mushrooms', 'harmony'];
+  let idx = presetOrder.indexOf(presetEl.value);
+  presetEl.value = presetOrder[(idx - 1 + presetOrder.length) % presetOrder.length];
+  currentWaveColor = getColorFromPreset();
+  if (!stopped) scheduleNotes(getScaleFromPreset());
+}
+function incSlider(id, delta) {
+  const el = document.getElementById(id);
+  let min = parseFloat(el.min), max = parseFloat(el.max), step = parseFloat(el.step);
+  let value = parseFloat(el.value) + delta;
+  value = Math.round(value / step) * step;
+  value = Math.max(min, Math.min(max, value));
+  el.value = value;
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  if (id === 'volume' && masterGain) masterGain.gain.value = parseFloat(el.value) / 100;
+  if (id === 'bpm' && !stopped) {
+    bpm = Math.round(value);
+    scheduleNotes(getScaleFromPreset());
+  }
+}
+function handleMidiMessage(e) {
+  const [status, note, velocity] = e.data;
+  const type = status & 0xf0;
+  const channel = status & 0x0f;
+  if (!midiInEnabled) return;
+  if (type === 0x90 && velocity > 0 && (midiChannel === -1 || channel === midiChannel) && midiButtonMap[note]) {
+    midiButtonMap[note]();
+  }
+}
+function setupMidi() {
+  if (!navigator.requestMIDIAccess) return;
+  navigator.requestMIDIAccess().then(midi => {
+    midiAccess = midi;
+    const outputs = Array.from(midiAccess.outputs.values());
+    if (outputs.length > 0) midiOutput = outputs[0];
+    function registerInputs() {
+      midiAccess.inputs.forEach(input => { input.onmidimessage = handleMidiMessage; });
+    }
+    registerInputs();
+    midiAccess.onstatechange = function(event) {
+      if (event.port.type === "input" && event.port.state === "connected") registerInputs();
+    };
+  }, err => { console.warn("No MIDI access", err); });
+}
+setupMidi();
+function sendMidiNote(freq) {
+  if (!midiOutput) return;
+  let midiNote = Math.round(69 + 12 * Math.log2(freq / 440));
+  let velocity = 100;
+  let channel = midiChannel === -1 ? 9 : midiChannel;
+  midiOutput.send([0x90 + channel, midiNote, velocity]);
+  setTimeout(() => { midiOutput.send([0x80 + channel, midiNote, 0]); }, 400);
+}
+document.getElementById('toggleMidiIn').addEventListener('click', () => {
+  midiInEnabled = !midiInEnabled;
+  document.getElementById('toggleMidiIn').textContent = "midi" + (midiInEnabled ? "" : " off");
+});
+const midiChannelSelect = document.getElementById('midiChannelSelect');
+midiChannelSelect.value = midiChannel;
+midiChannelSelect.addEventListener('change', function() {
+  midiChannel = Number(this.value);
+});
+</script>
+</body>
+</html>
