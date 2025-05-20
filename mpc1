@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Plantasia MIDI v2</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: black;
+      color: #f1f1f1;
+      font-family: monospace;
+      overflow: hidden;
+    }
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 70vh;
+      display: block;
+    }
+    .ui {
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      padding: 10px;
+    }
+    input[type="range"] {
+      width: 150px;
+    }
+    #keyDisplay {
+      font-size: 1.2em;
+      font-weight: bold;
+      color: #44f1c1;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="visualizer"></canvas>
+  <div class="ui">
+    <label for="bpmSlider">BPM:</label>
+    <input id="bpmSlider" type="range" min="50" max="130" step="1" value="120" />
+    <span id="bpmValue">120</span>
+    <div id="keyDisplay">Key: —</div>
+  </div>
+
+  <script>
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const ctx = new AudioContext();
+    let bpm = 120;
+    const bpmSlider = document.getElementById('bpmSlider');
+    const bpmValue = document.getElementById('bpmValue');
+    const keyDisplay = document.getElementById('keyDisplay');
+
+    bpmSlider.addEventListener('input', () => {
+      bpm = parseInt(bpmSlider.value);
+      bpmValue.textContent = bpm;
+    });
+
+    // MIDI clock variables
+    let midiAccess, clockStartTime = null, clockCounter = 0;
+
+    // Sequencer state
+    let currentStep = 0;
+    const steps = [60, 62, 64, 67, 69, 72]; // Plant pentatonic
+
+    // Camelot mapping (simplified)
+    const camelotMap = {
+      60: '8B', 62: '9B', 64: '10B', 65: '11B', 67: '1B',
+      69: '2B', 71: '3B', 72: '8B'
+    };
+
+    function midiNoteToPlantFreq(note) {
+      return 440 * Math.pow(2, (note - 69) / 12);
+    }
+
+    function displayCamelot(note) {
+      const key = camelotMap[note] || '—';
+      keyDisplay.textContent = `Key: ${key}`;
+    }
+
+    function triggerTone(freq) {
+      const now = ctx.currentTime;
+      const duration = 1.2;
+
+      const gain = ctx.createGain();
+      const filter = ctx.createBiquadFilter();
+      const delay = ctx.createDelay();
+      const reverb = ctx.createConvolver();
+
+      // simple impulse for reverb
+      const impulse = ctx.createBuffer(2, 0.5 * ctx.sampleRate, ctx.sampleRate);
+      for (let c = 0; c < 2; c++) {
+        const channel = impulse.getChannelData(c);
+        for (let i = 0; i < channel.length; i++) {
+          channel[i] = (Math.random() * 2 - 1) * (1 - i / channel.length);
+        }
+      }
+      reverb.buffer = impulse;
+
+      const lfo = ctx.createOscillator();
+      const lfoGain = ctx.createGain();
+      lfo.frequency.value = 0.2;
+      lfoGain.gain.value = 800;
+      lfo.connect(lfoGain).connect(filter.frequency);
+      lfo.start();
+
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(600, now);
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.exponentialRampToValueAtTime(0.3, now + 0.1);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+      const o1 = ctx.createOscillator();
+      const o2 = ctx.createOscillator();
+      const o3 = ctx.createOscillator();
+      [o1, o2, o3].forEach(o => {
+        o.type = 'square';
+        o.connect(gain);
+        o.start(now);
+        o.stop(now + duration);
+      });
+      o1.frequency.value = freq * 0.99;
+      o2.frequency.value = freq;
+      o3.frequency.value = freq * 1.01;
+
+      gain.connect(filter);
+      filter.connect(delay);
+      delay.delayTime.value = 0.3;
+      delay.connect(reverb);
+      reverb.connect(ctx.destination);
+      filter.connect(ctx.destination);
+    }
+
+    function playNoteByMidi(note) {
+      const freq = midiNoteToPlantFreq(note);
+      displayCamelot(note);
+      triggerTone(freq);
+    }
+
+    function playNextStep() {
+      const note = steps[currentStep % steps.length];
+      playNoteByMidi(note);
+      currentStep++;
+    }
+
+    function scheduleSequencer() {
+      setInterval(() => {
+        if (clockStartTime) playNextStep();
+      }, (60000 / bpm) * 0.5); // 8th notes
+    }
+
+    navigator.requestMIDIAccess().then(access => {
+      midiAccess = access;
+      for (let input of midiAccess.inputs.values()) {
+        input.onmidimessage = onMIDIMessage;
+      }
+    });
+
+    function onMIDIMessage(msg) {
+      const [status, d1, d2] = msg.data;
+      if (status === 0xF8) handleClock();
+      if (status === 0xFA) startClock();
+      if (status === 0xFC) stopClock();
+      if ((status & 0xf0) === 0x90 && d2 > 0) {
+        playNoteByMidi(d1);
+      }
+    }
+
+    function handleClock() {
+      if (clockStartTime === null) return;
+      clockCounter++;
+      if (clockCounter % 24 === 0) {
+        const now = performance.now();
+        const elapsed = now - clockStartTime;
+        bpm = (clockCounter / 24) * (60000 / elapsed);
+        updateBPM(bpm);
+        clockCounter = 0;
+        clockStartTime = now;
+      }
+    }
+
+    function startClock() {
+      clockStartTime = performance.now();
+      clockCounter = 0;
+    }
+
+    function stopClock() {
+      clockStartTime = null;
+    }
+
+    function updateBPM(newBPM) {
+      const clamped = Math.max(50, Math.min(130, Math.round(newBPM)));
+      bpm = clamped;
+      bpmSlider.value = clamped;
+      bpmValue.textContent = clamped;
+    }
+
+    // Waveform visualization
+    const canvas = document.getElementById('visualizer');
+    const ctx2d = canvas.getContext('2d');
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 1024;
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
+    const masterGain = ctx.createGain();
+    masterGain.connect(analyser);
+    analyser.connect(ctx.destination);
+
+    function draw() {
+      requestAnimationFrame(draw);
+      analyser.getByteTimeDomainData(dataArray);
+      ctx2d.fillStyle = 'black';
+      ctx2d.fillRect(0, 0, canvas.width, canvas.height);
+      ctx2d.lineWidth = 2;
+      ctx2d.strokeStyle = 'white';
+      ctx2d.beginPath();
+      const slice = canvas.width / bufferLength;
+      for (let i = 0; i < bufferLength; i++) {
+        const x = i * slice;
+        const y = (dataArray[i] / 255) * canvas.height;
+        if (i === 0) ctx2d.moveTo(x, y);
+        else ctx2d.lineTo(x, y);
+      }
+      ctx2d.stroke();
+    }
+
+    draw();
+    scheduleSequencer();
+  </script>
+</body>
+</html>
