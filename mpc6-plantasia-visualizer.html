@@ -1,4 +1,4 @@
-```html name=plantasia-instrumentation-midi-growthmode.html
+```html name=plantasia-instrumentation-midi-growthmode-vine.html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -22,19 +22,6 @@
       display: block;
       background: #000;
       transition: opacity 0.4s;
-    }
-    #growthCanvas {
-      position: absolute;
-      top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1;
-      display: block;
-      pointer-events: none;
-      background: transparent;
-      opacity: 0;
-      transition: opacity 0.4s;
-    }
-    #growthCanvas.active {
-      opacity: 1;
-      pointer-events: none;
     }
     .ui {
       position: absolute;
@@ -147,7 +134,6 @@
 </head>
 <body>
 <canvas id="waveCanvas"></canvas>
-<canvas id="growthCanvas"></canvas>
 <div id="infoDisplay"></div>
 <button id="openDrawer" class="drawer-toggle-btn" title="open controls">&#9776;</button>
 <div class="ui closed" id="drawer">
@@ -271,169 +257,115 @@ document.addEventListener('DOMContentLoaded', function () {
   openDrawerBtn.addEventListener('click', openDrawer);
   closeDrawerBtn.addEventListener('click', closeDrawer);
 
-  // GROWTH MODE
+  // GROWTH MODE - VINE VISUALIZER
   let growthMode = false;
   const growthBtn = document.getElementById('growthModeToggle');
-  const growthCanvas = document.getElementById('growthCanvas');
-  let growthCtx = growthCanvas.getContext('2d');
-  let growthState = null;
+  let vine = null, vineAnimId = null;
+  let vinePresetProps = {};
 
-  function resizeGrowthCanvas() {
-    growthCanvas.width = window.innerWidth;
-    growthCanvas.height = window.innerHeight;
-  }
-  window.addEventListener('resize', resizeGrowthCanvas);
-  resizeGrowthCanvas();
-
-  function pickPlantColors() {
-    // pick color based on preset
+  // Helper for vine preset visual properties
+  function getVinePresetProps() {
     const preset = getPresetParams();
+    // You can adjust these per-preset for more unique visuals.
     return {
-      stalk: preset.color,
-      bloom: preset.color,
-      leaf: preset.color,
-      accent: "#fff8e1"
+      color: preset.color || "#3fff8b",
+      glow: "#aaffc8",
+      leaf: "#d7ffd7",
+      spiral: ["spiralback","fibonaccishift"].includes(getPreset()),
+      zigzag: ["microburst"].includes(getPreset()),
+      wide: ["greenhouse","plantasiaClassic"].includes(getPreset()),
+      vineWidth: (["greenhouse","plantasiaClassic"].includes(getPreset()) ? 3.4 : 2.1),
+      leafSize: (["plants","greenhouse","plantasiaClassic"].includes(getPreset()) ? 8 : 5),
+      growthRate: (["microburst"].includes(getPreset()) ? 0.23 : 0.12)
     };
-  }
-  function randomAngle() {
-    return (Math.random() - 0.5) * Math.PI / 3;
   }
 
-  // Plant growth state engine
-  function resetGrowthState() {
-    const preset = getPreset();
-    // Each preset can have a "plant type" id for unique plant
-    growthState = {
-      t: 0,
-      segments: [],
-      blooms: [],
-      leaves: [],
-      preset: preset,
-      colors: pickPlantColors()
+  function resetVine() {
+    vinePresetProps = getVinePresetProps();
+    vine = {
+      points: [],
+      tipAngle: -Math.PI/2,
+      tipX: window.innerWidth/2,
+      tipY: window.innerHeight-30,
+      pulse: 0
     };
+    vine.points.push({x: vine.tipX, y: vine.tipY, angle: vine.tipAngle, age: 0});
   }
-  function drawGrowthPlant() {
-    const ctx = growthCtx;
-    ctx.clearRect(0, 0, growthCanvas.width, growthCanvas.height);
-    const state = growthState;
-    if (!state) return;
-    const centerX = growthCanvas.width / 2;
-    const baseY = growthCanvas.height - 60;
-    // Draw stalk
+
+  function growVineFrame() {
+    let ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Growth: add segment every ~8 frames
+    if (!vine.growSlow) vine.growSlow = 0;
+    vine.growSlow += vinePresetProps.growthRate;
+    if (vine.growSlow >= 1) {
+      vine.growSlow -= 1;
+      let angleDelta = 0;
+      if (vinePresetProps.spiral) {
+        angleDelta += 0.07;
+      }
+      if (vinePresetProps.zigzag) {
+        angleDelta += ((Math.floor(vine.points.length/16)%2)===0 ? 0.22 : -0.22);
+      }
+      // Meandering random walk
+      angleDelta += (Math.random()-0.5)*0.16;
+      vine.tipAngle += angleDelta;
+      let len = 7 + Math.random()*2;
+      let nx = vine.tipX + Math.cos(vine.tipAngle)*len;
+      let ny = vine.tipY + Math.sin(vine.tipAngle)*len;
+      // Wrap around screen
+      if (nx < 0) nx = canvas.width+nx;
+      if (nx > canvas.width) nx -= canvas.width;
+      if (ny < 0) ny = canvas.height+ny;
+      if (ny > canvas.height) ny -= canvas.height;
+      vine.tipX = nx;
+      vine.tipY = ny;
+      vine.points.push({x: nx, y: ny, angle: vine.tipAngle, age: 0});
+      if (vine.points.length > 1200) vine.points.shift();
+    }
+
+    // Pulse decays
+    vine.pulse *= 0.96;
+
+    // Draw vine path
     ctx.save();
-    ctx.translate(centerX, baseY);
-
-    ctx.strokeStyle = state.colors.stalk;
-    ctx.lineWidth = 7 + Math.sin(state.t/5)*2;
-    ctx.shadowBlur = 25;
-    ctx.shadowColor = state.colors.accent;
+    ctx.shadowBlur = 24 + vine.pulse*8;
+    ctx.shadowColor = vinePresetProps.glow;
+    ctx.strokeStyle = vinePresetProps.color;
+    ctx.lineWidth = vinePresetProps.vineWidth + vine.pulse*2;
     ctx.beginPath();
-    ctx.moveTo(0, 0);
-    let y = 0;
-    for (let i=0; i < state.segments.length; ++i) {
-      const seg = state.segments[i];
-      y -= seg.length;
-      ctx.lineTo(seg.dx, y);
+    for (let i=0; i<vine.points.length; ++i) {
+      let p = vine.points[i];
+      if (i===0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
     }
     ctx.stroke();
     ctx.shadowBlur = 0;
+
+    // Draw leaves every 14-20 segments
+    for (let i=16; i<vine.points.length; i+=Math.floor(14+Math.random()*6)) {
+      let p = vine.points[i];
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.angle+Math.PI/2);
+      ctx.fillStyle = vinePresetProps.leaf;
+      ctx.globalAlpha = 0.68;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, vinePresetProps.leafSize, vinePresetProps.leafSize/2.2, 0, 0, Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+    }
+
     ctx.restore();
 
-    // Draw leaves
-    for (let i=0; i<state.leaves.length; ++i) {
-      const leaf = state.leaves[i];
-      ctx.save();
-      ctx.translate(centerX+leaf.x, baseY-leaf.y);
-      ctx.rotate(leaf.angle);
-      ctx.fillStyle = state.colors.leaf;
-      ctx.globalAlpha = 0.7;
-      ctx.beginPath();
-      ctx.ellipse(0, 0, leaf.size*1.5, leaf.size, 0, 0, Math.PI*2);
-      ctx.fill();
-      ctx.globalAlpha = 1.0;
-      ctx.restore();
-    }
+    // Animate
+    if (growthMode) vineAnimId = requestAnimationFrame(growVineFrame);
+  }
 
-    // Draw blooms
-    for (let i=0; i<state.blooms.length; ++i) {
-      const bloom = state.blooms[i];
-      ctx.save();
-      ctx.translate(centerX+bloom.x, baseY-bloom.y);
-      ctx.rotate(bloom.angle);
-      ctx.globalAlpha = 0.88;
-      for (let p=0; p<6; ++p) {
-        ctx.save();
-        ctx.rotate((p*Math.PI*2)/6);
-        ctx.beginPath();
-        ctx.fillStyle = state.colors.bloom;
-        ctx.globalAlpha = 0.23 + 0.14*Math.sin(state.t+1.7*p);
-        ctx.ellipse(0, bloom.size/3, bloom.size/2, bloom.size, 0, 0, Math.PI*2);
-        ctx.fill();
-        ctx.restore();
-      }
-      ctx.beginPath();
-      ctx.arc(0, 0, bloom.size/2, 0, Math.PI*2);
-      ctx.fillStyle = state.colors.accent;
-      ctx.globalAlpha = 0.97;
-      ctx.fill();
-      ctx.restore();
-    }
+  function vinePulse() {
+    vine.pulse = 1.25;
   }
-  function growthStep() {
-    if (!growthMode || !growthState) return;
-    growthState.t += 1;
-    drawGrowthPlant();
-  }
-  setInterval(growthStep, 70);
-
-  function plantGrowBloom(preset) {
-    // Called whenever a note is played
-    if (!growthMode || !growthState) return;
-    const state = growthState;
-    // Grow stem segment
-    const angle = randomAngle();
-    const segLen = 26+Math.random()*26;
-    state.segments.push({
-      angle: angle,
-      dx: Math.sin(angle)*segLen,
-      length: segLen
-    });
-    // Add bloom at top, or leaf at random
-    if (state.segments.length % 5 === 0) {
-      state.blooms.push({
-        x: state.segments[state.segments.length-1].dx,
-        y: state.segments.reduce((acc, s) => acc+s.length, 0),
-        size: 29+Math.random()*10,
-        angle: Math.random()*Math.PI*2
-      });
-    } else if (Math.random() > 0.6) {
-      state.leaves.push({
-        x: state.segments[state.segments.length-1].dx,
-        y: state.segments.reduce((acc, s) => acc+s.length, 0) - 10 - Math.random()*30,
-        angle: Math.random()*Math.PI*2,
-        size: 11+Math.random()*18
-      });
-    }
-    drawGrowthPlant();
-  }
-  function setGrowthMode(on) {
-    growthMode = !!on;
-    if (growthMode) {
-      growthBtn.classList.add("active");
-      growthCanvas.classList.add("active");
-      resetGrowthState();
-      drawGrowthPlant();
-    } else {
-      growthBtn.classList.remove("active");
-      growthCanvas.classList.remove("active");
-      growthState = null;
-      growthCtx.clearRect(0,0,growthCanvas.width,growthCanvas.height);
-    }
-  }
-  growthBtn.addEventListener("click", function() {
-    setGrowthMode(!growthMode);
-  });
-
   // --- Instrumentation parameters per preset ---
   const presetSettings = {
     plants: { scale: [174, 220, 285, 396, 528, 660], color: "#00FF7F", waveform: "triangle", attack: 0.25, release: 2.0, detuneCents: [-7, 0, 7], pan: 0, filterType: "lowpass", filterFreq: 1800, delay: 0.4, echo: 0.34, reverb: 0.5 },
@@ -462,8 +394,8 @@ document.addEventListener('DOMContentLoaded', function () {
     userWaveform = null;
     waveformSelect.value = getPresetParams().waveform || "triangle";
     if (growthMode) {
-      resetGrowthState();
-      drawGrowthPlant();
+      resetVine();
+      growVineFrame();
     }
   });
 
@@ -587,7 +519,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     params.detuneCents = params.detuneCents || [-5, 0, 5];
     params.detuneCents.forEach(offset => {
-      // Analog drift: small random detune per note
       const drift = (Math.random() - 0.5) * 6;
       const o = audioCtx.createOscillator();
       o.type = getWaveformFromPreset();
@@ -616,8 +547,8 @@ document.addEventListener('DOMContentLoaded', function () {
     reverbSend.connect(reverbNode);
     gainNode.connect(analyser);
 
-    // GROWTH MODE: grow plant on every note
-    if (growthMode) plantGrowBloom(getPreset());
+    // GROWTH MODE: pulse vine (replaces EQ)
+    if (growthMode) vinePulse();
   }
 
   function playTone(freq, midiEventTimeMs) {
@@ -652,9 +583,15 @@ document.addEventListener('DOMContentLoaded', function () {
     }, 60000 / bpm);
   }
 
+  // Visualizer: vine or EQ
   function animate() {
-    if (!ctx || !analyser) return;
-    requestAnimationFrame(animate);
+    if (growthMode) {
+      // Vine visualizer is active, animate with growVineFrame
+      if (!vine) resetVine();
+      if (!vineAnimId) growVineFrame();
+      return;
+    }
+    let ctx = canvas.getContext("2d");
     analyser.getByteTimeDomainData(dataArray);
     ctx.fillStyle = "rgba(0, 0, 0, 0.06)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -687,7 +624,29 @@ document.addEventListener('DOMContentLoaded', function () {
       ctx.shadowBlur = 0;
       ctx.globalAlpha = 1.0;
     }
+    requestAnimationFrame(animate);
   }
+
+  // Growth Mode toggle
+  function setGrowthMode(on) {
+    growthMode = !!on;
+    if (growthMode) {
+      growthBtn.classList.add("active");
+      cancelAnimationFrame(vineAnimId);
+      vineAnimId = null;
+      resetVine();
+      growVineFrame();
+    } else {
+      growthBtn.classList.remove("active");
+      cancelAnimationFrame(vineAnimId);
+      vineAnimId = null;
+      vine = null;
+      animate();
+    }
+  }
+  growthBtn.addEventListener("click", function() {
+    setGrowthMode(!growthMode);
+  });
 
   $("play").addEventListener('click', () => {
     initAudio();
@@ -695,6 +654,10 @@ document.addEventListener('DOMContentLoaded', function () {
     const scale = getScaleFromPreset();
     currentWaveColor = getColorFromPreset();
     scheduleNotes(scale);
+    if (growthMode) {
+      resetVine();
+      growVineFrame();
+    }
   });
 
   $("stop").addEventListener('click', () => {
@@ -746,8 +709,10 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!canvas) return;
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-    resizeGrowthCanvas();
-    if (growthMode) drawGrowthPlant();
+    if (growthMode) {
+      resetVine();
+      growVineFrame();
+    }
   });
 
   /* --- MIDI Controls --- */
@@ -783,8 +748,8 @@ document.addEventListener('DOMContentLoaded', function () {
     userWaveform = null;
     currentWaveColor = getColorFromPreset();
     if (growthMode) {
-      resetGrowthState();
-      drawGrowthPlant();
+      resetVine();
+      growVineFrame();
     }
     if (!stopped) scheduleNotes(getScaleFromPreset());
   }
@@ -800,8 +765,8 @@ document.addEventListener('DOMContentLoaded', function () {
     userWaveform = null;
     currentWaveColor = getColorFromPreset();
     if (growthMode) {
-      resetGrowthState();
-      drawGrowthPlant();
+      resetVine();
+      growVineFrame();
     }
     if (!stopped) scheduleNotes(getScaleFromPreset());
   }
@@ -865,6 +830,9 @@ document.addEventListener('DOMContentLoaded', function () {
   midiChannelSelect.addEventListener('change', function() {
     midiChannel = Number(this.value);
   });
+
+  // Initial visualizer
+  animate();
 });
 </script>
 </body>
